@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="assets/css/app-enhancements.css">
+  <script src="assets/js/ui-feedback.js"></script>
+  <script src="assets/js/app-enhancements.js" defer></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eSaka — Tamang Presyo. Tamang Tanim. Tamang Kita.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green-primary: #0B382A;
+    --green-dark: #14532D;
+    --gold: #EAB308;
+    --muted: #202824;
+    --bean-sprout: #FFFFFF;
+    --endive: #D9E4DE;
+    --radicchio: #C0392B;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    width: 100%;
+    min-height: 100vh;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ==========================================================
+     BACKGROUND SLIDESHOW STYLES
+     ========================================================== */
+  .bg-slideshow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0; /* Binago: 0 para hindi maitago sa likod */
+  }
+
+  .bg-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    /* TINANGGAL ang background-attachment: fixed */
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+  }
+
+  .bg-slide.active {
+    opacity: 1;
+  }
+
+  /* Mga background images */
+  .bg-slide:nth-child(1) { background-image: url('images/esakabg.jpg'); }
+  .bg-slide:nth-child(2) { background-image: url('images/esakabg2.jpg'); }
+  .bg-slide:nth-child(3) { background-image: url('images/esakabg3.avif'); }
+
+
+  /* ==========================================================
+     MAIN CARD LAYOUT
+     ========================================================== */
+  .landing-card-layout {
+    width: 100%;
+    max-width: 950px;
+    /* Binago: mas transparent (0.65) at tinanggal ang backdrop-filter */
+    background: rgba(255, 255, 255, 0.58);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 30px 70px rgba(11, 56, 42, 0.3);
+    border: 1px solid rgba(217, 228, 222, 0.8);
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+    position: relative;
+  }
+
+  /* ==========================================================
+     TOP SECTION - Logo and Title
+     ========================================================== */
+  .hero-header {
+    /* Binago: semi-transparent green (0.72) */
+    background: rgba(11, 56, 42, 0.68);
+    padding: 50px 50px 70px 50px;
+    color: #ffffff;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .brand-logo-img {
+    width: 180px;
+    height: auto;
+    object-fit: contain;
+    margin-bottom: 20px;
+    filter: brightness(0) invert(1);
+  }
+
+  .hero-title {
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  .hero-title span {
+    color: var(--gold);
+  }
+
+  .hero-desc {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--bean-sprout);
+    font-weight: 500;
+    max-width: 650px;
+  }
+
+  /* ==========================================================
+     BUTTONS - Transparent, same color pag hover
+     ========================================================== */
+  .action-buttons {
+    display: flex;
+    gap: 16px;
+    margin-top: 30px;
+  }
+
+  .btn {
+    appearance: none;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px 36px;
+    border-radius: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    background: transparent;
+    color: #ffffff;
+  }
+
+  .btn:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--green-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  /* ==========================================================
+     3 IMAGE CARDS - Overlapping
+     ========================================================== */
+  .cards-grid-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    padding: 0 40px;
+    margin-top: -40px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .vertical-card {
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+    border: 4px solid var(--bean-sprout);
+    height: 240px;
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.3s ease;
+  }
+
+  .vertical-card:hover {
+    transform: translateY(-6px);
+  }
+
+  .vertical-card:nth-child(1) {
+    background-image: linear-gradient(to top, rgba(40,60,33,0.75), transparent), url('images/esakacrops.jpg');
+  }
+  .vertical-card:nth-child(2) {
+    background-image: linear-gradient(to top, rgba(40,60,33,0.75), transparent), url('images/esakadatapic.jpg');
+  }
+  .vertical-card:nth-child(3) {
+    background-image: linear-gradient(to top, rgba(40,60,33,0.75), transparent), url('images/esakabuyermatching.jpg');
+  }
+
+  .card-label {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+  }
+
+  /* ==========================================================
+     FOOTER
+     ========================================================== */
+  .layout-footer {
+    padding: 28px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* Binago: mas transparent (0.5) */
+    background: rgba(255, 255, 255, 0.68);
+    margin-top: 10px;
+    border-top: 1px solid rgba(217, 228, 222, 0.9);
+  }
+
+  .footer-contact-info {
+    display: flex;
+    gap: 30px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green-dark);
+  }
+
+  .footer-copyright {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green-dark);
+  }
+
+  @media (max-width: 768px) {
+    .cards-grid-container {
+      grid-template-columns: 1fr;
+      margin-top: 20px;
+      padding: 0 20px;
+    }
+    .hero-header {
+      padding: 30px 20px 40px 20px;
+    }
+    .hero-title {
+      font-size: 28px;
+    }
+    .layout-footer {
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      padding: 20px;
+    }
+    .action-buttons {
+      flex-direction: column;
+      width: 100%;
+    }
+    .btn {
+      width: 100%;
+    }
+    .footer-contact-info {
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background Slideshow Layer -->
+<div class="bg-slideshow">
+  <div class="bg-slide active"></div>
+  <div class="bg-slide"></div>
+  <div class="bg-slide"></div>
+</div>
+
+<div class="landing-card-layout">
+ 
+  <!-- Top Section: Logo, Title, Description, Buttons -->
+  <div class="hero-header">
+    <img src="images/esakaname.png" alt="eSaka Logo" class="brand-logo-img">
+    <h1 class="hero-title">Tamang Presyo. Tamang Tanim. <span>Tamang Kita.</span></h1>
+    <p class="hero-desc">Pinag-uugnay ang mga magsasaka, agricultural extension workers, at ang Department of Agriculture gamit ang real-time market data at verified buyer matching.</p>
+   
+    <div class="action-buttons">
+      <button class="btn" type="button" id="loginBtn">Login</button>
+      <button class="btn" type="button" id="registryBtn">Buyer Registry</button>
+    </div>
+  </div>
+
+  <!-- 3 Image Cards -->
+  <div class="cards-grid-container">
+    <div class="vertical-card">
+      <div class="card-label"> Fresh Commodities & Crops</div>
+    </div>
+    <div class="vertical-card">
+      <div class="card-label"> Real-Time Market Data</div>
+    </div>
+    <div class="vertical-card">
+      <div class="card-label"> Verified Buyer Matching</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="layout-footer">
+    <div class="footer-contact-info">
+      <a
+        href="https://esaka-frontend-production.up.railway.app/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >esaka-frontend-production.up.railway.app</a>
+    </div>
+    <div class="footer-copyright">
+      <span>&copy; 2026 eSaka Platform</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Navigation scripts
+  document.getElementById('loginBtn').addEventListener('click', () => {
+    window.location.href = 'login.html';
+  });
+
+  document.getElementById('registryBtn').addEventListener('click', () => {
+    window.location.href = 'buyer-registry.html';
+  });
+
+  // Background Slideshow Script (Every 4 seconds)
+  const slides = document.querySelectorAll('.bg-slide');
+  let currentSlide = 0;
+
+  function nextSlide() {
+    slides[currentSlide].classList.remove('active');
+    currentSlide = (currentSlide + 1) % slides.length;
+    slides[currentSlide].classList.add('active');
+  }
+
+  setInterval(nextSlide, 4000);
+</script>
+
+</body>
+</html>

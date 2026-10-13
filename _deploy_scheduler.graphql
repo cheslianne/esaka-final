@@ -1,0 +1,3 @@
+mutation DeployScheduler($serviceId: String!, $environmentId: String!, $latestCommit: Boolean) {
+  serviceInstanceDeploy(serviceId: $serviceId, environmentId: $environmentId, latestCommit: $latestCommit)
+}

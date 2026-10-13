@@ -1,0 +1,59 @@
+:root{
+  /* ---- Core palette ---- */
+  --cream:#F2EDE1;        /* page background */
+  --white:#FBF8F1;        /* card / input background */
+  --ink:#2E2A22;          /* primary text */
+  --muted:#6b6656;        /* secondary text */
+  --border:#DFD8C6;       /* hairline borders */
+ 
+  --green:#5B6B4F;        /* brand primary — sidebar, headings, primary buttons */
+  --green-dark:#495a3f;   /* hover/active state for green elements */
+  --brown:#C08A4E;        /* banner/section header */
+  --gold:#C9A15A;         /* accent — role label text, highlights */
+ 
+  /* ---- Status colors (SOLID pill style — the default across the app:
+     white bold text on a solid color background) ---- */
+  --status-confirmed:#3d8b40;   /* Confirmed / Approved / Verified */
+  --status-submitted:#d99a1b;   /* Submitted / Pending */
+  --status-rejected:#a1382b;    /* Rejected / Flagged / Error */
+  --status-neutral:#8a8a8a;     /* No data / cancelled / inactive */
+ 
+  /* ---- Status colors PASTEL pill style — used for lighter-weight
+     badges like role labels or secondary status, dark text on light bg ---- */
+  --pastel-green-bg:#DCEAD3;
+  --pastel-green-text:#3d6b3a;
+  --pastel-red-bg:#F1D9D5;
+  --pastel-red-text:#a1382b;
+  --pastel-gold-bg:#F2E3C6;
+  --pastel-gold-text:#8a6516;
+ 
+  /* ---- Map legend colors (Leaflet marker status) ---- */
+  --map-surplus:#c0392b;
+  --map-deficit:#e6b800;
+  --map-balanced:#3d8b40;
+  --map-no-data:#8a8a8a;
+ 
+  /* ---- Layout constants ---- */
+  --sidebar-width:260px;
+  --topbar-height:73px;
+  --radius-sm:5px;
+  --radius-md:8px;
+  --radius-lg:10px;
+}
+ 
+*{ margin:0; padding:0; box-sizing:border-box; }
+ 
+html,body{
+  width:100%;
+  min-height:100vh;
+  font-family:'Inter', sans-serif;
+  background:var(--cream);
+  color:var(--ink);
+}
+
+ 
+a{ color:inherit; }
+ 
+button, input, select, textarea{
+  font-family:'Inter', sans-serif;
+}

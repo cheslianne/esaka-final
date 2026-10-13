@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Provincial Coordinator — eSaka</title>
+<script src="../assets/js/config.js"></script>
+<script src="../assets/js/ui-feedback.js"></script>
+<script src="../assets/js/app-enhancements.js" defer></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
+<link rel="stylesheet" href="../assets/css/base.css">
+<link rel="stylesheet" href="../assets/css/provincial-theme.css">
+<link rel="stylesheet" href="../assets/css/app-enhancements.css">
+
+<style>
+  :root {
+    --cream: #F2EDE1;
+    --white: #FBF8F1;
+    --ink: #2E2A22;
+    --muted: #625E52;
+    --border: #DFD8C6;
+    --border-light: #ECE5D4;
+    --green: #5B6B4F;
+    --green-dark: #445439;
+    --green-light: #E7EDDF;
+    --brown: #C08A4E;
+    --gold: #C9A15A;
+    --status-confirmed: #2E7D32;
+    --status-submitted: #D97706;
+    --status-rejected: #C0392B;
+    --topbar-height: 72px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    min-height: 100vh;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+  button, input, select, textarea { font-family: inherit; }
+
+  /* ============================================================
+     TOPBAR
+  ============================================================ */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    background: var(--cream);
+    border-bottom: 1.5px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 2100;
+    height: var(--topbar-height);
+  }
+
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+
+  .hamburger {
+    background: #FFF;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .hamburger:hover {
+    background: var(--green-light);
+    border-color: var(--green);
+  }
+
+  .hamburger span {
+    display: block;
+    width: 20px;
+    height: 2.5px;
+    background: var(--ink);
+    border-radius: 2px;
+  }
+
+  .logos { display: flex; align-items: center; gap: 12px; }
+
+  .brand-logo-img { height: 42px; width: auto; object-fit: contain; display: block; }
+  .brand-name-img { height: 44px; width: auto; object-fit: contain; display: block; }
+
+  .topbar-right { display: flex; align-items: center; gap: 18px; }
+
+  .bell-wrap {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, background 0.2s ease;
+  }
+
+  .bell-wrap:hover { background: var(--green-dark); transform: scale(1.04); }
+  .bell-wrap svg { width: 18px; height: 18px; fill: #fff; }
+
+  .bell-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 9px;
+    height: 9px;
+    background: #C0392B;
+    border-radius: 50%;
+    border: 2px solid var(--cream);
+  }
+
+  .notification-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 320px;
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 3000;
+    overflow: hidden;
+    text-align: left;
+  }
+
+  .notification-dropdown.show { display: block; }
+
+  .notification-header {
+    padding: 14px 18px;
+    background: #F4EFE6;
+    border-bottom: 1.5px solid var(--border);
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .notification-list { max-height: 300px; overflow-y: auto; }
+
+  .notification-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.7);
+    padding: 6px 14px 6px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--green);
+    color: #FFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .user-text { text-align: left; line-height: 1.2; }
+
+  .user-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .user-role {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--brown);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* ============================================================
+     LAYOUT + SIDEBAR
+  ============================================================ */
+  .layout { display: flex; min-height: calc(100vh - var(--topbar-height)); }
+
+  .sidebar {
+    width: 230px;
+    background: var(--green);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 12px;
+    flex-shrink: 0;
+    position: fixed;
+    top: var(--topbar-height);
+    left: -230px;
+    bottom: 0;
+    z-index: 2000;
+    transition: left .28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebar.open { left: 0; }
+
+  .nav-list { display: flex; flex-direction: column; gap: 4px; }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    color: #E8E5DD;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    transition: all 0.2s ease;
+  }
+
+  .nav-item svg { width: 19px; height: 19px; fill: currentColor; flex-shrink: 0; }
+
+  .nav-item:hover { background: rgba(255, 255, 255, 0.12); color: #FFFFFF; }
+  .nav-item.active { background: var(--green-dark); color: #FFFFFF; font-weight: 700; }
+
+  .signout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    color: #FFC0C0;
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius-sm);
+    width: 100%;
+    margin-top: auto;
+    transition: all 0.2s ease;
+  }
+
+  .signout svg { width: 18px; height: 18px; fill: currentColor; }
+  .signout:hover { background: rgba(192, 57, 43, 0.25); color: #FFF; }
+
+  .main { flex: 1; padding: 32px 40px; min-width: 0; }
+
+  .view { display: none; }
+  .view.active-view { display: block; }
+
+  /* ============================================================
+     HEADERS
+  ============================================================ */
+  .main-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .header-left h1 {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--green-dark);
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .header-left p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .header-actions { display: flex; align-items: center; gap: 12px; }
+
+  /* ============================================================
+     CARDS
+  ============================================================ */
+  .card {
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 22px 24px;
+    margin-bottom: 24px;
+  }
+
+  /* ============================================================
+     SEARCH
+  ============================================================ */
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #FFFFFF;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    min-width: 260px;
+    transition: all 0.2s ease;
+  }
+
+  .search-box:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.15);
+  }
+
+  .search-box svg { width: 15px; height: 15px; fill: none; stroke: var(--muted); stroke-width: 2.4; }
+
+  .search-box input {
+    border: none;
+    outline: none;
+    font-size: 13.5px;
+    width: 100%;
+    background: transparent;
+    color: var(--ink);
+  }
+
+  /* ============================================================
+     TABLES
+  ============================================================ */
+  table { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+  thead th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    padding: 12px 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1.5px solid var(--border);
+  }
+
+  thead th.center-col, tbody td.center-col { text-align: center; }
+
+  tbody td {
+    padding: 13px 14px;
+    font-size: 13.5px;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--ink);
+  }
+
+  tbody tr { transition: background 0.15s ease; }
+  tbody tr:hover td { background: #F3EEE4; }
+  tbody tr.selected td { background: #EAF1E3; }
+
+  .clickable-row { cursor: pointer; }
+
+  /* ============================================================
+     CHECKBOX
+  ============================================================ */
+  input[type="checkbox"].row-check,
+  input[type="checkbox"]#selectAllCheckbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--green);
+  }
+
+  /* ============================================================
+     STATUS PILLS
+  ============================================================ */
+  .status-pill {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #FFFFFF !important;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+    text-align: center;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .status-pill.pending   { background-color: #D97706 !important; }
+  .status-pill.provincial { background-color: #D97706 !important; }
+  .status-pill.submitted,
+  .status-pill.approved  { background-color: var(--status-confirmed) !important; }
+  .status-pill.revision,
+  .status-pill.flagged   { background-color: #C0392B !important; }
+  .status-pill.rfo        { background-color: #2980B9 !important; }
+
+  /* ============================================================
+     PILLS (generic)
+  ============================================================ */
+  .pill {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 999px;
+    background: #EEEEEE;
+    font-size: 12px;
+    color: #222;
+    white-space: nowrap;
+  }
+
+  /* ============================================================
+     BUTTONS
+  ============================================================ */
+  .btn-primary {
+    appearance: none;
+    background: var(--green);
+    color: #FFF;
+    border: none;
+    font-size: 13.5px;
+    font-weight: 700;
+    padding: 9px 20px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--green-dark);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-outline-report {
+    appearance: none;
+    border: 1.5px solid var(--border);
+    background: #FFFFFF;
+    color: var(--ink);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 9px 20px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-outline-report:hover:not(:disabled) {
+    background: var(--cream);
+    border-color: var(--green);
+  }
+
+  .flag-btn.active { background: #C83232; border-color: #C83232; color: #fff; }
+  .approve-btn.active { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
+
+  .detail-actions-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  /* ============================================================
+     NOTES / TEXTAREA
+  ============================================================ */
+  .notes-row {
+    display: flex;
+    gap: 24px;
+    align-items: flex-end;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .notes-field { flex: 1; }
+
+  .notes-field label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--ink);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .textarea-notes {
+    width: 100%;
+    height: 90px;
+    padding: 12px;
+    font-size: 13.5px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    color: var(--ink);
+    outline: none;
+    resize: vertical;
+    transition: all 0.2s ease;
+  }
+
+  .textarea-notes:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.15);
+  }
+
+  .notes-row-clean { border-top: none; padding-top: 0; }
+
+  /* ============================================================
+     MAP
+  ============================================================ */
+  #map {
+    width: 100%;
+    height: 400px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border);
+  }
+
+  .map-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: var(--green);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  /* ============================================================
+     MODALS
+  ============================================================ */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 35, 28, 0.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal-box {
+    background: var(--cream);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 32px 38px;
+    text-align: center;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.2);
+    max-width: 440px;
+    width: 90%;
+  }
+
+  .modal-box p {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--green-dark);
+    margin-bottom: 22px;
+    line-height: 1.4;
+  }
+
+  .modal-confirm-btn {
+    border: none;
+    background: var(--green);
+    color: #fff;
+    font-size: 13.5px;
+    font-weight: 700;
+    padding: 10px 24px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .modal-confirm-btn:hover { background: var(--green-dark); }
+
+  /* ============================================================
+     HELPERS
+  ============================================================ */
+  .hidden-element { display: none !important; }
+
+  .text-section-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 8px;
+    background: var(--green);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .count-badge.muted { background: var(--muted); }
+
+  /* ============================================================
+     FILTER PILLS
+  ============================================================ */
+  .filter-pill {
+    appearance: none;
+    padding: 6px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    background: #FFFFFF;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.02em;
+  }
+
+  .filter-pill:hover {
+    background: var(--cream);
+    border-color: var(--green);
+    color: var(--ink);
+  }
+
+  .filter-pill.active {
+    background: var(--green);
+    border-color: var(--green);
+    color: #FFFFFF;
+  }
+
+  .filter-pill[data-filter="pending"].active {
+    background: #D97706;
+    border-color: #D97706;
+  }
+
+  .filter-pill[data-filter="approved"].active {
+    background: #2E7D32;
+    border-color: #2E7D32;
+  }
+
+  /* ============================================================
+     VALIDATION TIMELINE
+  ============================================================ */
+  .validation-timeline { position: relative; padding: 8px 0; }
+
+  .timeline-item {
+    position: relative;
+    display: flex;
+    gap: 16px;
+    padding-bottom: 20px;
+  }
+
+  .timeline-item:last-child { padding-bottom: 0; }
+
+  .timeline-marker {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #fff;
+    flex-shrink: 0;
+    z-index: 2;
+    box-shadow: 0 0 0 3px var(--white);
+    font-weight: 700;
+  }
+
+  .timeline-line {
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-light);
+  }
+
+  .timeline-content {
+    flex: 1;
+    background: #FAF8F5;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 12px 16px;
+    min-width: 0;
+  }
+
+  .timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .timeline-action {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .timeline-date {
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timeline-meta {
+    font-size: 12.5px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+
+  .timeline-role {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    background: var(--green-light);
+    color: var(--green-dark);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .timeline-remarks {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.5;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border-light);
+    white-space: pre-wrap;
+  }
+
+  /* ============================================================
+     REPORT SUMMARY CARD
+  ============================================================ */
+  .summary-card {
+    margin-bottom: 24px;
+    padding: 24px 28px;
+    background: linear-gradient(135deg, #F6F3EB 0%, #FBF8F1 100%);
+    border: 1.5px solid var(--border);
+    border-left: 4px solid var(--green);
+    border-radius: 10px;
+  }
+
+  .summary-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1.5px solid var(--border-light);
+  }
+
+  .summary-card-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--green-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .summary-card-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .summary-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .summary-kpi-card {
+    padding: 14px 16px;
+    background: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+  }
+
+  .summary-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .summary-kpi-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--green-dark);
+    margin-top: 4px;
+  }
+
+  .summary-kpi-subtext {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .summary-breakdown-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .summary-breakdown-grid { grid-template-columns: 1fr; }
+  }
+
+  .summary-breakdown-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .summary-breakdown-body {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.7;
+  }
+
+  .summary-breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--border-light);
+  }
+
+  .summary-insight-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 700px) {
+    .summary-insight-grid { grid-template-columns: 1fr; }
+  }
+
+  .summary-insight-card {
+    padding: 16px 20px;
+    background: #F6F3EB;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .summary-insight-card.green { border-left: 3px solid var(--green); }
+  .summary-insight-card.orange { border-left: 3px solid #D97706; }
+
+  .summary-footer {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ============================================================
+     PRINT STYLES
+  ============================================================ */
+  @media print {
+    .topbar, .sidebar, .header-actions, .detail-actions-row,
+    .no-print, .nav-list, .signout { display: none !important; }
+    .main { padding: 0; }
+    .card { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+    body { background: #fff; }
+  }
+
+    /* ============================================================
+     SUMMARY TAB — period picker
+  ============================================================ */
+  .period-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #FFFFFF;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .period-picker label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  .period-picker input[type="date"] {
+    border: none;
+    outline: none;
+    font-size: 13px;
+    font-family: inherit;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .summary-quick-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .summary-quick-pills .filter-pill {
+    padding: 5px 14px;
+    font-size: 11.5px;
+  }
+
+  /* ============================================================
+     SUMMARY KPI CARDS
+  ============================================================ */
+  .summary-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .summary-kpi-card {
+    padding: 14px 16px;
+    background: #FFFFFF;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+  }
+
+  .summary-kpi-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .summary-kpi-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--green-dark);
+    margin-top: 4px;
+  }
+
+  .summary-kpi-subtext {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .summary-breakdown-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .summary-breakdown-grid { grid-template-columns: 1fr; }
+  }
+
+  .summary-breakdown-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .summary-breakdown-body {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.7;
+  }
+
+  .summary-breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--border-light);
+  }
+
+  .summary-insight-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  @media (max-width: 700px) {
+    .summary-insight-grid { grid-template-columns: 1fr; }
+  }
+
+  .summary-insight-card {
+    padding: 16px 20px;
+    background: #F6F3EB;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .summary-insight-card.green { border-left: 3px solid var(--green); }
+  .summary-insight-card.orange { border-left: 3px solid #D97706; }
+
+  .summary-footer {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* --- PROFILE MODAL & AVATAR STYLES --- */
+.profile-modal-box {
+  max-width: 520px !important;
+  text-align: left !important;
+}
+
+.profile-avatar-select-wrap {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 16px 0 24px 0;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  justify-items: center;
+}
+
+.avatar-option {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid var(--border);
+  transition: all 0.2s ease;
+  background: #E5E2DA;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.avatar-option:hover {
+  border-color: var(--green);
+  transform: scale(1.05);
+}
+
+.avatar-option.selected {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.3);
+  transform: scale(1.08);
+}
+
+.profile-readonly-field {
+  background: #ECE6D8 !important;
+  color: var(--muted) !important;
+  cursor: not-allowed;
+}
+
+/* Avatar image support */
+.user-info .avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Modal actions */
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.modal-btn-confirm {
+  border: none;
+  background: var(--green);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 10px 24px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.modal-btn-confirm:hover { background: var(--green-dark); }
+
+/* Form grid for profile modal */
+.form-grid-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 30px;
+}
+
+.form-field-item label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.form-field-item label .req { color: #C0392B; }
+
+.form-field-item input,
+.form-field-item select,
+.form-field-item textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  outline: none;
+  background: #FFFFFF;
+  color: var(--ink);
+  transition: all 0.2s ease;
+}
+
+.form-field-item input:focus,
+.form-field-item select:focus,
+.form-field-item textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.15);
+}
+
+.form-field-full { grid-column: 1 / -1; }
+
+/* ===== REPORTS SUMMARY CARDS (Provincial) ===== */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.summary-cards .summary-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-left: 5px solid var(--border);
+  box-shadow: 0 1px 4px rgba(46, 42, 34, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  margin-bottom: 0;
+}
+
+.summary-cards .summary-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(46, 42, 34, 0.10);
+}
+
+.summary-cards .summary-icon {
+  font-size: 24px;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F6F2E8;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.summary-cards .summary-info h3 {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.summary-cards .summary-count {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1;
+}
+
+.summary-cards .summary-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #A09888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Color coding */
+.summary-cards .summary-card.reports-pending  { border-left-color: #D97706; }
+.summary-cards .summary-card.reports-returned { border-left-color: #C0392B; }
+.summary-cards .summary-card.reports-regional { border-left-color: #2980B9; }
+
+.summary-cards .summary-card.reports-pending .summary-icon  { background: #FDF3E0; }
+.summary-cards .summary-card.reports-returned .summary-icon { background: #FCE8E6; }
+.summary-cards .summary-card.reports-regional .summary-icon { background: #E3F2FD; }
+
+</style>
+</head>
+<body class="pc-modern">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger" id="hamburgerBtn" aria-label="Toggle navigation" type="button">
+        <span></span><span></span><span></span>
+      </button>
+
+      <div class="logos">
+  <a href="../home.html" style="display: flex; align-items: center; text-decoration: none;">
+    <img src="../images/esakalogo.png" alt="eSaka Logo" class="brand-logo-img">
+  </a>
+ 
+</div>
+</div>
+
+
+    <div class="topbar-right">
+  <div class="user-info" id="openProfileBtn" title="Click to edit profile" style="cursor: pointer;">
+    <div class="avatar" id="userDisplayInitials">--</div>
+    <div class="user-text">
+      <div class="user-name" id="userDisplayName">Loading...</div>
+      <div class="user-role" id="userDisplayRole">Loading...</div>
+    </div>
+  </div>
+</div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="layout">
+    <nav class="sidebar" id="sidebar">
+      <div class="nav-list">
+        <button class="nav-item active" type="button" data-view="reports">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          View Reports
+          <span class="nav-badge" id="sidebarPendingBadge" style="display:none;">0</span>
+        </button>
+        <button class="nav-item" type="button" data-view="summary">
+          <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+          Summary
+        </button>
+        <button class="nav-item" type="button" data-view="map">
+          <svg viewBox="0 0 24 24"><path d="M15 5.1L9 3 3 5.1v15.8l6-2.1 6 2.1 6-2.1V3zM9 5.4l6-1.7v14.9l-6 1.7z"/></svg>
+          View Map
+        </button>
+      </div>
+
+      <a class="signout" href="../index.html">
+        <svg viewBox="0 0 24 24"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
+        Sign Out
+      </a>
+    </nav>
+
+    <main class="main">
+
+      <!-- ===================== VIEW: Overview ===================== -->
+      <section class="view" id="view-overview" hidden>
+        <div class="main-header">
+          <div class="header-left">
+            <h1>Reports Review &amp; Regional Routing</h1>
+            <p>A snapshot of what needs your attention across Pampanga's municipalities.</p>
+          </div>
+        </div>
+
+        <div class="pc-kpi-grid" id="overviewKpiGrid">
+          <div class="pc-kpi-card">
+            <div class="pc-kpi-label">
+              Pending Provincial
+            </div>
+            <div class="pc-kpi-value" id="ovKpiPending">—</div>
+            <div class="pc-kpi-sub" id="ovKpiPendingSub">Awaiting your review</div>
+          </div>
+
+          <div class="pc-kpi-card teal">
+            <div class="pc-kpi-label">
+              Returned to Municipal
+            </div>
+            <div class="pc-kpi-value" id="ovKpiReturned">—</div>
+            <div class="pc-kpi-sub" id="ovKpiReturnedSub">Sent back for revision</div>
+          </div>
+
+          <div class="pc-kpi-card amber">
+            <div class="pc-kpi-label">
+              Forwarded to DA-RFO III
+            </div>
+            <div class="pc-kpi-value" id="ovKpiForwarded">—</div>
+            <div class="pc-kpi-sub" id="ovKpiForwardedSub">Sent to Regional</div>
+          </div>
+
+          <div class="pc-kpi-card coral">
+            <div class="pc-kpi-label">
+              Avg. Review Time
+            </div>
+            <div class="pc-kpi-value" id="ovKpiReviewTime">—</div>
+            <div class="pc-kpi-sub" id="ovKpiReviewTimeSub">From submission to forwarding</div>
+          </div>
+        </div>
+
+        <div class="pc-overview-grid">
+          <div class="pc-panel">
+            <div class="pc-panel-head">
+              <div>
+                <h2>Pending Review &amp; Dispatch</h2>
+                <p>Municipal reports awaiting your sign-off before forwarding to DA-RFO III.</p>
+              </div>
+              <a href="#" class="pc-panel-link" data-view-link="reports">Open Reports &rarr;</a>
+            </div>
+            <div id="overviewPendingList">
+              <div class="pc-empty">Loading pending reports&hellip;</div>
+            </div>
+          </div>
+
+          <div class="pc-panel">
+            <div class="pc-panel-head">
+              <div>
+                <h2>Recent Submissions to Regional</h2>
+                <p>Forwarded to DA-RFO III.</p>
+              </div>
+              <a href="#" class="pc-panel-link" data-view-link="reports">View All &rarr;</a>
+            </div>
+            <div id="overviewRecentFeed">
+              <div class="pc-empty">Loading recent submissions&hellip;</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== VIEW: Reports ===================== -->
+      <section class="view active-view" id="view-reports">
+        <div class="main-header" id="reportsMainHeader">
+          <div class="header-left">
+            <h1>Reports</h1>
+            <p>Review reports forwarded by Municipal Coordinators.</p>
+          </div>
+
+          <div class="header-actions">
+            <div class="search-box">
+              <svg viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="reportSearchInput" placeholder="Search pending reports..." autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== REPORTS SUMMARY CARDS ===== -->
+  <div class="summary-cards reports-summary" id="reportSummaryCards">
+    <div class="summary-card reports-pending">
+      <div class="summary-info">
+        <h3>Pending Reports</h3>
+        <p class="summary-count" id="reportCountPending">0</p>
+        <span class="summary-label">Provincial Pending</span>
+      </div>
+    </div>
+
+    <div class="summary-card reports-returned">
+      <div class="summary-info">
+        <h3>Returned to Municipal</h3>
+        <p class="summary-count" id="reportCountReturned">0</p>
+        <span class="summary-label">For Revision</span>
+      </div>
+    </div>
+
+    <div class="summary-card reports-regional">
+      <div class="summary-info">
+        <h3>Sent to Regional</h3>
+        <p class="summary-count" id="reportCountRegional">0</p>
+        <span class="summary-label">Forwarded to DA-RFO</span>
+      </div>
+    </div>
+  </div>
+
+        <!-- PENDING REPORTS -->
+        <div class="pc-reports-filters" id="reportsQuickFilters">
+          <button class="filter-pill active" type="button" data-reports-filter="all">All Reports</button>
+          <button class="filter-pill" type="button" data-reports-filter="pending">Pending Provincial</button>
+          <button class="filter-pill" type="button" data-reports-filter="returned">Returned for Revision</button>
+          <button class="filter-pill" type="button" data-reports-filter="sent">Sent to Regional</button>
+        </div>
+        <div id="pendingReportsView">
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+              <div class="text-section-title" style="margin-bottom:0;">
+                Pending Reports
+                <span class="count-badge" id="pendingCountBadge">0</span>
+              </div>
+
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn-outline-report" id="selectAllPendingBtn" type="button">
+                  Select All
+                </button>
+                <button class="btn-primary" id="bulkApproveBtn" type="button" disabled>
+                  Approve Selected &amp; Send to Regional
+                </button>
+              </div>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:40px;">
+                      <input type="checkbox" id="selectAllCheckbox" aria-label="Select all pending reports">
+                    </th>
+                    <th class="center-col">Report ID</th>
+                    <th>Title</th>
+                    <th>Commodity</th>
+                    <th>Municipality</th>
+                    <th class="center-col">Planting Date</th>
+                    <th class="center-col">Est. Yield</th>
+                    <th class="center-col">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="pendingReportsBody">
+                  <tr><td colspan="8" style="padding:30px; text-align:center; color:#999;">Loading reports...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- RETURNED TO MUNICIPAL -->
+        <div id="returnedToMunicipalView">
+          <div class="card">
+            <div class="text-section-title">
+              Returned to Municipal
+              <span class="count-badge muted" id="returnedToMunicipalCountBadge">0</span>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="center-col">Report ID</th>
+                    <th>Title</th>
+                    <th>Commodity</th>
+                    <th>Municipality</th>
+                    <th class="center-col">Returned At</th>
+                    <th class="center-col">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="returnedToMunicipalBody">
+                  <tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">Loading reports...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SENT TO REGIONAL -->
+        <div id="sentToRegionalView">
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+              <div class="text-section-title" style="margin-bottom:0;">
+                Sent to Regional
+                <span class="count-badge muted" id="sentCountBadge">0</span>
+              </div>
+
+              <div id="sentToRegionalFilterPills" style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="filter-pill active" data-filter="all" type="button">All</button>
+                <button class="filter-pill" data-filter="pending" type="button">Pending</button>
+                <button class="filter-pill" data-filter="approved" type="button">Approved</button>
+              </div>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="center-col">Report ID</th>
+                    <th>Title</th>
+                    <th>Commodity</th>
+                    <th>Municipality</th>
+                    <th class="center-col" id="sentDateColumnHeader">Submitted</th>
+                    <th class="center-col">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="sentToRegionalBody">
+                  <tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">Loading reports...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- REPORT DETAIL -->
+        <div id="individualDetailView" class="hidden-element">
+          <div class="main-header">
+            <div class="header-left">
+              <h1 id="detailReportTitle">Report Details</h1>
+              <p id="detailReportSubtitle">—</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <!-- ==================== REPORT INFO — COMPACT ==================== -->
+            <div style="
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+              gap: 20px 28px;
+              padding: 18px 20px;
+              background: #F6F3EB;
+              border-radius: 10px;
+              margin-bottom: 24px;
+            ">
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Report ID</div>
+                <div id="detailReportId" style="font-size: 14px; font-weight: 700; color: var(--ink);">—</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Municipality</div>
+                <div id="detailReportMunicipality" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Status</div>
+                <div id="detailReportStatus" style="font-size: 14px; color: var(--ink);">—</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Submitted Date</div>
+                <div id="detailReportDate" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Encoded By</div>
+                <div id="detailReportEncodedBy" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Est. Yield</div>
+                <div id="detailReportYield" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Notes / Remarks</div>
+                <div id="detailReportNotes" style="font-size: 14px; color: var(--ink); line-height: 1.5;">—</div>
+              </div>
+            </div>
+
+            <!-- ==================== ATTACHMENTS ==================== -->
+            <div style="margin-bottom: 24px;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;">Attachments</div>
+              <div id="detailReportAttachments" style="font-size: 14px; color: var(--muted);">No attachments</div>
+            </div>
+
+            <!-- ==================== REPORT SUMMARY CARD ==================== -->
+            <div id="reportSummaryCardWrapper" style="display: none;">
+              <div class="summary-card">
+                <div class="summary-card-header">
+                  <div>
+                    <div class="summary-card-title">📊 Report Summary</div>
+                    <div id="summaryCoveragePeriod" class="summary-card-subtitle">Coverage: —</div>
+                  </div>
+                  <div id="reportSummaryToggle" style="
+                    font-size: 11px;
+                    color: var(--muted);
+                    cursor: pointer;
+                    user-select: none;
+                    padding: 4px 10px;
+                    background: #FFFFFF;
+                    border-radius: 6px;
+                    border: 1px solid var(--border);
+                  ">Hide ▲</div>
+                </div>
+
+                <div id="reportSummaryBody"></div>
+              </div>
+            </div>
+
+            <!-- ==================== VALIDATION TIMELINE ==================== -->
+            <div id="validationHistoryWrapper" style="margin-top: 28px; margin-bottom: 24px;">
+              <div style="
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 14px;
+                padding-bottom: 8px;
+                border-bottom: 1.5px solid var(--border-light);
+              ">
+                📜 Validation Timeline (Audit Trail)
+              </div>
+              <div id="validationTimelineContainer">
+                <div style="color: var(--muted); font-style: italic; font-size: 13px;">
+                  Loading history...
+                </div>
+              </div>
+            </div>
+
+            <!-- ==================== INCLUDED PLANTING INTENTS ==================== -->
+            <div style="margin-top: 8px;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;">Included Planting Intents</div>
+              <div style="overflow-x: auto;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th class="center-col">Intent ID</th>
+                      <th>Farmer</th>
+                      <th>Commodity</th>
+                      <th class="center-col">Volume</th>
+                      <th class="center-col" style="background: #F6F3EB;">📅 Planned Planting</th>
+                      <th class="center-col" style="background: #FFF4E5;">📍 Actual Planting</th>
+                      <th class="center-col" style="background: #F6F3EB;">📅 Planned Harvest</th>
+                      <th class="center-col" style="background: #FFF4E5;">📍 Actual Harvest</th>
+                      <th class="center-col">Harvest Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="detailReportIntentsBody">
+                    <tr><td colspan="9" style="padding:20px; text-align:center; color:#999;">No intents included.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <!-- ==================== ADD NEW REMARK ==================== -->
+            <div class="notes-row notes-row-clean" style="margin-top: 16px;">
+              <div class="notes-field">
+                <label>Add New Remark</label>
+                <textarea
+                  id="remarksTextarea"
+                  class="textarea-notes"
+                  placeholder="Type your comment here..."
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- ==================== ACTION BUTTONS ==================== -->
+            <div class="detail-actions-row">
+              <button class="btn-outline-report" id="backToPendingBtn" type="button">Return</button>
+
+              <button class="btn-outline-report flag-btn" id="flagBtn" type="button">Flag for Revision</button>
+
+              <button class="btn-primary approve-btn" id="approveBtn" type="button" style="background:#2E7D32;">
+                Approve &amp; Send to Regional
+              </button>
+
+              <button class="btn-primary" id="resubmitReportBtn" type="button" style="background: #2E7D32; display: none;">
+                Resubmit to Regional
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- ===================== VIEW: Summary ===================== -->
+      <section class="view" id="view-summary">
+        <div class="main-header">
+          <div class="header-left">
+            <h1>Provincial Summary Report</h1>
+            <p>Aggregated view of all reports across all Pampanga municipalities for a selected period.</p>
+          </div>
+
+          <div class="header-actions no-print">
+            <div class="period-picker">
+              <label>From</label>
+              <input type="date" id="summaryPeriodStart">
+              <label>To</label>
+              <input type="date" id="summaryPeriodEnd">
+            </div>
+            <button class="btn-primary" id="applySummaryPeriodBtn" type="button">
+              Apply Period
+            </button>
+            <button class="btn-outline-report" id="printSummaryBtn" type="button">
+              🖨 Print
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick period pills -->
+        <div class="summary-quick-pills no-print" style="margin-bottom: 20px;">
+          <button class="filter-pill active" data-period="this-week" type="button">This Week</button>
+          <button class="filter-pill" data-period="last-week" type="button">Last Week</button>
+          <button class="filter-pill" data-period="this-month" type="button">This Month</button>
+          <button class="filter-pill" data-period="last-30" type="button">Last 30 Days</button>
+          <button class="filter-pill" data-period="this-quarter" type="button">This Quarter</button>
+          <button class="filter-pill" data-period="all-time" type="button">All Time</button>
+        </div>
+
+        <!-- Loading / error state -->
+        <div class="card" id="summaryLoadingCard">
+          <div style="padding: 40px; text-align: center; color: #777; font-size: 15px;">
+            Loading summary...
+          </div>
+        </div>
+
+        <!-- Summary content -->
+        <div class="card" id="summaryContentCard" style="display: none;">
+          <div id="provincialSummaryContent"></div>
+        </div>
+      </section>
+      <!-- ===================== VIEW: Map ===================== -->
+<section class="view" id="view-map">
+  <div class="main-header">
+    <div class="header-left">
+      <h1>Regional Field Map</h1>
+      <p>Geospatial tracking of crop production clusters in Pampanga.</p>
+    </div>
+  </div>
+
+  <div class="pc-map-layout">
+
+    <!-- LEFT: map card -->
+    <div class="card">
+      <div class="map-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <span>Field Monitoring &amp; Geographic Clusters</span>
+        <div style="display:flex; gap:12px; font-size:11.5px; font-weight:600; align-items:center; text-transform:none; letter-spacing:0;">
+          <span style="display:flex; align-items:center; gap:4px;">
+            <span style="width:10px; height:10px; border-radius:50%; background:#C0392B; display:inline-block;"></span> Surplus
+          </span>
+          <span style="display:flex; align-items:center; gap:4px;">
+            <span style="width:10px; height:10px; border-radius:50%; background:#2E7D32; display:inline-block;"></span> Balanced
+          </span>
+          <span style="display:flex; align-items:center; gap:4px;">
+            <span style="width:10px; height:10px; border-radius:50%; background:#D97706; display:inline-block;"></span> Deficit
+          </span>
+          <span style="display:flex; align-items:center; gap:4px;">
+            <span style="width:10px; height:10px; border-radius:50%; background:#6c757d; display:inline-block;"></span> No Data
+          </span>
+        </div>
+      </div>
+
+      <div class="pc-map-filters">
+        <select id="filterCommodity">
+          <option value="all">All Commodities</option>
+          <option value="Tomato">Tomato</option>
+          <option value="Squash">Squash</option>
+          <option value="Red Onion">Red Onion</option>
+          <option value="White Onion">White Onion</option>
+        </select>
+
+        <select id="filterStatus">
+          <option value="all">All Statuses</option>
+          <option value="OVERSUPPLY">Oversupply</option>
+          <option value="SURPLUS">Surplus</option>
+          <option value="BALANCE">Balanced</option>
+          <option value="DEFICIT">Deficit</option>
+        </select>
+      </div>
+
+      <div id="map"></div>
+    </div>
+
+  </div>
+</section>
+
+  <!-- ============================================================
+       ACTION CONFIRMATION MODAL (universal)
+  ============================================================ -->
+  <div class="modal-overlay" id="actionConfirmModal">
+    <div class="modal-box" style="max-width: 500px; text-align: left;">
+      <h2 id="actionConfirmTitle" style="
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--green-dark);
+        margin-bottom: 12px;
+        text-align: center;
+      ">Confirm Action</h2>
+
+      <p id="actionConfirmMessage" style="
+        font-size: 14px;
+        color: var(--ink);
+        line-height: 1.5;
+        margin-bottom: 20px;
+        text-align: center;
+      ">Are you sure?</p>
+
+      <div id="actionConfirmDetails" style="
+        display: none;
+        text-align: left;
+        background: #F6F3EB;
+        border-left: 3px solid var(--green);
+        padding: 14px 18px;
+        border-radius: 0 8px 8px 0;
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 22px;
+        line-height: 1.6;
+      "></div>
+
+      <div style="display: flex; justify-content: center; gap: 12px;">
+        <button class="btn-outline-report" id="actionConfirmCancelBtn" type="button">
+          Cancel
+        </button>
+        <button class="modal-confirm-btn" id="actionConfirmOkBtn" type="button">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SUCCESS / INFO MODAL (replaces native alert for post-actions)
+  ============================================================ -->
+  <div class="modal-overlay" id="reportModal">
+    <div class="modal-box" style="max-width: 460px;">
+      <div id="reportModalIcon" style="
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: var(--green-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 32px;
+        transition: background 0.2s ease;
+      ">✓</div>
+
+      <h2 id="reportModalTitle" style="
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--green-dark);
+        margin-bottom: 10px;
+        transition: color 0.2s ease;
+      ">Success</h2>
+
+      <p id="reportModalText" style="
+        font-size: 14px;
+        color: var(--ink);
+        line-height: 1.5;
+        margin-bottom: 22px;
+      ">
+        Operation completed successfully.
+      </p>
+
+      <div class="modal-actions" style="display: flex; justify-content: center; gap: 12px;">
+        <button class="modal-confirm-btn" id="reportModalConfirmBtn" type="button">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       BULK APPROVE MODAL
+  ============================================================ -->
+  <div class="modal-overlay" id="bulkApproveModal">
+    <div class="modal-box" style="max-width: 480px;">
+      <div style="
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: #D1FAE5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 32px;
+      ">✓</div>
+
+      <h2 style="
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--green-dark);
+        margin-bottom: 10px;
+      ">Bulk Approve</h2>
+
+      <p id="bulkApproveText" style="
+        font-size: 14px;
+        color: var(--ink);
+        line-height: 1.5;
+        margin-bottom: 22px;
+      ">Approve selected reports?</p>
+
+      <div style="display: flex; justify-content: center; gap: 12px;">
+        <button class="btn-outline-report" id="bulkApproveCancelBtn" type="button">
+          Cancel
+        </button>
+        <button class="modal-confirm-btn" id="bulkApproveConfirmBtn" type="button" style="background: #2E7D32;">
+          Yes, Approve
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script src="../assets/js/map-panel.js"></script>
+  <script src="../assets/js/provincial.js"></script>
+  <script src="../assets/js/logout.js"></script>
+  <script>
+(function() {
+  const searchInput = document.getElementById('reportSearchInput');
+  if (!searchInput) return;
+
+  // IDs ng mga tbody sa Provincial page
+  const TABLE_BODIES = [
+    'pendingReportsBody',
+    'returnedToMunicipalBody',
+    'sentToRegionalBody'
+  ];
+
+  function filterTables() {
+    const query = searchInput.value.trim().toLowerCase();
+
+    TABLE_BODIES.forEach(id => {
+      const tbody = document.getElementById(id);
+      if (!tbody) return;
+
+      tbody.querySelectorAll('tr').forEach(row => {
+        if (row.querySelector('td[colspan]')) return;
+
+        const match = !query || row.innerText.toLowerCase().includes(query);
+        row.style.display = match ? '' : 'none';
+      });
+    });
+  }
+
+  searchInput.addEventListener('input', filterTables);
+  searchInput.addEventListener('keyup', filterTables);
+
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      searchInput.value = '';
+      filterTables();
+    });
+  });
+})();
+</script>
+<!-- ============================================================
+     PROFILE SETTINGS MODAL
+============================================================ -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal-box profile-modal-box">
+    <h2>User Profile Settings</h2>
+
+    <form id="profileForm">
+      <div class="form-field-item" style="margin-bottom: 16px; text-align: center;">
+        <label style="margin-bottom: 8px; display: block; font-weight: 700;">Pumili ng Profile Picture</label>
+        <div class="profile-avatar-select-wrap">
+          <div class="avatar-option selected" data-avatar-img="../images/1.png"><img src="../images/1.png" alt="Avatar 1"></div>
+          <div class="avatar-option" data-avatar-img="../images/2.png"><img src="../images/2.png" alt="Avatar 2"></div>
+          <div class="avatar-option" data-avatar-img="../images/3.png"><img src="../images/3.png" alt="Avatar 3"></div>
+          <div class="avatar-option" data-avatar-img="../images/4.png"><img src="../images/4.png" alt="Avatar 4"></div>
+          <div class="avatar-option" data-avatar-img="../images/5.png"><img src="../images/5.png" alt="Avatar 5"></div>
+          <div class="avatar-option" data-avatar-img="../images/6.png"><img src="../images/6.png" alt="Avatar 6"></div>
+          <div class="avatar-option" data-avatar-img="../images/7.png"><img src="../images/7.png" alt="Avatar 7"></div>
+          <div class="avatar-option" data-avatar-img="../images/8.png"><img src="../images/8.png" alt="Avatar 8"></div>
+          <div class="avatar-option" data-avatar-img="../images/9.png"><img src="../images/9.png" alt="Avatar 9"></div>
+          <div class="avatar-option" data-avatar-img="../images/10.png"><img src="../images/10.png" alt="Avatar 10"></div>
+          <div class="avatar-option" data-avatar-img="../images/11.png"><img src="../images/11.png" alt="Avatar 11"></div>
+          <div class="avatar-option" data-avatar-img="../images/12.png"><img src="../images/12.png" alt="Avatar 12"></div>
+        </div>
+      </div>
+
+      <div class="form-grid-two">
+        <div class="form-field-item form-field-full">
+          <label>Username</label>
+          <input type="text" id="profileUsername" class="input-readonly profile-readonly-field" readonly>
+        </div>
+        <div class="form-field-item">
+          <label>First Name <span class="req">*</span></label>
+          <input type="text" id="profileFirstName" required>
+        </div>
+        <div class="form-field-item">
+          <label>Last Name <span class="req">*</span></label>
+          <input type="text" id="profileLastName" required>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+        <button class="btn-outline-report" id="closeProfileModalBtn" type="button">Cancel</button>
+        <button class="btn-primary" type="submit">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     CUSTOM SUCCESS MODAL
+============================================================ -->
+<div class="modal-overlay" id="customAlertModal">
+  <div class="modal-box" style="max-width: 400px; padding: 28px;">
+    <h2 style="font-size: 20px; color: var(--green-dark); margin-bottom: 12px;">Tagumpay!</h2>
+    <p id="customAlertText" style="font-size: 14.5px; color: var(--ink); margin-bottom: 24px;">Profile updated successfully!</p>
+    <div style="display: flex; justify-content: center;">
+      <button class="modal-btn-confirm" id="closeCustomAlertBtn" type="button" style="width: 120px;">OK</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

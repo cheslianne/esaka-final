@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="stylesheet" href="assets/css/app-enhancements.css">
+  <script src="assets/js/ui-feedback.js"></script>
+  <script src="assets/js/app-enhancements.js" defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home — eSaka</title>
+
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/base.css">
+
+
+  <style>
+    :root {
+      --bean-sprout: #F8F7F2;
+      --spinach: #657104;
+      --kale-leaf: #283C21;
+      --turmeric: #FA9401;
+      --muted: #586352;
+      --endive: #B5BC76;
+      --error: #C2512F;
+      --radius-sm: 12px;
+      --radius-md: 20px;
+      --radius-lg: 32px;
+    }
+
+
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      /* Siguraduhing tama ang path ng image dito. Kung nasa loob ng folder ang HTML, i-adjust ang ../images o images */
+      background:
+        linear-gradient(rgba(28, 51, 24, 0.75), rgba(18, 51, 24, 0.85)),
+        url('../images/esakabg2.jpg') no-repeat center center fixed !important;
+      background-size: cover !important;
+      color: var(--kale-leaf);
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+
+
+    /* Top Navigation bar - Binabaan natin ang padding-top para hindi masyadong mataas ang button */
+    .top-nav {
+      padding: 70px 48px 0 48px;
+      display: flex;
+      align-items: center;
+      width: 100%;
+      max-width: 1300px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 999;
+    }
+
+
+    .back-btn {
+      background: #ffffff;
+      border: 1.5px solid rgba(226, 221, 208, 0.8);
+      border-radius: var(--radius-sm);
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      position: relative;
+      z-index: 1000;
+    }
+
+
+    .back-btn:hover {
+      background: #FDFDFB;
+      border-color: var(--spinach);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(101, 113, 4, 0.2);
+    }
+
+
+    .back-btn svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--spinach);
+      stroke-width: 2.5;
+      fill: none;
+      pointer-events: none;
+    }
+
+
+    /* Slide Header */
+    .slide-header {
+      text-align: center;
+      max-width: 800px;
+      margin: 10px auto 30px auto;
+      width: 100%;
+      padding: 0 20px;
+    }
+
+
+    .slide-header h1 {
+      font-size: 34px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+
+    .slide-header p {
+      font-size: 15px;
+      color: var(--bean-sprout);
+      line-height: 1.5;
+      font-weight: 500;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+
+    /* Main Website Container */
+    .carousel-container {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 10px 80px;
+    }
+
+
+    .carousel-track {
+      display: flex;
+      width: 100%;
+      position: relative;
+    }
+
+
+    .carousel-slide {
+      min-width: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+
+    .carousel-slide.active {
+      display: flex;
+    }
+
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+
+    /* Features Grid (Slide 1) */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      width: 100%;
+      max-width: 1060px;
+    }
+
+
+    .feature-card {
+      background: linear-gradient(135deg, rgba(248, 247, 242, 0.97), rgba(240, 238, 228, 0.97));
+      backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(181, 188, 118, 0.4);
+      border-radius: var(--radius-md);
+      padding: 24px 22px;
+      text-align: center;
+      box-shadow: 0 15px 35px rgba(10, 25, 12, 0.35);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+
+    .feature-card:hover, .step-card:hover {
+      transform: translateY(-8px) scale(1.03);
+      border-color: var(--spinach);
+      box-shadow: 0 25px 50px rgba(10, 25, 12, 0.45);
+    }
+
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(101, 113, 4, 0.12);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px auto;
+    }
+
+
+    .feature-icon svg {
+      width: 22px;
+      height: 22px;
+      fill: var(--spinach);
+    }
+
+
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--kale-leaf);
+      margin-bottom: 6px;
+    }
+
+
+    .feature-card p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+
+    /* How eSaka Works Grid & Connecting Lines (Slide 2) */
+    .steps-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 980px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+
+    .steps-wrapper::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 12%;
+      right: 12%;
+      height: 2.5px;
+      background: var(--endive);
+      transform: translateY(-50%);
+      z-index: 1;
+    }
+
+
+    .step-card {
+      background: linear-gradient(135deg, rgba(248, 247, 242, 0.97), rgba(240, 238, 228, 0.97));
+      backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(181, 188, 118, 0.4);
+      border-radius: var(--radius-md);
+      padding: 34px 24px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      width: 31%;
+      box-shadow: 0 15px 35px rgba(10, 25, 12, 0.35);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+    }
+
+
+    .step-icon {
+      width: 56px;
+      height: 56px;
+      background: var(--spinach);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px auto;
+      box-shadow: 0 6px 16px rgba(101, 113, 4, 0.25);
+    }
+
+
+    .step-icon svg {
+      width: 26px;
+      height: 26px;
+      fill: #FFF;
+    }
+
+
+    .step-card h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--kale-leaf);
+      margin-bottom: 4px;
+    }
+
+
+    .step-title-sub {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--spinach);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+
+    .step-card p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+
+    /* Navigation Arrows */
+    .nav-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #ffffff;
+      border: 1.5px solid rgba(226, 221, 208, 0.8);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+
+    .nav-arrow:hover {
+      background: var(--spinach);
+      border-color: var(--spinach);
+      transform: translateY(-50%) scale(1.05);
+    }
+
+
+    .nav-arrow:hover svg {
+      stroke: #FFF;
+    }
+
+
+    .nav-arrow svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--kale-leaf);
+      stroke-width: 2.5;
+      fill: none;
+      transition: stroke 0.2s ease;
+      pointer-events: none;
+    }
+
+
+    .prev-arrow { left: 16px; }
+    .next-arrow { right: 16px; }
+
+
+    /* Pagination Dots Indicator */
+    .pagination-dots {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding-bottom: 24px;
+      z-index: 10;
+    }
+
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+
+    .dot.active {
+      background: var(--turmeric);
+      width: 28px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(250, 148, 1, 0.4);
+    }
+
+
+    /* Footer */
+    footer {
+      background: rgba(18, 51, 24, 0.95);
+      backdrop-filter: blur(10px);
+      color: #A3B299;
+      text-align: center;
+      padding: 16px 24px;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      border-top: 1px solid rgba(181, 188, 118, 0.2);
+      width: 100%;
+      margin-top: auto;
+    }
+
+
+    footer span {
+      color: #D1DEC7;
+      font-weight: 700;
+    }
+
+
+    @media (max-width: 900px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+      .steps-wrapper {
+        flex-direction: column;
+        gap: 20px;
+      }
+      .steps-wrapper::before {
+        display: none;
+      }
+      .step-card {
+        width: 100%;
+      }
+      .carousel-container {
+        padding: 10px 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+
+<body style="background: linear-gradient(rgba(28, 51, 24, 0.75), rgba(18, 51, 24, 0.85)), url('../images/esakabg2.jpg') no-repeat center center fixed !important; background-size: cover !important;"></body>
+
+
+  <!-- Top Navigation with Back Link directly pointing to index.html -->
+  <div class="top-nav">
+    <a href="index.html" class="back-btn" title="Back to Home">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </a>
+  </div>
+
+
+  <!-- Slide Header -->
+  <div class="slide-header">
+    <h1 id="mainTitle">Everything you need to manage the agricultural supply chain</h1>
+    <p id="mainSubtitle">Built for DA field officers, LGU agricultural planners, AEWs, cooperatives, farmers, and buyers.</p>
+  </div>
+
+
+  <!-- Carousel Website Wrapper -->
+  <div class="carousel-container">
+    <!-- Left Arrow -->
+    <button class="nav-arrow prev-arrow" onclick="changeSlide(-1)" aria-label="Previous Slide">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+
+
+    <!-- Carousel Track -->
+    <div class="carousel-track" id="carouselTrack">
+     
+      <!-- SLIDE 1: Overview & Features -->
+      <div class="carousel-slide active" data-title="Everything you need to manage the agricultural supply chain" data-subtitle="Built for DA field officers, LGU agricultural planners, AEWs, cooperatives, farmers, and buyers.">
+        <div class="features-grid">
+          <!-- 1 -->
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>
+            </div>
+            <h3>Price Forecasting</h3>
+            <p>Monitor and forecast farmgate prices per commodity and region using PSA/DA-AMAD data.</p>
+          </div>
+          <!-- 2 -->
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+            </div>
+            <h3>Oversupply Alerts</h3>
+            <p>Automatic alerts when supply exceeds 120% of projected demand with recommended actions.</p>
+          </div>
+          <!-- 3 -->
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.1V5l6 2.1v11.9z"/></svg>
+            </div>
+            <h3>Geospatial Map</h3>
+            <p>Interactive municipality-level supply-demand map with color-coded surplus/deficit status.</p>
+          </div>
+          <!-- 4 -->
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+            </div>
+            <h3>Buyer Matching</h3>
+            <p>Connect smallholder farmers with verified institutional buyers and trading cooperatives.</p>
+          </div>
+          <!-- 5 -->
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M17 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zM5 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/></svg>
+            </div>
+            <h3>Planting Intent Registry</h3>
+            <p>Collect and track farmer-declared crop production plans with harvest date timelines.</p>
+          </div>
+          <!-- 6 -->
+          <div class="feature-card">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+            </div>
+            <h3>Supply-Demand Analytics</h3>
+            <p>Deep barangay-level analysis of commodity supply ratios with exportable reports.</p>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- SLIDE 2: How eSaka Works -->
+      <div class="carousel-slide" data-title="How eSaka Works" data-subtitle="A seamless three-step process designed to bridge production data and market action.">
+        <div class="steps-wrapper">
+          <!-- Step 01 -->
+          <div class="step-card">
+            <div class="step-icon">
+              <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            </div>
+            <div class="step-title-sub">Step 01</div>
+            <h3>Register</h3>
+            <p>AEWs register farmers and record planting intents. Buyers complete verification to access the marketplace securely.</p>
+          </div>
+          <!-- Step 02 -->
+          <div class="step-card">
+            <div class="step-icon">
+              <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v7zm4 0h-2v-4h2v4z"/></svg>
+            </div>
+            <div class="step-title-sub">Step 02</div>
+            <h3>Monitor</h3>
+            <p>Real-time dashboards show price trends, supply-demand maps, and automated oversupply/deficit alerts by region.</p>
+          </div>
+          <!-- Step 03 -->
+          <div class="step-card">
+            <div class="step-icon">
+              <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+            </div>
+            <div class="step-title-sub">Step 03</div>
+            <h3>Act</h3>
+            <p>Farmers and buyers connect through offtake requests. DA officers intervene proactively with evidence-based advisories.</p>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+
+
+    <!-- Right Arrow -->
+    <button class="nav-arrow next-arrow" onclick="changeSlide(1)" aria-label="Next Slide">
+      <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </div>
+
+
+  <!-- Pagination Dots Indicator -->
+  <div class="pagination-dots" id="dotsContainer">
+    <span class="dot active" onclick="currentSlide(0)"></span>
+    <span class="dot" onclick="currentSlide(1)"></span>
+  </div>
+
+
+  <!-- Footer -->
+  <footer>
+    Polytechnic University of the Philippines - College of Computer and Information Sciences (PUP-CCIS) | Version 1.0.0 · Contact: <span>esaka@pup.edu.ph</span> · © 2026 All Rights Reserved
+  </footer>
+
+
+  <!-- JavaScript for Carousel Interactivity -->
+  <script>
+    let currentSlideIndex = 0;
+    const slides = document.querySelectorAll('.carousel-slide');
+    const dots = document.querySelectorAll('.dot');
+    const mainTitle = document.getElementById('mainTitle');
+    const mainSubtitle = document.getElementById('mainSubtitle');
+
+
+    function updateCarousel() {
+      slides.forEach((slide, index) => {
+        slide.classList.toggle('active', index === currentSlideIndex);
+      });
+      dots.forEach((dot, index) => {
+        dot.classList.toggle('active', index === currentSlideIndex);
+      });
+
+
+      const activeSlide = slides[currentSlideIndex];
+      if (mainTitle && activeSlide) {
+        mainTitle.textContent = activeSlide.getAttribute('data-title');
+        mainSubtitle.textContent = activeSlide.getAttribute('data-subtitle');
+      }
+    }
+
+
+    function changeSlide(direction) {
+      currentSlideIndex += direction;
+      if (currentSlideIndex < 0) {
+        currentSlideIndex = slides.length - 1;
+      } else if (currentSlideIndex >= slides.length) {
+        currentSlideIndex = 0;
+      }
+      updateCarousel();
+    }
+
+
+    function currentSlide(index) {
+      currentSlideIndex = index;
+      updateCarousel();
+    }
+
+
+    // Keyboard Accessibility Support
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') {
+        changeSlide(-1);
+      } else if (e.key === 'ArrowRight') {
+        changeSlide(1);
+      }
+    });
+  </script>
+
+
+</body>
+</html>

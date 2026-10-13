@@ -1,0 +1,95 @@
+from enum import Enum
+class ReportStatus(str, Enum):
+    DRAFT = "DRAFT"
+    SUBMITTED_MUNICIPAL_PENDING = "SUBMITTED_MUNICIPAL_PENDING"
+    SUBMITTED_MUNICIPAL_FLAGGED = "SUBMITTED_MUNICIPAL_FLAGGED"
+    SUBMITTED_PROVINCIAL_PENDING = "SUBMITTED_PROVINCIAL_PENDING"
+    SUBMITTED_PROVINCIAL_FLAGGED = "SUBMITTED_PROVINCIAL_FLAGGED"
+    SUBMITTED_REGIONAL_PENDING = "SUBMITTED_REGIONAL_PENDING"
+    SUBMITTED_REGIONAL_FLAGGED = "SUBMITTED_REGIONAL_FLAGGED"
+    SUBMITTED_REGIONAL_APPROVED = "SUBMITTED_REGIONAL_APPROVED"
+
+    # Aliases for old naming (backward compatibility in queries only)
+    FOR_MUNICIPAL_VALIDATION = SUBMITTED_MUNICIPAL_PENDING
+    FOR_PROVINCIAL_VALIDATION = SUBMITTED_PROVINCIAL_PENDING
+    FOR_DA_RFO_VALIDATION = SUBMITTED_REGIONAL_PENDING
+    REVISION_REQUIRED = SUBMITTED_MUNICIPAL_FLAGGED
+    FINAL_APPROVED = SUBMITTED_REGIONAL_APPROVED
+
+
+PENDING_STATUSES = {
+    ReportStatus.SUBMITTED_MUNICIPAL_PENDING,
+    ReportStatus.SUBMITTED_PROVINCIAL_PENDING,
+    ReportStatus.SUBMITTED_REGIONAL_PENDING,
+}
+
+FLAGGED_STATUSES = {
+    ReportStatus.SUBMITTED_MUNICIPAL_FLAGGED,
+    ReportStatus.SUBMITTED_PROVINCIAL_FLAGGED,
+    ReportStatus.SUBMITTED_REGIONAL_FLAGGED,
+}
+
+FINAL_STATUSES = {ReportStatus.SUBMITTED_REGIONAL_APPROVED}
+
+VISIBLE_IN_REPORTS = PENDING_STATUSES | FLAGGED_STATUSES | FINAL_STATUSES
+
+
+VALID_TRANSITIONS = {
+    ReportStatus.DRAFT: {ReportStatus.SUBMITTED_MUNICIPAL_PENDING},
+    ReportStatus.SUBMITTED_MUNICIPAL_PENDING: {
+        ReportStatus.SUBMITTED_PROVINCIAL_PENDING,
+        ReportStatus.SUBMITTED_MUNICIPAL_FLAGGED,
+    },
+    ReportStatus.SUBMITTED_MUNICIPAL_FLAGGED: {
+        ReportStatus.DRAFT,
+        ReportStatus.SUBMITTED_MUNICIPAL_PENDING,
+    },
+    ReportStatus.SUBMITTED_PROVINCIAL_PENDING: {
+        ReportStatus.SUBMITTED_REGIONAL_PENDING,
+        ReportStatus.SUBMITTED_PROVINCIAL_FLAGGED,
+    },
+    ReportStatus.SUBMITTED_PROVINCIAL_FLAGGED: {
+        ReportStatus.DRAFT,
+        ReportStatus.SUBMITTED_MUNICIPAL_PENDING,
+    },
+    ReportStatus.SUBMITTED_REGIONAL_PENDING: {
+        ReportStatus.SUBMITTED_REGIONAL_APPROVED,
+        ReportStatus.SUBMITTED_REGIONAL_FLAGGED,
+    },
+    ReportStatus.SUBMITTED_REGIONAL_FLAGGED: {
+        ReportStatus.DRAFT,
+        ReportStatus.SUBMITTED_MUNICIPAL_PENDING,
+    },
+    ReportStatus.SUBMITTED_REGIONAL_APPROVED: set(),
+}
+
+STATUS_REQUIRED_ROLE = {
+    ReportStatus.SUBMITTED_MUNICIPAL_FLAGGED: "MUNICIPAL",
+    ReportStatus.SUBMITTED_PROVINCIAL_PENDING: "PROVINCIAL",
+    ReportStatus.SUBMITTED_PROVINCIAL_FLAGGED: "PROVINCIAL",
+    ReportStatus.SUBMITTED_REGIONAL_PENDING: "REGIONAL",
+    ReportStatus.SUBMITTED_REGIONAL_FLAGGED: "REGIONAL",
+    ReportStatus.SUBMITTED_REGIONAL_APPROVED: "REGIONAL",
+}
+
+def can_transition(from_status: str, to_status: str) -> bool:
+    try:
+        return ReportStatus(to_status) in VALID_TRANSITIONS.get(
+            ReportStatus(from_status), set()
+        )
+    except ValueError:
+        return False
+
+
+def is_editable(status: str) -> bool:
+    try:
+        return ReportStatus(status) == ReportStatus.DRAFT
+    except ValueError:
+        return False
+
+
+def is_flagged(status: str) -> bool:
+    try:
+        return ReportStatus(status) in FLAGGED_STATUSES
+    except ValueError:
+        return False
