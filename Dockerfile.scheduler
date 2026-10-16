@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1
+ENV CMDSTAN_DIR=/opt/cmdstan
+ENV CMDSTAN=/opt/cmdstan/cmdstan-2.33.1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+# Prophet 1.1.5 ships an incomplete CmdStan directory that takes precedence
+# over the fully compiled installation below.
+RUN rm -rf /usr/local/lib/python3.11/site-packages/prophet/stan_model/cmdstan-2.33.1
+
+# Prophet needs a real CmdStan installation at runtime. Install a fixed,
+# known-compatible version into an image path and fail the build if it is absent.
+RUN python -c "from pathlib import Path; import cmdstanpy; ok=cmdstanpy.install_cmdstan(version='2.33.1', dir='/opt/cmdstan', verbose=True); path=Path('/opt/cmdstan/cmdstan-2.33.1'); assert ok and (path/'bin'/'cmdstan').exists(), f'Incomplete CmdStan installation at {path}'; print(path)"
+RUN python -c "import cmdstanpy; cmdstanpy.set_cmdstan_path('/opt/cmdstan/cmdstan-2.33.1'); from prophet import Prophet; Prophet(stan_backend='CMDSTANPY', yearly_seasonality=False, weekly_seasonality=False, daily_seasonality=False); print('Prophet CmdStan backend ready')"
+
+COPY src ./src
+
+CMD ["python", "-m", "src.etl_pipeline.scheduler"]

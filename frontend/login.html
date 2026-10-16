@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — eSaka</title>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/ui-feedback.js"></script>
+<script src="assets/js/app-enhancements.js" defer></script>
+<link rel="stylesheet" href="assets/css/app-enhancements.css">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="images/esakabg2.jpg">
+
+<style>
+/* =================================================
+   DESIGN TOKENS (same palette as index.html)
+================================================= */
+:root {
+  --kale: #283C21;
+  --kale-deep: #1E2E19;
+  --spinach: #657104;
+  --turmeric: #FA9401;
+  --bean: #F8F7F2;
+  --endive: #B5BC76;
+  --radicchio: #C2512F;
+  --muted: #4F5A49;
+  --line: #E3E6DA;
+  --field: #F5F6F0;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--kale);
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+/* =================================================
+   PAGE SHELL
+================================================= */
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 59fr) minmax(0, 41fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+  animation: fadeIn .6s ease both;
+}
+
+/* =================================================
+   LEFT: SHOWCASE (alternating images)
+================================================= */
+.showcase {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 44px 52px;
+  color: #fff;
+  background: var(--kale-deep);
+  isolation: isolate;
+}
+
+.slides {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transform: scale(1);
+  /* inactive: hold scale during the fade-out, then reset unseen */
+  transition: opacity 1.4s ease, transform 0s linear 1.4s;
+}
+
+.slide.active {
+  opacity: 1;
+  transform: scale(1.1);
+  /* slow Ken Burns zoom while visible */
+  transition: opacity 1.4s ease, transform 10s linear;
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(30, 46, 25, .56) 0%, rgba(30, 46, 25, .14) 78%),
+    linear-gradient(180deg, rgba(30, 46, 25, .56) 0%, rgba(30, 46, 25, .36) 40%, rgba(30, 46, 25, .84) 100%),
+    rgba(40, 60, 33, .18);
+}
+
+.showcase-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.brand-mark {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--bean);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
+}
+
+.brand-mark img { width: 38px; height: 38px; display: block; }
+
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-text strong { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.brand-text small {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .7);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  background: rgba(255, 255, 255, .10);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.badge svg { width: 14px; height: 14px; color: var(--turmeric); flex: none; }
+
+.showcase-body { max-width: 600px; }
+
+.headline {
+  font-size: clamp(38px, 4.4vw, 60px);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -.025em;
+  margin-bottom: 22px;
+}
+
+.headline .line { display: block; }
+
+.lede {
+  max-width: 580px;
+  text-wrap: balance;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, .82);
+}
+
+/* ---- live stats ---- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 32px;
+  max-width: 580px;
+}
+
+.stat {
+  padding: 15px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.stat[hidden] { display: none; }
+
+.stat strong {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.stat span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, .68);
+}
+
+/* loading skeleton */
+.stats.is-loading .stat strong {
+  color: transparent;
+  width: 60%;
+  min-height: 29px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .16);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* if the API cannot be reached, hide the row rather than show fake numbers */
+.stats.is-unavailable { display: none; }
+
+.showcase-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.agency {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agency-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--turmeric);
+  color: var(--kale);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.agency-icon svg { width: 18px; height: 18px; }
+
+.agency-text strong { display: block; font-size: 12.5px; font-weight: 700; }
+.agency-text span { display: block; font-size: 11.5px; color: rgba(255, 255, 255, .68); margin-top: 1px; }
+
+/* ---- slide progress indicators ---- */
+.progress { display: flex; gap: 8px; flex: none; }
+
+.progress button {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.progress button::before,
+.progress button::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 3px;
+}
+
+.progress button::before { right: 0; background: rgba(255, 255, 255, .32); }
+
+.progress button::after {
+  width: 0;
+  background: var(--turmeric);
+}
+
+.progress button.done::after { width: 100%; }
+
+.progress button.active::after {
+  animation: fillBar var(--slide-ms, 6000ms) linear forwards;
+}
+
+.progress button:focus-visible { outline: 2px solid var(--turmeric); outline-offset: 2px; border-radius: 4px; }
+
+/* =================================================
+   RIGHT: LOGIN PANEL
+================================================= */
+.panel {
+  display: flex;
+  flex-direction: column;
+  padding: 32px 40px 28px;
+  background: #fff;
+}
+
+.panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.panel-top a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--kale);
+  text-decoration: none;
+}
+
+.panel-top a svg { width: 15px; height: 15px; transition: transform .25s var(--ease); }
+.panel-top a:hover svg { transform: translateX(-3px); }
+.panel-top a:hover { text-decoration: underline; }
+
+.card-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.card {
+  width: 100%;
+  max-width: 430px;
+  padding: 34px 32px 30px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 28px 64px rgba(40, 60, 33, .10), 0 2px 6px rgba(40, 60, 33, .04);
+}
+
+.lock-tile {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: #ECF0DC;
+  color: var(--kale);
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+}
+
+.lock-tile svg { width: 22px; height: 22px; }
+
+.card h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  margin-bottom: 8px;
+}
+
+.card .sub {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+/* ---- status message (login.js sets .form-status / .show / .error) ---- */
+.form-status {
+  display: none;
+  margin-bottom: 16px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--kale);
+  background: #ECF0DC;
+  border: 1px solid #D6DDB8;
+}
+
+.form-status.show { display: block; animation: rise .35s var(--ease) both; }
+
+.form-status.error {
+  color: #8E3A20;
+  background: #FCEDE7;
+  border-color: #F1C9BA;
+}
+
+/* ---- fields ---- */
+.field { margin-bottom: 18px; }
+
+.label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.field label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--kale);
+}
+
+.label-row a {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--spinach);
+  text-decoration: none;
+}
+
+.label-row a:hover { text-decoration: underline; }
+
+.field-wrap { position: relative; }
+
+.field-icon {
+  position: absolute;
+  left: 15px;
+  top: 24px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: #7C8676;
+  pointer-events: none;
+  transition: color .2s ease;
+}
+
+.field-wrap:focus-within .field-icon { color: var(--spinach); }
+
+.field-wrap input {
+  width: 100%;
+  height: 48px;
+  padding: 0 46px 0 44px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--kale);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  outline: none;
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.field-wrap input::placeholder { color: #8E978A; }
+
+.field-wrap input:hover { border-color: #CDD3BF; }
+
+.field-wrap input:focus {
+  background: #fff;
+  border-color: var(--spinach);
+  box-shadow: 0 0 0 4px rgba(101, 113, 4, .16);
+}
+
+.field-wrap input.invalid {
+  border-color: var(--radicchio);
+  background: #FFF9F7;
+}
+
+.field-wrap input.invalid:focus { box-shadow: 0 0 0 4px rgba(194, 81, 47, .16); }
+
+.error-msg {
+  display: none;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--radicchio);
+}
+
+.field.has-error .error-msg { display: block; animation: rise .3s var(--ease) both; }
+.field.has-error .field-wrap input { animation: shake .35s ease; }
+
+.toggle-password {
+  position: absolute;
+  right: 6px;
+  top: 24px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #7C8676;
+  cursor: pointer;
+  transition: color .2s ease, background .2s ease;
+}
+
+.toggle-password:hover { color: var(--kale); background: rgba(40, 60, 33, .06); }
+.toggle-password:focus-visible { outline: 2px solid var(--spinach); outline-offset: 1px; }
+.toggle-password svg { width: 18px; height: 18px; }
+
+/* ---- login button ---- */
+.btn-login {
+  position: relative;
+  width: 100%;
+  height: 50px;
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--kale);
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background .2s ease, transform .2s var(--ease), box-shadow .2s ease;
+}
+
+.btn-login svg { width: 17px; height: 17px; transition: transform .25s var(--ease); }
+
+.btn-login:hover {
+  background: var(--kale-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(40, 60, 33, .25);
+}
+
+.btn-login:hover svg { transform: translateX(4px); }
+.btn-login:active { transform: translateY(0); box-shadow: none; }
+.btn-login:focus-visible { outline: 3px solid rgba(250, 148, 1, .55); outline-offset: 2px; }
+
+.btn-login .spinner {
+  display: none;
+  width: 17px;
+  height: 17px;
+  border: 2px solid rgba(255, 255, 255, .35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+.btn-login.loading { pointer-events: none; opacity: .92; }
+.btn-login.loading .arrow { display: none; }
+.btn-login.loading .spinner { display: block; }
+
+/* ---- buyer access ---- */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0 16px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #7C8676;
+}
+
+.divider::before,
+.divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+.buyer-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 44px 13px 14px;
+  border-radius: 14px;
+  border: 1px solid #F5D9A2;
+  background: #FFF4DD;
+  text-decoration: none;
+  transition: transform .25s var(--ease), box-shadow .25s ease, border-color .2s ease;
+}
+
+.buyer-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--turmeric);
+  box-shadow: 0 10px 22px rgba(250, 148, 1, .18);
+}
+
+.buyer-link:focus-visible { outline: 3px solid rgba(250, 148, 1, .55); outline-offset: 2px; }
+
+.buyer-icon {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 11px;
+  background: var(--turmeric);
+  color: var(--kale);
+  display: grid;
+  place-items: center;
+}
+
+.buyer-icon svg { width: 20px; height: 20px; }
+
+.buyer-text strong { display: block; font-size: 13.5px; font-weight: 700; color: var(--kale); }
+.buyer-text span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+
+.buyer-arrow {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  color: var(--kale);
+  transition: transform .25s var(--ease);
+}
+
+.buyer-link:hover .buyer-arrow { transform: translate(3px, -3px); }
+
+.dpa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.dpa svg { width: 14px; height: 14px; color: var(--spinach); flex: none; }
+
+/* hide browser-native password reveal controls (we ship our own) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }
+input[type="password"]::-webkit-credentials-auto-fill-button { display: none !important; }
+
+/* =================================================
+   ENTRANCE MOTION
+================================================= */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: rise .75s var(--ease) forwards;
+  animation-delay: calc(var(--i, 0) * 90ms + 150ms);
+}
+
+.reveal-card {
+  opacity: 0;
+  transform: translateY(22px) scale(.985);
+  animation: cardIn .8s var(--ease) forwards;
+  animation-delay: .25s;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes cardIn { from { opacity: 0; transform: translateY(22px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes fillBar { from { width: 0; } to { width: 100%; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* =================================================
+   RESPONSIVE
+================================================= */
+@media (max-width: 1100px) {
+  .showcase { padding: 36px 36px; }
+  .panel { padding: 28px 28px 24px; }
+  .badge { display: none; }
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+
+  .showcase { min-height: 250px; padding: 26px 24px; gap: 20px; }
+  .lede, .stats, .agency, .progress { display: none; }
+  .headline { font-size: 28px; margin-bottom: 0; }
+
+  .panel { padding: 20px 20px 24px; }
+  .card { padding: 28px 22px 24px; }
+}
+
+@media (max-width: 420px) {
+  .panel-top { justify-content: flex-start; }
+}
+
+/* =================================================
+   REDUCED MOTION
+================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+  }
+  .slide.active { transform: none; }
+  .reveal, .reveal-card { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- =============== LEFT: SHOWCASE =============== -->
+  <section class="showcase" aria-label="About eSaka">
+
+    <div class="slides" aria-hidden="true">
+      <div class="slide active" style="background-image:url('images/esakabg2.jpg')"></div>
+      <div class="slide" style="background-image:url('images/esakabg3.avif')"></div>
+      <div class="slide" style="background-image:url('images/esakabg.jpg')"></div>
+    </div>
+    <div class="shade" aria-hidden="true"></div>
+
+    <header class="showcase-top reveal" style="--i:0">
+      <a class="brand" href="index.html" aria-label="eSaka home">
+        <span class="brand-mark"><img src="images/esakalogo.png" alt=""></span>
+        <span class="brand-text">
+          <strong>eSaka</strong>
+          <small>Agricultural Network</small>
+        </span>
+      </a>
+
+      <span class="badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+        Trusted Agricultural Service
+      </span>
+    </header>
+
+    <div class="showcase-body">
+      <h2 class="headline" aria-label="Tamang Presyo. Tamang Tanim. Tamang Kita.">
+        <span class="line reveal" style="--i:1">Tamang Presyo.</span>
+        <span class="line reveal" style="--i:2">Tamang Tanim.</span>
+        <span class="line reveal" style="--i:3">Tamang Kita.</span>
+      </h2>
+      <p class="lede reveal" style="--i:4">
+        Pinag-uugnay ang mga magsasaka, agricultural extension workers, at ang
+        Department of Agriculture gamit ang real-time market data at verified buyer matching.
+      </p>
+
+      <!-- Live figures from GET /api/public/stats -->
+      <div class="stats is-loading reveal" id="stats" style="--i:5" aria-live="polite">
+        <div class="stat">
+          <strong data-stat="farmers_connected">0</strong>
+          <span>Farmers connected</span>
+        </div>
+        <div class="stat">
+          <strong data-stat="municipalities_active">0</strong>
+          <span>Municipalities active</span>
+        </div>
+        <div class="stat" id="verifiedStat">
+          <strong data-stat="verification_rate" data-suffix="%">0</strong>
+          <span>Reports verified</span>
+        </div>
+      </div>
+    </div>
+
+    <footer class="showcase-foot reveal" style="--i:6">
+      <div class="agency">
+        <span class="agency-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 9 9-6 9 6"/><path d="M5 9v9M9.5 9v9M14.5 9v9M19 9v9"/><path d="M3 21h18"/><path d="M3 9h18"/></svg>
+        </span>
+        <div class="agency-text">
+          <strong>Department of Agriculture</strong>
+          <span>Digital services for resilient local food systems</span>
+        </div>
+      </div>
+
+      <div class="progress" id="progress" role="group" aria-label="Background image">
+        <button type="button" class="active" aria-label="Show image 1"></button>
+        <button type="button" aria-label="Show image 2"></button>
+        <button type="button" aria-label="Show image 3"></button>
+      </div>
+    </footer>
+
+  </section>
+
+  <!-- =============== RIGHT: LOGIN =============== -->
+  <section class="panel">
+
+    <div class="panel-top reveal" style="--i:1">
+      <a href="index.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+        Back to home
+      </a>
+    </div>
+
+    <main class="card-wrap">
+      <div class="card reveal-card">
+
+        <div class="lock-tile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+        </div>
+
+        <h1>Welcome back</h1>
+        <p class="sub">Log in with your registered government or partner account.</p>
+
+        <!-- login.js writes its messages here -->
+        <div class="form-status" id="formStatus" role="status" aria-live="polite"></div>
+
+        <form id="loginForm" novalidate>
+
+          <!-- USERNAME -->
+          <div class="field" id="emailField">
+            <div class="label-row">
+              <label for="email">Username</label>
+            </div>
+            <div class="field-wrap">
+              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+              <input
+                type="text"
+                id="email"
+                name="email"
+                autocomplete="username"
+                placeholder="Enter your username"
+              >
+              <p class="error-msg" id="emailError">Enter your username.</p>
+            </div>
+          </div>
+
+          <!-- PASSWORD -->
+          <div class="field" id="passwordField">
+            <div class="label-row">
+              <label for="password">Password</label>
+              <a href="forgot-password.html">Forgot password?</a>
+            </div>
+            <div class="field-wrap">
+              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                autocomplete="current-password"
+                placeholder="Enter your password"
+              >
+              <button
+                type="button"
+                class="toggle-password"
+                id="togglePasswordBtn"
+                aria-label="Toggle password visibility"
+              >
+                <svg id="eyeOffIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+                <svg id="eyeIcon" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+              <p class="error-msg" id="passwordError">Enter your password.</p>
+            </div>
+          </div>
+
+          <button class="btn-login" id="loginBtn" type="submit">
+            <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Login to eSaka</span>
+          </button>
+
+        </form>
+
+        <div class="divider">Buyer access</div>
+
+        <a class="buyer-link" href="buyer-registry.html">
+          <span class="buyer-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/></svg>
+          </span>
+          <span class="buyer-text">
+            <strong>Submit Buyer Registry</strong>
+            <span>Apply as an institutional or commercial buyer</span>
+          </span>
+          <svg class="buyer-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+
+      </div>
+    </main>
+
+    <p class="dpa reveal" style="--i:7">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+      Your data is protected and handled under the Data Privacy Act of 2012.
+    </p>
+
+  </section>
+</div>
+
+
+<!-- =================================================
+     IMAGE SLIDESHOW (left panel)
+================================================= -->
+<script>
+(function () {
+  var slides = document.querySelectorAll('.slide');
+  var bars = document.querySelectorAll('#progress button');
+  var SLIDE_MS = 6000;
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var current = 0;
+  var timer = null;
+
+  document.documentElement.style.setProperty('--slide-ms', SLIDE_MS + 'ms');
+
+  function show(index) {
+    current = index;
+
+    slides.forEach(function (slide, i) {
+      slide.classList.toggle('active', i === index);
+    });
+
+    // restart the progress-bar animation for the new slide
+    bars.forEach(function (bar, i) {
+      bar.classList.remove('active');
+      bar.classList.toggle('done', i < index);
+    });
+    void document.body.offsetWidth;
+    bars[index].classList.add('active');
+  }
+
+  function start() {
+    if (reduceMotion) return;
+    clearInterval(timer);
+    timer = setInterval(function () {
+      show((current + 1) % slides.length);
+    }, SLIDE_MS);
+  }
+
+  bars.forEach(function (bar, i) {
+    bar.addEventListener('click', function () {
+      show(i);
+      start();
+    });
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) clearInterval(timer); else start();
+  });
+
+  show(0);
+  start();
+})();
+</script>
+
+<!-- =================================================
+     LIVE STATS (GET /api/public/stats)
+================================================= -->
+<script>
+(function () {
+  var base = (window.API_BASE_URL || 'https://esaka-backend-production.up.railway.app').replace(/\/$/, '');
+  var statsEl = document.getElementById('stats');
+  var verifiedCard = document.getElementById('verifiedStat');
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function countUp(el, target, suffix) {
+    suffix = suffix || '';
+
+    if (reduceMotion || target === 0) {
+      el.textContent = target.toLocaleString('en-PH') + suffix;
+      return;
+    }
+
+    var duration = 1400;
+    var startTime = null;
+
+    function frame(now) {
+      if (startTime === null) startTime = now;
+      var t = Math.min((now - startTime) / duration, 1);
+      var eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = Math.round(target * eased).toLocaleString('en-PH') + suffix;
+      if (t < 1) requestAnimationFrame(frame);
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  var controller = new AbortController();
+  var timeout = setTimeout(function () { controller.abort(); }, 6000);
+
+  fetch(base + '/api/public/stats', {
+    headers: { 'Accept': 'application/json' },
+    signal: controller.signal
+  })
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      // no submitted reports yet -> a percentage would be meaningless
+      if (data.verification_rate === null || data.verification_rate === undefined) {
+        verifiedCard.hidden = true;
+        statsEl.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+      }
+
+      statsEl.classList.remove('is-loading');
+
+      statsEl.querySelectorAll('[data-stat]').forEach(function (el) {
+        var value = data[el.dataset.stat];
+        if (typeof value === 'number') {
+          countUp(el, value, el.dataset.suffix);
+        }
+      });
+    })
+    .catch(function (err) {
+      console.warn('Live stats unavailable:', err);
+      statsEl.classList.remove('is-loading');
+      statsEl.classList.add('is-unavailable');
+    })
+    .then(function () { clearTimeout(timeout); });
+})();
+</script>
+
+<!-- =================================================
+     BUTTON LOADING STATE (mirrors the messages login.js writes)
+================================================= -->
+<script>
+(function () {
+  var status = document.getElementById('formStatus');
+  var btn = document.getElementById('loginBtn');
+
+  new MutationObserver(function () {
+    var text = status.textContent.trim();
+    var busy = !status.classList.contains('error') &&
+               (text === 'Logging in...' || text.indexOf('successful') !== -1);
+    btn.classList.toggle('loading', busy);
+  }).observe(status, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+})();
+</script>
+
+<!-- EXISTING LOGIN LOGIC (unchanged; relies on the element IDs above) -->
+<script src="assets/js/login.js"></script>
+
+</body>
+</html>

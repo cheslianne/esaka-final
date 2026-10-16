@@ -1,0 +1,2001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Admin — eSaka</title>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/ui-feedback.js"></script>
+  <script src="../assets/js/app-enhancements.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/app-enhancements.css">
+
+
+  <style>
+    :root {
+      --cream: #F2EDE1;
+      --white: #FBF8F1;
+      --ink: #2E2A22;
+      --muted: #625E52;
+      --border: #DFD8C6;
+      --border-light: #ECE5D4;
+      --green: #5B6B4F;
+      --green-dark: #445439;
+      --green-light: #E7EDDF;
+      --brown: #C08A4E;
+      --gold: #C9A15A;
+      --status-confirmed: #2E7D32;
+      --status-submitted: #D97706;
+      --status-rejected: #C0392B;
+      --topbar-height: 72px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+    }
+
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+
+    a { color: inherit; text-decoration: none; }
+    button, input, select, textarea { font-family: inherit; }
+
+
+    /* --- TOPBAR --- */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: var(--cream);
+      border-bottom: 1.5px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 2100;
+      height: var(--topbar-height);
+    }
+
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+
+    .hamburger {
+      background: #FFF;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+
+    .hamburger:hover {
+      background: var(--green-light);
+      border-color: var(--green);
+    }
+
+
+    .hamburger span {
+      display: block;
+      width: 20px;
+      height: 2.5px;
+      background: var(--ink);
+      border-radius: 2px;
+    }
+
+
+    .logos {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.7);
+      padding: 6px 14px 6px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #FFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+
+    .user-text {
+      text-align: left;
+      line-height: 1.2;
+    }
+
+
+    .user-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+
+    .user-role {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--brown);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+
+    /* --- SIDEBAR --- */
+    .layout {
+      display: flex;
+      min-height: calc(100vh - var(--topbar-height));
+    }
+
+
+    .sidebar {
+      width: 230px;
+      background: var(--green);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 12px;
+      flex-shrink: 0;
+      position: fixed;
+      top: var(--topbar-height);
+      left: -230px;
+      bottom: 0;
+      z-index: 2000;
+      transition: left .28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+
+    .sidebar.open {
+      left: 0;
+    }
+
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      color: #E8E5DD;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      width: 100%;
+      text-align: left;
+      transition: all 0.2s ease;
+    }
+
+
+    .nav-item svg {
+      width: 19px;
+      height: 19px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFFFFF;
+    }
+
+
+    .nav-item.active {
+      background: var(--green-dark);
+      color: #FFFFFF;
+      font-weight: 700;
+    }
+
+
+    .signout {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      color: #FFC0C0;
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: var(--radius-sm);
+      width: 100%;
+      transition: all 0.2s ease;
+    }
+
+
+    .signout svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+
+    .signout:hover {
+      background: rgba(192, 57, 43, 0.25);
+      color: #FFF;
+    }
+
+
+    /* --- MAIN CONTENT & ACTION PANELS --- */
+    .main {
+      flex: 1;
+      padding: 32px 40px;
+      min-width: 0;
+    }
+
+
+    .view { display: none; }
+    .view.active-view { display: block; }
+
+
+    .main-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+
+    .main-header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--green-dark);
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+
+
+    .card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 22px 24px;
+    }
+
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--green);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+
+    /* --- SEARCH BOX & HEADER ACTIONS --- */
+    .search-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #FFFFFF;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      min-width: 240px;
+      transition: all 0.2s ease;
+    }
+
+
+    .search-box:focus-within {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.15);
+    }
+
+
+    .search-box svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: var(--muted);
+      stroke-width: 2.4;
+      flex-shrink: 0;
+    }
+
+
+    .search-box input {
+      border: none;
+      outline: none;
+      font-size: 13.5px;
+      width: 100%;
+      background: transparent;
+      color: var(--ink);
+    }
+
+
+    .filter-input {
+      background: #FFFFFF;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      font-size: 13px;
+      color: var(--ink);
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+
+    .filter-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.15);
+    }
+
+
+    /* --- CLEAN ACCESSIBLE DATA TABLES --- */
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-top: 8px;
+    }
+
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+
+    thead th {
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      padding: 12px 14px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-bottom: 1.5px solid var(--border);
+      background: #f8f6f2;
+    }
+
+
+    tbody td {
+      padding: 13px 14px;
+      font-size: 13.5px;
+      vertical-align: middle;
+      border-bottom: 1px solid var(--border-light);
+      color: var(--ink);
+    }
+
+
+    tbody tr {
+      transition: background 0.15s ease;
+    }
+
+
+    tbody tr:hover td {
+      background: #F3EEE4;
+    }
+
+
+    .name-pill { font-weight: 500; color: #1e1a16; }
+    .username-pill { color: #5a554a; font-size: 13px; }
+    .location-pill { color: #5a554a; font-size: 12.5px; }
+
+
+    .role {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+
+    .status-badge.active { background: #e6f4ea; color: #1e1a16 !important; }
+    .status-badge.inactive { background: #fce8e6; color: #1e1a16 !important; }
+
+
+    /* --- BUTTONS --- */
+    .btn-primary {
+      appearance: none;
+      background: var(--green);
+      color: #FFF;
+      border: none;
+      font-size: 13.5px;
+      font-weight: 700;
+      padding: 9px 20px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--green-dark);
+      transform: translateY(-1px);
+    }
+
+
+    .btn-secondary {
+      appearance: none;
+      border: 1.5px solid var(--border);
+      background: #FFFFFF;
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 9px 20px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--cream);
+      border-color: var(--green);
+    }
+
+
+    .btn-danger { background: #A1382B !important; color: #FFF !important; }
+    .btn-danger:hover { background: #84281D !important; }
+
+
+    .btn-deactivate,
+    .btn-reactivate,
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 16px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      min-width: 95px;
+      white-space: nowrap;
+    }
+
+
+    .btn-deactivate { background: #fce8e6; color: #b3261e; }
+    .btn-deactivate:hover { background: #f5d0cc; transform: translateY(-1px); }
+    .btn-reactivate { background: #e6f4ea; color: #1e7e34; }
+    .btn-reactivate:hover { background: #c8e6d0; transform: translateY(-1px); }
+
+
+    .action-btn {
+      border: 1.5px solid var(--border);
+      background: #FFFFFF;
+      color: var(--ink);
+    }
+
+
+    .action-btn:hover:not(:disabled) {
+      background: var(--cream);
+      border-color: var(--green);
+      color: var(--green-dark);
+    }
+
+
+    td:last-child, thead th:last-child {
+      text-align: center !important;
+    }
+
+
+    /* --- FORM LAYOUT & INPUT FIELDS --- */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 30px;
+    }
+
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+    }
+
+
+    .form-field label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--ink);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+
+    .form-field input,
+    .form-field select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      outline: none;
+      background: #FFFFFF;
+      color: var(--ink);
+      transition: all 0.2s ease;
+    }
+
+
+    .form-field input:focus,
+    .form-field select:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.15);
+    }
+
+
+    .form-field select:disabled {
+      background: #F0EDE4;
+      color: #9A9488;
+      cursor: not-allowed;
+      opacity: 0.75;
+    }
+
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+
+    /* --- PAGINATION STYLES --- */
+    .pagination-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+
+    .pagination-controls { display: flex; align-items: center; gap: 6px; }
+    .page-numbers-wrap { display: flex; gap: 4px; }
+
+
+    .btn-page {
+      padding: 5px 11px;
+      border: 1px solid var(--border);
+      background: #FFF;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--ink);
+      transition: all 0.15s ease;
+    }
+
+
+    .btn-page:hover:not(:disabled) {
+      background: #EDE7D8;
+      border-color: var(--green);
+    }
+
+
+    .btn-page.active {
+      background: var(--green);
+      color: #FFF;
+      border-color: var(--green);
+    }
+
+
+    .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
+
+
+    /* --- MODALS --- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(30, 35, 28, 0.6);
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+    }
+
+
+    .modal-overlay.show { display: flex; }
+
+
+    .modal-box {
+      background: var(--cream);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 32px 38px;
+      text-align: center;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.2);
+      max-width: 440px;
+      width: 90%;
+    }
+
+
+    .modal-box h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--green);
+      margin-bottom: 10px;
+    }
+
+
+    .modal-box p {
+      font-size: 14px;
+      color: var(--ink);
+      margin-bottom: 22px;
+      line-height: 1.45;
+    }
+
+
+    .modal-actions { display: flex; justify-content: center; gap: 12px; }
+
+
+    .alert-detail-box { max-width: 480px; text-align: left; }
+
+
+    .alert-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+
+    .alert-modal-header h2 { font-size: 18px; font-weight: 800; color: var(--green); margin: 0; }
+
+
+    .action-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+
+    .btn-archive {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 16px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      min-width: 80px;
+      white-space: nowrap;
+      background: #fdf3e0;
+      color: #8a5a00;
+    }
+
+
+    .btn-archive:hover:not(:disabled) {
+      background: #f5e2b8;
+      transform: translateY(-1px);
+    }
+
+
+    .btn-archive:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+
+    .modal-stats-grid div { color: var(--muted); }
+    .modal-stats-grid div b { color: var(--ink); display: block; font-size: 14px; margin-top: 2px; }
+
+
+    .modal-actions-row { display: flex; justify-content: flex-end; gap: 12px; }
+    .modal-title { font-size: 20px; font-weight: 800; color: var(--green); margin-bottom: 16px; }
+    .modal-ok { margin-top: 8px; }
+    .loading-row { text-align: center; padding: 24px; color: var(--muted); }
+
+    /* --- MODAL CONFIRM BUTTON (para sa OK button) --- */
+.modal-btn-confirm {
+  border: none;
+  background: var(--green);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 10px 24px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-family: inherit;
+  display: inline-block;
+  text-align: center;
+}
+
+.modal-btn-confirm:hover {
+  background: var(--green-dark);
+}
+/* ===== ROLE SUMMARY CARDS ===== */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.summary-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-left: 5px solid var(--border);
+  box-shadow: 0 1px 4px rgba(46, 42, 34, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: pointer;
+}
+
+.summary-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(46, 42, 34, 0.10);
+}
+
+.summary-card.active-filter {
+  background: var(--green-light);
+  border-color: var(--green);
+}
+
+.summary-icon {
+  font-size: 26px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F6F2E8;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.summary-info h3 {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.summary-count {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1;
+}
+
+.summary-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #A09888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Color coding per role */
+.summary-card.aew        { border-left-color: #5B6B4F; }
+.summary-card.municipal  { border-left-color: #2E7D32; }
+.summary-card.provincial { border-left-color: #C08A4E; }
+.summary-card.da-rfo     { border-left-color: #8E44AD; }
+
+.summary-card.aew .summary-icon        { background: #E7EDDF; }
+.summary-card.municipal .summary-icon  { background: #E6F4EA; }
+.summary-card.provincial .summary-icon { background: #FDF3E0; }
+.summary-card.da-rfo .summary-icon     { background: #F3E8FA; }
+
+#userRows tr {
+    cursor: pointer;
+}
+#userRows tr:hover td {
+    background: #F3EEE4;
+}
+/* ⬇️ IDAGDAG MO DITO ⬇️ */
+    
+    /* Hide Edge/IE native reveal */
+    input[type="password"]::-ms-reveal,
+    input[type="password"]::-ms-clear {
+        display: none;
+    }
+
+    /* Hide Chrome/Webkit native reveal */
+    input[type="password"]::-webkit-credentials-auto-fill-button,
+    input[type="password"]::-webkit-strong-password-auto-fill-button {
+        display: none !important;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .password-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .password-wrap input {
+        width: 100%;
+        padding-right: 42px;
+    }
+    .toggle-password {
+        position: absolute;
+        right: 8px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        border-radius: 4px;
+    }
+    .toggle-password:hover {
+        background: var(--green-light);
+        color: var(--green-dark);
+    }
+    
+  </style>
+  <link rel="stylesheet" href="../assets/css/system-admin.css">
+</head>
+<body>
+
+
+<div class="topbar">
+  <div class="topbar-left">
+    <button class="hamburger" id="hamburgerBtn" aria-label="Toggle navigation" type="button">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="logos">
+  <a href="../home.html" style="position: relative; z-index: 10; display: inline-block;">
+    <img src="../images/esakalogo.png" alt="eSaka Logo" style="height: 40px; width: auto; display: block; cursor: pointer;">
+  </a>
+</div>
+  </div>
+
+
+  <div class="user-info" id="openProfileBtn" title="Click to edit profile" style="cursor: pointer;">
+  <div class="avatar" id="userDisplayInitials">SA</div>
+  <div class="user-text">
+    <div class="user-name" id="loggedInUserName">System Admin</div>
+    <div class="user-role" id="loggedInUserRole">System Administrator</div>
+  </div>
+</div>
+  </div>
+</div>
+
+
+<div class="layout">
+  <nav class="sidebar" id="sidebar">
+    <div class="nav-list">
+      <button class="nav-item active" type="button" data-view="dashboard">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" type="button" data-view="users">
+        <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        User Management
+      </button>
+     
+      <button class="nav-item" type="button" data-view="audit">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+        Audit Log
+      </button>
+       
+      <button class="nav-item" type="button" data-view="archived">
+        <svg viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.68A1.45 1.45 0 0018 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19a2 2 0 002 2h14a2 2 0 002-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>
+        Archived Users
+      </button>
+    </div>
+
+
+    <a class="signout" href="../index.html" id="signOutButton">
+      <svg viewBox="0 0 24 24"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
+      Sign Out
+    </a>
+  </nav>
+
+
+  <main class="main">
+
+
+    <section class="view active-view" id="view-dashboard">
+      <div class="main-header dashboard-header">
+        <div>
+          <h1>System Dashboard</h1>
+          <p>Account health, activity, and platform-wide summaries.</p>
+        </div>
+        <button class="btn-primary" type="button" data-dashboard-view="users">Manage Accounts</button>
+      </div>
+
+      <div class="dashboard-stat-grid" aria-label="System statistics">
+        <article class="dashboard-stat-card">
+          <span class="dashboard-stat-label">Total Accounts</span>
+          <strong id="dashboardTotalUsers">—</strong>
+          <span class="dashboard-stat-note">Current non-archived accounts</span>
+        </article>
+        <article class="dashboard-stat-card">
+          <span class="dashboard-stat-label">Active Accounts</span>
+          <strong id="dashboardActiveUsers">—</strong>
+          <span class="dashboard-stat-note">Currently enabled</span>
+        </article>
+        <article class="dashboard-stat-card">
+          <span class="dashboard-stat-label">Inactive Accounts</span>
+          <strong id="dashboardInactiveUsers">—</strong>
+          <span class="dashboard-stat-note">Currently disabled</span>
+        </article>
+        <article class="dashboard-stat-card">
+          <span class="dashboard-stat-label">Audit Events</span>
+          <strong id="dashboardAuditCount">—</strong>
+          <span class="dashboard-stat-note">Recorded system activity</span>
+        </article>
+      </div>
+
+      <div class="dashboard-chart-grid">
+        <section class="card dashboard-panel chart-panel">
+          <div class="dashboard-panel-heading">
+            <div>
+              <h2>Active vs. Inactive Users</h2>
+              <p>Current non-archived accounts</p>
+            </div>
+          </div>
+          <div class="dashboard-chart-frame">
+            <canvas id="accountStatusChart" aria-label="Pie chart of active and inactive accounts"></canvas>
+          </div>
+          <p class="dashboard-chart-message" id="accountStatusChartMessage" hidden></p>
+        </section>
+        <section class="card dashboard-panel chart-panel">
+          <div class="dashboard-panel-heading">
+            <div>
+              <h2>Accounts Created per Month</h2>
+              <p>Last 12 months, archived accounts excluded</p>
+            </div>
+          </div>
+          <div class="dashboard-chart-frame">
+            <canvas id="accountsCreatedChart" aria-label="Bar chart of accounts created each month"></canvas>
+          </div>
+          <p class="dashboard-chart-message" id="accountsCreatedChartMessage" hidden></p>
+        </section>
+      </div>
+
+      <div class="dashboard-content-grid">
+        <section class="card dashboard-panel">
+          <div class="dashboard-panel-heading">
+            <div>
+              <h2>Account Summary</h2>
+              <p>Reports &amp; analytics: registered accounts by role</p>
+            </div>
+          </div>
+          <div class="summary-cards dashboard-role-cards" id="roleSummaryCards">
+            <div class="summary-card aew" data-role="AEW">
+              <div class="summary-info">
+                <h3>Agricultural Extension Workers</h3>
+                <p class="summary-count" id="countAEW">—</p>
+                <span class="summary-label">Registered Accounts</span>
+              </div>
+            </div>
+            <div class="summary-card municipal" data-role="Municipal Coordinator">
+              <div class="summary-info">
+                <h3>Municipal Coordinators</h3>
+                <p class="summary-count" id="countMunicipal">—</p>
+                <span class="summary-label">Registered Accounts</span>
+              </div>
+            </div>
+            <div class="summary-card provincial" data-role="Provincial Coordinator">
+              <div class="summary-info">
+                <h3>Provincial Coordinators</h3>
+                <p class="summary-count" id="countProvincial">—</p>
+                <span class="summary-label">Registered Accounts</span>
+              </div>
+            </div>
+            <div class="summary-card da-rfo" data-role="DA-RFO">
+              <div class="summary-info">
+                <h3>DA-RFO Officers</h3>
+                <p class="summary-count" id="countDARFO">—</p>
+                <span class="summary-label">Registered Accounts</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card dashboard-panel">
+          <div class="dashboard-panel-heading">
+            <div>
+              <h2>Recent Activity</h2>
+              <p>Latest recorded audit events</p>
+            </div>
+            <button class="btn-secondary" type="button" data-dashboard-view="audit">View audit log</button>
+          </div>
+          <div id="dashboardRecentActivity" class="dashboard-activity-list" aria-live="polite">
+            <p class="dashboard-empty-state">Loading activity...</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="view" id="view-users">
+      <div class="main-header">
+        <h1>User Account Management</h1>
+        <button class="btn-primary" id="addAccountBtn" type="button">+ Add Account</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Accounts</div>
+        <div class="search-row user-management-search">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="searchUsers" placeholder="Search by name, email, role, or status" aria-label="Search user accounts">
+          </div>
+          <select id="userStatusFilter" class="filter-input" aria-label="Filter users by status">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Date Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="userRows" data-page-size="7">
+              <tr><td colspan="6" class="loading-row">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination-container">
+          <span class="pagination-info" id="paginationInfo">Showing 0 of 0</span>
+          <div class="pagination-controls" id="paginationControls">
+            <button class="btn-page" id="prevPageBtn" type="button" disabled>&laquo; Prev</button>
+            <div id="pageNumberBtns" class="page-numbers-wrap"></div>
+            <button class="btn-page" id="nextPageBtn" type="button">Next &raquo;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="view" id="view-add-account">
+      <div class="main-header">
+        <h1>Add New Account</h1>
+      </div>
+
+
+      <div class="card">
+        <form id="addAccountForm" novalidate>
+          <div class="form-grid">
+            <div class="form-field">
+              <label for="firstName">First Name *</label>
+              <input type="text" id="firstName" required aria-describedby="firstNameError">
+              <small class="validation-error" id="firstNameError" role="alert" hidden></small>
+            </div>
+            <div class="form-field">
+              <label for="lastName">Last Name *</label>
+              <input type="text" id="lastName" required aria-describedby="lastNameError">
+              <small class="validation-error" id="lastNameError" role="alert" hidden></small>
+            </div>
+            <div class="form-field">
+              <label for="newUsername">Username *</label>
+              <input type="text" id="newUsername" required aria-describedby="newUsernameError">
+              <small class="validation-error" id="newUsernameError" role="alert" hidden></small>
+            </div>
+            <div class="form-field">
+              <label for="newEmail">Email Address *</label>
+              <input type="email" id="newEmail" required autocomplete="email" aria-describedby="newEmailError">
+              <small class="validation-error" id="newEmailError" role="alert" hidden></small>
+            </div>
+           <div class="form-field">
+  <label for="newPassword">Password *</label>
+  <div class="password-wrap">
+    <input type="password" id="newPassword" required aria-describedby="passwordHint">
+    <button type="button" class="toggle-password" data-target="newPassword" aria-label="Show password">
+      <svg class="eye-open" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
+      <svg class="eye-closed" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:none;"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65a3 3 0 003 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53a5 5 0 01-5-5c0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16a3 3 0 00-3-3l-.17.01z"/></svg>
+    </button>
+  </div>
+  <small class="password-hint" id="passwordHint" role="status" aria-live="polite">
+    Password must contain at least 8 characters, no more than 32 characters, one uppercase letter, one lowercase letter, one number, and one special character.
+  </small>
+</div>
+  <div class="form-field">         
+<label for="phoneNumber">Phone Number *</label>
+              <input type="tel" id="phoneNumber" required maxlength="11" inputmode="numeric" autocomplete="off" aria-describedby="phoneHint phoneNumberError">
+              <small class="field-hint" id="phoneHint">
+                Must be exactly 11 digits (numbers only). Example: 09171234567
+              </small>
+              <small class="validation-error" id="phoneNumberError" role="alert" hidden></small>
+            </div>
+            <div class="form-field">
+  <label for="confirmPassword">Confirm Password *</label>
+  <div class="password-wrap">
+    <input type="password" id="confirmPassword" required aria-describedby="confirmPasswordHint">
+    <button type="button" class="toggle-password" data-target="confirmPassword" aria-label="Show password">
+      <svg class="eye-open" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
+      <svg class="eye-closed" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:none;"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65a3 3 0 003 3c.22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53a5 5 0 01-5-5c0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16a3 3 0 00-3-3l-.17.01z"/></svg>
+    </button>
+  </div>
+  <small class="validation-error" id="confirmPasswordHint" role="alert" hidden></small>
+</div>
+            <div class="form-field">
+              <label for="roleSelect">Role *</label>
+              <select id="roleSelect" required>
+                <option value="" disabled selected>Select a role</option>
+                <option value="System Administrator">System Administrator</option>
+                <option value="DA-RFO">DA-RFO</option>
+                <option value="Provincial Coordinator">Provincial Coordinator</option>
+                <option value="Municipal Coordinator">Municipal Coordinator</option>
+                <option value="AEW">AEW</option>
+              </select>
+              <small class="validation-error" id="roleSelectError" role="alert" hidden></small>
+            </div>
+
+
+            <div class="form-field">
+              <label for="regionSelect">Region *</label>
+              <select id="regionSelect" required>
+                <option value="" disabled selected>Loading regions...</option>
+              </select>
+              <small class="validation-error" id="regionSelectError" role="alert" hidden></small>
+            </div>
+            <div class="form-field">
+              <label for="provinceSelect">Province *</label>
+              <select id="provinceSelect" required disabled>
+                <option value="" disabled selected>Select a province</option>
+              </select>
+              <small class="validation-error" id="provinceSelectError" role="alert" hidden></small>
+            </div>
+            <div class="form-field">
+              <label for="municipalitySelect">Municipality / City *</label>
+              <select id="municipalitySelect" required disabled>
+                <option value="" disabled selected>Select a municipality</option>
+              </select>
+              <small class="validation-error" id="municipalitySelectError" role="alert" hidden></small>
+            </div>
+          </div>
+
+
+          <div class="form-actions">
+            <p class="form-error-summary" id="addAccountError" role="alert" hidden></p>
+            <button type="button" class="btn-secondary" id="cancelAddAccount">Cancel</button>
+            <button type="submit" class="btn-primary">Create Account</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+
+    <!-- AUDIT LOG VIEW WITH FILTERS -->
+    <section class="view" id="view-audit">
+      <div class="main-header">
+        <h1>System Audit Logs</h1>
+        <div class="search-row">
+          <div class="search-box">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="searchAudit" placeholder="Search audit logs...">
+          </div>
+          <!-- Audit Filters: Action & Date -->
+          <select id="filterAuditAction" class="filter-input">
+            <option value="">All Actions</option>
+          </select>
+          <input type="date" id="filterAuditDate" class="filter-input" title="Filter by date">
+          <button type="button" class="btn-secondary" id="resetAuditFiltersBtn" style="padding: 8px 12px; font-size: 12.5px;">Reset Filters</button>
+        </div>
+      </div>
+
+
+      <div class="card">
+        <div class="card-title">Platform Audit Log</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Log ID</th>
+                <th>User</th>
+                <th>Action</th>
+                <th>Timestamp</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="auditLogRows" data-page-size="7">
+              <tr><td colspan="5" class="loading-row">Loading audit logs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+
+        <div class="pagination-container">
+          <span class="pagination-info" id="auditPaginationInfo">Showing 0 of 0</span>
+          <div class="pagination-controls" id="auditPaginationControls">
+            <button class="btn-page" id="auditPrevPageBtn" type="button" disabled>&laquo; Prev</button>
+            <div id="auditPageNumberBtns" class="page-numbers-wrap"></div>
+            <button class="btn-page" id="auditNextPageBtn" type="button">Next &raquo;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+   <section class="view" id="view-archived">
+  <div class="main-header">
+    <h1>Archived Users</h1>
+    <div class="search-row">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchArchived" placeholder="Search archived users...">
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ARCHIVED SUMMARY CARDS ===== -->
+  <div class="summary-cards" id="archivedSummaryCards">
+    <div class="summary-card archived-total">
+      <div class="summary-info">
+        <h3>Total Archived</h3>
+        <p class="summary-count" id="archivedCountTotal">0</p>
+        <span class="summary-label">All Roles</span>
+      </div>
+    </div>
+
+    <div class="summary-card aew" data-role="AEW">
+      <div class="summary-info">
+        <h3>AEW</h3>
+        <p class="summary-count" id="archivedCountAEW">0</p>
+        <span class="summary-label">Archived Accounts</span>
+      </div>
+    </div>
+
+    <div class="summary-card municipal" data-role="Municipal Coordinator">
+      <div class="summary-info">
+        <h3>Municipal</h3>
+        <p class="summary-count" id="archivedCountMunicipal">0</p>
+        <span class="summary-label">Archived Accounts</span>
+      </div>
+    </div>
+
+    <div class="summary-card provincial" data-role="Provincial Coordinator">
+      <div class="summary-info">
+        <h3>Provincial</h3>
+        <p class="summary-count" id="archivedCountProvincial">0</p>
+        <span class="summary-label">Archived Accounts</span>
+      </div>
+    </div>
+
+    <div class="summary-card da-rfo" data-role="DA-RFO">
+      <div class="summary-info">
+        <h3>DA-RFO</h3>
+        <p class="summary-count" id="archivedCountDARFO">0</p>
+        <span class="summary-label">Archived Accounts</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+
+
+      <div class="card">
+        <div class="card-title">Archived User Accounts</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Archived At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="archivedUserRows">
+              <tr><td colspan="4" class="loading-row">Loading archived users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+
+        <div class="pagination-container">
+          <span class="pagination-info" id="archivedPaginationInfo">Showing 0 of 0</span>
+          <div class="pagination-controls">
+            <button class="btn-page" id="archivedPrevPageBtn" type="button" disabled>&laquo; Prev</button>
+            <div id="archivedPageNumberBtns" class="page-numbers-wrap"></div>
+            <button class="btn-page" id="archivedNextPageBtn" type="button">Next &raquo;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARCHIVE DETAILS - RECEIPT EDITION -->
+<section class="view" id="view-archive-details">
+  <style>
+    #view-archive-details .adt-wrap {
+      max-width: 460px;
+      margin: 0 auto;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    #view-archive-details .adt-receipt {
+      position: relative;
+      background: #FFFEFB;
+      padding: 38px 34px 34px;
+      box-shadow: 0 8px 32px -8px rgba(46, 42, 34, 0.15);
+      -webkit-mask:
+        radial-gradient(circle at 8px 0, transparent 7px, #000 7.5px) 0 0 / 16px 100% repeat-x,
+        radial-gradient(circle at 8px 100%, transparent 7px, #000 7.5px) 0 100% / 16px 100% repeat-x,
+        linear-gradient(#000 0 0) 0 8px / 100% calc(100% - 16px) no-repeat;
+      mask:
+        radial-gradient(circle at 8px 0, transparent 7px, #000 7.5px) 0 0 / 16px 100% repeat-x,
+        radial-gradient(circle at 8px 100%, transparent 7px, #000 7.5px) 0 100% / 16px 100% repeat-x,
+        linear-gradient(#000 0 0) 0 8px / 100% calc(100% - 16px) no-repeat;
+    }
+
+    #view-archive-details .adt-r-head {
+      text-align: center;
+      padding-bottom: 22px;
+      border-bottom: 1.5px dashed #D8D2C4;
+      margin-bottom: 22px;
+    }
+
+    #view-archive-details .adt-r-badge {
+      display: inline-block;
+      padding: 5px 14px;
+      background: #1A1D1A;
+      color: #F2EDE1;
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      border-radius: 3px;
+      margin-bottom: 16px;
+    }
+
+    #view-archive-details .adt-r-monogram {
+      width: 76px;
+      height: 76px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      background: #F5F1E8;
+      border: 2px solid #1A1D1A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      font-weight: 900;
+      color: #1A1D1A;
+      letter-spacing: -0.03em;
+    }
+
+    #view-archive-details .adt-r-name {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1A1D1A;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin: 0 0 5px;
+    }
+
+    #view-archive-details .adt-r-handle {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12.5px;
+      color: #8B8578;
+      font-weight: 500;
+    }
+
+    #view-archive-details .adt-r-items {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 22px;
+    }
+
+    #view-archive-details .adt-r-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 11px 0;
+      gap: 16px;
+    }
+
+    #view-archive-details .adt-r-key {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #A09888;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    #view-archive-details .adt-r-val {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #1A1D1A;
+      text-align: right;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    #view-archive-details .adt-r-val.mono {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12.5px;
+      letter-spacing: 0.01em;
+    }
+
+    #view-archive-details .adt-r-remarks {
+      padding: 16px 18px;
+      background: #FBF7EC;
+      border-radius: 8px;
+      margin-bottom: 22px;
+      border: 1px solid #F0E9D8;
+    }
+
+    #view-archive-details .adt-r-remarks-label {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #B8860B;
+      margin-bottom: 8px;
+    }
+
+    #view-archive-details .adt-r-remarks-text {
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: #3A3528;
+      font-style: italic;
+      font-weight: 500;
+      margin: 0;
+    }
+
+    #view-archive-details .adt-r-foot {
+      padding-top: 20px;
+      border-top: 1.5px dashed #D8D2C4;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    #view-archive-details .adt-r-foot-label {
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #A09888;
+      margin-bottom: 5px;
+    }
+
+    #view-archive-details .adt-r-foot-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1A1D1A;
+    }
+
+    #view-archive-details .adt-r-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    #view-archive-details .adt-r-actions button {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 13.5px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+    }
+
+    #view-archive-details .btn-restore {
+      background: #1A1D1A;
+      border: none;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(26, 29, 26, 0.22);
+    }
+
+    #view-archive-details .btn-restore:hover {
+      background: #000;
+      box-shadow: 0 8px 20px -4px rgba(26, 29, 26, 0.35);
+      transform: translateY(-1px);
+    }
+
+    #view-archive-details .btn-restore svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    #view-archive-details .btn-back {
+      background: transparent;
+      border: 1.5px solid #E0DACB;
+      color: #6B7A6B;
+    }
+
+    #view-archive-details .btn-back:hover {
+      background: #FBF9F4;
+      border-color: #C8C0AE;
+      color: #1A1D1A;
+    }
+
+    /* --- PROFILE MODAL & AVATAR STYLES --- */
+.profile-modal-box {
+  max-width: 520px !important;
+  text-align: left !important;
+}
+
+.profile-avatar-select-wrap {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 16px 0 24px 0;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  justify-items: center;
+}
+
+.avatar-option {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid var(--border);
+  transition: all 0.2s ease;
+  background: #E5E2DA;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.avatar-option:hover {
+  border-color: var(--green);
+  transform: scale(1.05);
+}
+
+.avatar-option.selected {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.3);
+  transform: scale(1.08);
+}
+
+.profile-readonly-field {
+  background: #ECE6D8 !important;
+  color: var(--muted) !important;
+  cursor: not-allowed;
+}
+
+.user-info .avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.form-grid-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 30px;
+}
+
+.form-field-item label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.form-field-item label .req { color: #C0392B; }
+
+.form-field-item input,
+.form-field-item select,
+.form-field-item textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  outline: none;
+  background: #FFFFFF;
+  color: var(--ink);
+  transition: all 0.2s ease;
+}
+
+.form-field-item input:focus,
+.form-field-item select:focus,
+.form-field-item textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(91, 107, 79, 0.15);
+}
+
+.form-field-full { grid-column: 1 / -1; }
+  </style>
+
+  <div class="adt-wrap">
+    <div class="adt-receipt">
+
+      <div class="adt-r-head">
+        <div class="adt-r-badge">Archived</div>
+        <div class="adt-r-monogram" id="archiveDetailInitials">—</div>
+        <h1 class="adt-r-name" id="archiveDetailName">—</h1>
+        <div class="adt-r-handle" id="archiveDetailUsername">—</div>
+      </div>
+
+      <div class="adt-r-items">
+        <div class="adt-r-item">
+          <span class="adt-r-key">Role</span>
+          <span class="adt-r-val" id="archiveDetailRole">—</span>
+        </div>
+        <div class="adt-r-item">
+          <span class="adt-r-key">Location</span>
+          <span class="adt-r-val" id="archiveDetailLocation">—</span>
+        </div>
+        <div class="adt-r-item">
+          <span class="adt-r-key">Archived</span>
+          <span class="adt-r-val mono" id="archiveDetailArchivedAt">—</span>
+        </div>
+      </div>
+
+      <div class="adt-r-remarks">
+        <div class="adt-r-remarks-label">Remarks</div>
+        <p class="adt-r-remarks-text" id="archiveDetailRemarks">—</p>
+      </div>
+
+      <div class="adt-r-foot">
+        <div class="adt-r-foot-label">Archived By</div>
+        <div class="adt-r-foot-name" id="archiveDetailArchivedBy">—</div>
+      </div>
+
+      <div class="adt-r-actions">
+        <button class="btn-restore" id="restoreFromDetailsBtn" type="button">
+          <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+          Restore User
+        </button>
+        <button class="btn-back" id="backToArchivedBtn2" type="button">
+          Back to List
+        </button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+  </main>
+</div>
+
+
+<!-- MODALS -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal-box">
+    <p class="modal-title">Account Created Successfully</p>
+    <button class="btn-primary modal-ok" id="modalOkBtn" type="button">OK</button>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="auditDetailModal">
+  <div class="modal-box alert-detail-box" style="max-width: 520px; text-align: left;">
+    <div class="alert-modal-header">
+      <h2 id="modalAuditTitle">Audit Log Details</h2>
+      <button type="button" class="btn-secondary" id="closeAuditModalX" style="padding: 4px 10px; font-size: 12px;">✕</button>
+    </div>
+    <div id="modalAuditContent" style="max-height: 350px; overflow-y: auto; font-size: 13.5px; color: var(--ink); display: flex; flex-direction: column; gap: 10px; background: #FFFFFF; padding: 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); margin-bottom: 20px;"></div>
+    <div class="modal-actions-row">
+      <button class="btn-primary" id="closeAuditModalBtn" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="confirmStatusModal">
+  <div class="modal-box" style="max-width: 420px; text-align: center;">
+    <h2 id="statusModalTitle">Confirm Action</h2>
+    <p id="statusModalDesc">Are you sure you want to change this user's status?</p>
+    <div class="modal-actions" style="display: flex; justify-content: center; gap: 12px; margin-top: 20px;">
+      <button class="btn-secondary" id="cancelStatusBtn" type="button">Cancel</button>
+      <button class="btn-primary" id="finalStatusBtn" type="button">Confirm</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="confirmLogoutModal">
+  <div class="modal-box">
+    <h2>Confirm Sign Out</h2>
+    <p>Are you sure you want to sign out of your account?</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="cancelLogoutBtn" type="button">Cancel</button>
+      <button class="btn-primary btn-danger" id="finalLogoutBtn" type="button">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="confirmArchiveModal">
+  <div class="modal-box" style="max-width: 460px; text-align: left;">
+    <h2 id="archiveModalTitle" style="text-align:center;">Confirm Archive</h2>
+    <p id="archiveModalDesc" style="text-align:center;">Are you sure you want to archive this user?</p>
+    <div class="form-field" style="margin-bottom: 8px;">
+      <label for="archiveRemarks">Remarks <span style="color:#C0392B;">*</span></label>
+      <textarea id="archiveRemarks" rows="3" maxlength="500" required placeholder="Reason for archiving (required)" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius: var(--radius-sm); font-size:13.5px; resize:vertical; outline:none; font-family:inherit;"></textarea>
+      <small id="archiveRemarksError" style="color:#C0392B; font-size:12px; margin-top:4px; display:none;">Remarks is required.</small>
+    </div>
+    <div class="modal-actions" style="display: flex; justify-content: center; gap: 12px; margin-top: 20px;">
+      <button class="btn-secondary" id="cancelArchiveBtn" type="button">Cancel</button>
+      <button class="btn-primary btn-danger" id="finalArchiveBtn" type="button">Archive</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="confirmRestoreModal">
+  <div class="modal-box" style="max-width: 440px; text-align: center;">
+    <h2 id="restoreModalTitle">Confirm Restore</h2>
+    <p id="restoreModalDesc">Are you sure you want to restore this user?</p>
+    <div class="modal-actions" style="display: flex; justify-content: center; gap: 12px; margin-top: 20px;">
+      <button class="btn-secondary" id="cancelRestoreBtn" type="button">Cancel</button>
+      <button class="btn-primary" id="finalRestoreBtn" type="button">Restore</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="../assets/js/dashboard-common.js"></script>
+<script src="../assets/js/system-admin.js"></script>
+
+<!-- PROFILE SETTINGS MODAL -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal-box profile-modal-box">
+    <h2>User Profile Settings</h2>
+
+    <form id="profileForm">
+      <div class="form-field-item" style="margin-bottom: 16px; text-align: center;">
+        <label style="margin-bottom: 8px; display: block; font-weight: 700;">Pumili ng Profile Picture</label>
+        <div class="profile-avatar-select-wrap">
+          <div class="avatar-option selected" data-avatar-img="../images/1.png"><img src="../images/1.png" alt="Avatar 1"></div>
+          <div class="avatar-option" data-avatar-img="../images/2.png"><img src="../images/2.png" alt="Avatar 2"></div>
+          <div class="avatar-option" data-avatar-img="../images/3.png"><img src="../images/3.png" alt="Avatar 3"></div>
+          <div class="avatar-option" data-avatar-img="../images/4.png"><img src="../images/4.png" alt="Avatar 4"></div>
+          <div class="avatar-option" data-avatar-img="../images/5.png"><img src="../images/5.png" alt="Avatar 5"></div>
+          <div class="avatar-option" data-avatar-img="../images/6.png"><img src="../images/6.png" alt="Avatar 6"></div>
+          <div class="avatar-option" data-avatar-img="../images/7.png"><img src="../images/7.png" alt="Avatar 7"></div>
+          <div class="avatar-option" data-avatar-img="../images/8.png"><img src="../images/8.png" alt="Avatar 8"></div>
+          <div class="avatar-option" data-avatar-img="../images/9.png"><img src="../images/9.png" alt="Avatar 9"></div>
+          <div class="avatar-option" data-avatar-img="../images/10.png"><img src="../images/10.png" alt="Avatar 10"></div>
+          <div class="avatar-option" data-avatar-img="../images/11.png"><img src="../images/11.png" alt="Avatar 11"></div>
+          <div class="avatar-option" data-avatar-img="../images/12.png"><img src="../images/12.png" alt="Avatar 12"></div>
+        </div>
+      </div>
+
+      <div class="form-grid-two">
+        <div class="form-field-item form-field-full">
+          <label>Username </label>
+          <input type="text" id="profileUsername" class="input-readonly profile-readonly-field" readonly>
+        </div>
+        <div class="form-field-item">
+          <label>First Name <span class="req">*</span></label>
+          <input type="text" id="profileFirstName" required>
+        </div>
+        <div class="form-field-item">
+          <label>Last Name <span class="req">*</span></label>
+          <input type="text" id="profileLastName" required>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+        <button class="btn-secondary" id="closeProfileModalBtn" type="button">Cancel</button>
+        <button class="btn-primary" type="submit">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- CUSTOM SUCCESS MODAL -->
+<div class="modal-overlay" id="customAlertModal">
+  <div class="modal-box" style="max-width: 400px; padding: 28px;">
+    <h2 style="font-size: 20px; color: var(--green-dark); margin-bottom: 12px;">Tagumpay!</h2>
+    <p id="customAlertText" style="font-size: 14.5px; color: var(--ink); margin-bottom: 24px;">Profile updated successfully!</p>
+    <div style="display: flex; justify-content: center;">
+      <button class="modal-btn-confirm" id="closeCustomAlertBtn" type="button" style="width: 120px;">OK</button>
+    </div>
+  </div>
+</div>
+<!-- USER DETAIL MODAL -->
+<!-- USER DETAIL MODAL -->
+<div class="modal-overlay" id="userDetailModal">
+  <div class="modal-box alert-detail-box" style="max-width: 560px; text-align: left;">
+    <div class="alert-modal-header">
+      <h2 id="modalUserTitle">User Details</h2>
+      <button type="button" class="btn-secondary" id="closeUserModalX" style="padding: 4px 10px; font-size: 12px;">✕</button>
+    </div>
+
+    <!-- VIEW MODE -->
+    <div id="modalUserContent" style="max-height: 400px; overflow-y: auto; font-size: 13.5px; color: var(--ink); display: flex; flex-direction: column; gap: 10px; background: #FFFFFF; padding: 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); margin-bottom: 20px;"></div>
+
+   <!-- EDIT MODE -->
+<form id="editUserForm" style="display: none;">
+  <div id="editUserFields" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #FFFFFF; padding: 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); margin-bottom: 20px;">
+    <div class="form-field">
+      <label for="editFirstName">First Name *</label>
+      <input type="text" id="editFirstName" required>
+    </div>
+    <div class="form-field">
+      <label for="editLastName">Last Name *</label>
+      <input type="text" id="editLastName" required>
+    </div>
+    <div class="form-field">
+      <label for="editUsername">Username *</label>
+      <input type="text" id="editUsername" required>
+    </div>
+    <div class="form-field">
+      <label for="editEmail">Email *</label>
+      <input type="email" id="editEmail" required>
+    </div>
+    <div class="form-field">
+      <label for="editPhone">Phone Number *</label>
+      <input type="tel" id="editPhone" maxlength="11" inputmode="numeric" required>
+    </div>
+    <div class="form-field">
+      <label for="editRole">Role *</label>
+      <select id="editRole" required>
+        <option value="" disabled>Select a role</option>
+        <option value="System Administrator">System Administrator</option>
+        <option value="DA-RFO">DA-RFO</option>
+        <option value="Provincial Coordinator">Provincial Coordinator</option>
+        <option value="Municipal Coordinator">Municipal Coordinator</option>
+        <option value="AEW">AEW</option>
+      </select>
+    </div>
+
+    <!-- ✅ DROPDOWNS: Region / Province / Municipality -->
+    <div class="form-field">
+      <label for="editRegionSelect">Region *</label>
+      <select id="editRegionSelect" required>
+        <option value="" disabled selected>Loading regions...</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label for="editProvinceSelect">Province *</label>
+      <select id="editProvinceSelect" required disabled>
+        <option value="" disabled selected>Select a province</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label for="editMunicipalitySelect">Municipality / City *</label>
+      <select id="editMunicipalitySelect" required disabled>
+        <option value="" disabled selected>Select a municipality</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="modal-actions-row" style="display: flex; justify-content: flex-end; gap: 10px;">
+    <button type="button" class="btn-secondary" id="cancelEditUserBtn">Cancel</button>
+    <button type="submit" class="btn-primary" id="saveEditUserBtn">Save Changes</button>
+  </div>
+</form>
+    <!-- ✅ VIEW MODE FOOTER — EDIT nasa tabi ng CLOSE -->
+    <div class="modal-actions-row" id="userModalViewActions" style="display: flex; justify-content: flex-end; gap: 10px;">
+      <button class="btn-secondary" id="editUserBtn" type="button"> Edit</button>
+      <button class="btn-primary" id="closeUserModalBtn" type="button">Close</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
