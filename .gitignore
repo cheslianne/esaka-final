@@ -13,3 +13,8 @@ venv/
 .env
 .env.*
 !.env.example.env.local.bak
+
+.env
+ven/
+__pycache__/
+uploads/
