@@ -2067,46 +2067,68 @@ function initProfileModal() {
         customAlertModal?.classList.remove("show");
     });
 
-    let currentSelectedSrc = localStorage.getItem("user_avatar_src") || "../images/1.png";
+    // Default avatar just in case
+    let currentSelectedSrc = "../images/1.png";
+    
+    // Get current user ID from localStorage
+    const userId = localStorage.getItem("user_id");
 
-    function loadSavedProfile() {
-        const savedName = localStorage.getItem("user_display_name");
-        if (savedName) {
-            const displayNameEl = document.getElementById("loggedInUserName");
-            if (displayNameEl) displayNameEl.textContent = savedName;
-        }
-
-        const savedAvatar = localStorage.getItem("user_avatar_src");
-        if (savedAvatar) {
-            currentSelectedSrc = savedAvatar;
-            const avatarBox = document.querySelector(".user-info .avatar");
-            if (avatarBox) {
-                avatarBox.innerHTML = '<img src="' + savedAvatar + '" alt="Avatar">';
-                avatarBox.style.background = "transparent";
-            }
-        }
-    }
-
-    loadSavedProfile();
-
-    // Open profile modal
-    openProfileBtn.addEventListener("click", (e) => {
+    // Open profile modal - fetch fresh data from DB
+    openProfileBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
-
-        if (profileFirstName) profileFirstName.value = currentSessionUser?.first_name || "";
-        if (profileLastName) profileLastName.value = currentSessionUser?.last_name || "";
-
-        if (profileUsername) {
-            profileUsername.value = currentSessionUser?.username || localStorage.getItem("username") || "sysadmin";
+        
+        if (!userId) {
+            showCustomAlert("Session expired. Please log in again.");
+            return;
         }
-        avatarOptions.forEach(opt => {
-            opt.classList.toggle("selected", opt.dataset.avatarImg === currentSelectedSrc);
-        });
 
-        profileModal.classList.add("show");
+        try {
+            // Fetch real user data from backend
+            const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
+            
+            // Populate form
+            if (profileFirstName) profileFirstName.value = user.first_name || "";
+            if (profileLastName) profileLastName.value = user.last_name || "";
+            if (profileUsername) profileUsername.value = user.username || "";
+
+            let avatarFile = user.avatar;
+
+            if (!avatarFile) {
+                const savedLocal = localStorage.getItem("user_avatar_src");
+                if (savedLocal) {
+                    avatarFile = savedLocal.split("/").pop(); // kunin filename lang
+                }
+            }
+
+            if (avatarFile) {
+                currentSelectedSrc = `../images/${avatarFile}`;
+            } else {
+                currentSelectedSrc = "../images/1.png";
+            }
+
+            let matched = false;
+            avatarOptions.forEach((opt) => {
+                opt.classList.remove("selected");
+                // Check kung tugma yung filename
+                if (opt.dataset.avatarImg === currentSelectedSrc) {
+                    opt.classList.add("selected");
+                    matched = true;
+                }
+            });
+
+            if (!matched && avatarOptions.length > 0) {
+                avatarOptions[0].classList.add("selected");
+                currentSelectedSrc = avatarOptions[0].dataset.avatarImg;
+            }
+
+            profileModal.classList.add("show");
+        } catch (error) {
+            console.error("Failed to load profile:", error);
+            showCustomAlert("Could not load profile data. Please try again.");
+        }
     });
 
-    // Avatar selection
+    // Avatar selection UI highlight
     avatarOptions.forEach(opt => {
         opt.addEventListener("click", () => {
             avatarOptions.forEach(el => el.classList.remove("selected"));
@@ -2121,61 +2143,66 @@ function initProfileModal() {
         profileModal.classList.remove("show");
     });
 
-    // Close on overlay click
     profileModal.addEventListener("click", (e) => {
         if (e.target === profileModal) profileModal.classList.remove("show");
     });
 
-    // Save profile
+    // Save profile to Database
     profileForm?.addEventListener("submit", async (e) => {
         e.preventDefault();
 
         const fName = profileFirstName.value.trim();
         const lName = profileLastName.value.trim();
-
+        
         if (!fName || !lName) {
-            showCustomAlert("First name and last name are required.");
+            showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields.");
             return;
         }
 
-        const userId = currentSessionUser?.user_id || localStorage.getItem("user_id");
-        if (!userId) {
-            showCustomAlert("Unable to identify the signed-in account. Please sign in again.");
-            return;
-        }
+        // Extract just the filename e.g. "2.png"
+        const avatarFilename = currentSelectedSrc.split("/").pop();
 
-        const saveButton = profileForm.querySelector('button[type="submit"]');
-        if (saveButton) {
-            saveButton.disabled = true;
-            saveButton.textContent = "Saving...";
+        const saveBtn = profileForm.querySelector('button[type="submit"]');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = "Saving...";
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+            // PUT request to save to DB
+            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
                 method: "PUT",
-                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     first_name: fName,
                     last_name: lName,
+                    avatar: avatarFilename
                 })
             });
-            let data = {};
-            try { data = await response.json(); } catch { data = {}; }
-            if (response.status === 401) { handleUnauthorized(); return; }
-            if (!response.ok) throw new Error(getErrorMessage(data, "Failed to save profile."));
 
-            currentSessionUser = { ...currentSessionUser, ...data };
-            initializeLoggedInUser(currentSessionUser);
+            // Update localStorage (for fallback/legacy code)
+            localStorage.setItem("user_display_name", `${fName} ${lName}`);
             localStorage.setItem("user_avatar_src", currentSelectedSrc);
-            loadSavedProfile();
+
+            // Update Topbar UI instantly
+            const displayNameEl = document.getElementById("userDisplayName");
+            if (displayNameEl) displayNameEl.textContent = `${fName} ${lName}`;
+
+            const avatarBox = document.querySelector(".user-info .avatar");
+            if (avatarBox) {
+                avatarBox.innerHTML = `<img src="${currentSelectedSrc}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                avatarBox.style.background = "transparent";
+            }
+
             profileModal.classList.remove("show");
             showCustomAlert("Profile updated and saved successfully!");
+
         } catch (error) {
-            showCustomAlert(error.message || "Unable to save profile.");
+            console.error("Update error:", error);
+            showCustomAlert(error.message || "Failed to update profile.");
         } finally {
-            if (saveButton) {
-                saveButton.disabled = false;
-                saveButton.textContent = "Save Changes";
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = "Save Changes";
             }
         }
     });

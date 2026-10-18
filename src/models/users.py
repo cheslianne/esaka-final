@@ -34,6 +34,7 @@ class User(Base):
     email_address = Column(String(100), unique=True, nullable=False)
     phone_number = Column(String(15), nullable=False)
     birthdate = Column(Date, nullable=True)
+    avatar = Column(String(100), nullable=True, server_default="1.png")
 
     # ============================================================
     # AUTHENTICATION

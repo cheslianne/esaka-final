@@ -149,8 +149,16 @@ function formatRole(role) {
     return String(role).replace(/_/g, " ").toUpperCase();
 }
 
+/* ============================================================
+   USER PROFILE — user-scoped avatar storage
+============================================================ */
+
+function getScopedAvatarKey() {
+    const userId = localStorage.getItem("user_id") || "anonymous";
+    return `user_avatar_src_${userId}`;
+}
+
 function setupUserProfile() {
-    // Priority: user_display_name > full_name > name > username
     const storedName =
         localStorage.getItem("user_display_name") ||
         localStorage.getItem("full_name") ||
@@ -158,7 +166,7 @@ function setupUserProfile() {
         localStorage.getItem("username");
 
     const storedRole = localStorage.getItem("role");
-    const storedAvatar = localStorage.getItem("user_avatar_src");
+    const storedAvatar = localStorage.getItem(getScopedAvatarKey());
 
     const nameEl = document.getElementById("userDisplayName");
     const roleEl = document.getElementById("userDisplayRole");
@@ -167,17 +175,15 @@ function setupUserProfile() {
     if (nameEl && storedName) nameEl.textContent = storedName;
     if (roleEl && storedRole) roleEl.textContent = formatRole(storedRole);
 
-    // Show avatar image if saved, otherwise show initials
     if (initEl) {
         if (storedAvatar) {
-            initEl.innerHTML = `<img src="${storedAvatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+            initEl.innerHTML = `<img src="${storedAvatar}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
             initEl.style.background = "transparent";
         } else {
             initEl.textContent = getInitials(storedName || storedRole);
         }
     }
 }
-
 
 /* ============================================================
    SIDEBAR
@@ -3221,118 +3227,198 @@ function renderMunicipalSummary(data) {
     container.innerHTML = html;
 }
 
-    /* ============================================================
+/* ============================================================
    PROFILE & AVATAR PERSISTENCE (Municipal Coordinator)
+   — User-scoped avatar + server-authoritative name save
 ============================================================ */
 
+function initProfileDropdown() {
+    const openBtn    = document.getElementById("openProfileBtn");
+    const dropdown   = document.getElementById("profileDropdown");
+    const editBtn    = document.getElementById("menuEditProfile");
+    const signOutBtn = document.getElementById("menuSignOut");
+
+    if (!openBtn || !dropdown) return;
+
+    openBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!dropdown.contains(e.target) && !openBtn.contains(e.target)) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    // User Profile → open modal (bridged via custom event below)
+    editBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.style.display = "none";
+        openBtn.dispatchEvent(new CustomEvent("open-profile"));
+    });
+
+    // Sign Out → styled confirmation using the dashboard's existing helper
+    signOutBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.style.display = "none";
+
+        showActionConfirm({
+            title: "Sign Out Confirmation",
+            message: "Are you sure you want to sign out of eSaka?",
+            confirmText: "Sign Out",
+            confirmColor: "#C0392B",
+            cancelText: "Cancel",
+            onConfirm: () => {
+                localStorage.clear();
+                window.location.href = "../index.html";
+            },
+        });
+    });
+}
+
 function initProfileModal() {
-    const openProfileBtn = document.getElementById("openProfileBtn");
-    const profileModal = document.getElementById("profileModal");
-    const closeProfileModalBtn = document.getElementById("closeProfileModalBtn");
-    const profileForm = document.getElementById("profileForm");
-
-    const profileUsername = document.getElementById("profileUsername");
-    const profileFirstName = document.getElementById("profileFirstName");
-    const profileLastName = document.getElementById("profileLastName");
-    const avatarOptions = document.querySelectorAll(".avatar-option");
-
+    const openProfileBtn   = document.getElementById("openProfileBtn");
+    const profileModal     = document.getElementById("profileModal");
+    const closeProfileBtn  = document.getElementById("closeProfileModalBtn");
+    const profileForm      = document.getElementById("profileForm");
     const customAlertModal = document.getElementById("customAlertModal");
-    const customAlertText = document.getElementById("customAlertText");
-    const closeCustomAlertBtn = document.getElementById("closeCustomAlertBtn");
+    const customAlertText  = document.getElementById("customAlertText");
+    const closeCustomBtn   = document.getElementById("closeCustomAlertBtn");
 
     if (!openProfileBtn || !profileModal) return;
 
-    function showCustomAlert(message) {
-        if (customAlertText) customAlertText.textContent = message;
+    function showCustomAlert(msg) {
+        if (customAlertText) customAlertText.textContent = msg;
         if (customAlertModal) customAlertModal.classList.add("show");
     }
+    closeCustomBtn?.addEventListener("click", () =>
+        customAlertModal?.classList.remove("show")
+    );
 
-    closeCustomAlertBtn?.addEventListener("click", () => {
-        customAlertModal?.classList.remove("show");
-    });
+    let currentSelectedSrc = "../images/1.png";
 
-    let currentSelectedSrc = localStorage.getItem("user_avatar_src") || "../images/1.png";
+    async function loadProfileIntoModal(event) {
+        if (event) event.stopPropagation();
+        const userId = localStorage.getItem("user_id");
+        if (!userId) return showCustomAlert("Session expired. Please log in again.");
 
-    function loadSavedProfile() {
-        // Load saved display name
-        const savedName = localStorage.getItem("user_display_name");
-        if (savedName) {
-            const displayNameEl = document.getElementById("userDisplayName");
-            if (displayNameEl) displayNameEl.textContent = savedName;
-        }
+        try {
+            const user = await fetchJsonWithTimeout(
+                `${API_BASE_URL}/api/users/${userId}`,
+                { method: "GET", headers: getAuthHeaders({ "Accept": "application/json" }) },
+                10000
+            );
 
-        // Load saved avatar
-        const savedAvatar = localStorage.getItem("user_avatar_src");
-        if (savedAvatar) {
-            currentSelectedSrc = savedAvatar;
-            const avatarBox = document.querySelector(".user-info .avatar");
-            if (avatarBox) {
-                avatarBox.innerHTML = '<img src="' + savedAvatar + '" alt="Avatar">';
-                avatarBox.style.background = "transparent";
+            document.getElementById("profileFirstName").value = user.first_name || "";
+            document.getElementById("profileLastName").value  = user.last_name  || "";
+            document.getElementById("profileUsername").value  = user.username   || "";
+
+            // ✅ Prefer DB avatar, then scoped localStorage
+            let avatarFile = user.avatar;
+            if (!avatarFile) {
+                const saved = localStorage.getItem(getScopedAvatarKey());
+                if (saved) avatarFile = saved.split("/").pop();
             }
+
+            currentSelectedSrc = avatarFile
+                ? `../images/${avatarFile}`
+                : "../images/1.png";
+
+            let matched = false;
+            document.querySelectorAll(".avatar-option").forEach(opt => {
+                const isMatch = opt.dataset.avatarImg === currentSelectedSrc;
+                opt.classList.toggle("selected", isMatch);
+                if (isMatch) matched = true;
+            });
+            if (!matched) {
+                const first = document.querySelector(".avatar-option");
+                if (first) {
+                    first.classList.add("selected");
+                    currentSelectedSrc = first.dataset.avatarImg || "../images/1.png";
+                }
+            }
+
+            profileModal.classList.add("show");
+        } catch (err) {
+            console.error("Failed to load profile:", err);
+            showCustomAlert("Could not load profile data. Please try again.");
         }
     }
 
-    loadSavedProfile();
+    // Listen for the dropdown's "User Profile" click
+    openProfileBtn.addEventListener("open-profile", loadProfileIntoModal);
 
-    // Open profile modal
-    openProfileBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const currentName = document.getElementById("userDisplayName")?.textContent || "Juan Dela Cruz";
-        const nameParts = currentName.trim().split(" ");
-
-        if (profileFirstName) profileFirstName.value = nameParts[0] || "";
-        if (profileLastName) profileLastName.value = nameParts.slice(1).join(" ") || "";
-
-        if (profileUsername) {
-            profileUsername.value = localStorage.getItem("username") || localStorage.getItem("user_id") || "mcoord_user_01";
-        }
-
-        avatarOptions.forEach(opt => {
-            opt.classList.toggle("selected", opt.dataset.avatarImg === currentSelectedSrc);
-        });
-
-        profileModal.classList.add("show");
-    });
-
-    // Avatar selection
-    avatarOptions.forEach(opt => {
+    // Avatar picker
+    document.querySelectorAll(".avatar-option").forEach(opt => {
         opt.addEventListener("click", () => {
-            avatarOptions.forEach(el => el.classList.remove("selected"));
+            document.querySelectorAll(".avatar-option").forEach(el => el.classList.remove("selected"));
             opt.classList.add("selected");
             currentSelectedSrc = opt.dataset.avatarImg;
         });
     });
 
-    // Close modal
-    closeProfileModalBtn?.addEventListener("click", (e) => {
+    closeProfileBtn?.addEventListener("click", (e) => {
         e.preventDefault();
         profileModal.classList.remove("show");
     });
-
-    // Close on overlay click
     profileModal.addEventListener("click", (e) => {
         if (e.target === profileModal) profileModal.classList.remove("show");
     });
 
-    // Save profile
-    profileForm?.addEventListener("submit", (e) => {
+    profileForm?.addEventListener("submit", async (e) => {
         e.preventDefault();
 
-        const fName = profileFirstName.value.trim();
-        const lName = profileLastName.value.trim();
-        if (!fName || !lName) {
-            showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields.");
-            return;
+        const userId = localStorage.getItem("user_id");
+        const fName  = document.getElementById("profileFirstName").value.trim();
+        const lName  = document.getElementById("profileLastName").value.trim();
+
+        if (!fName || !lName) return showCustomAlert("Please fill in all required fields.");
+        if (!userId)          return showCustomAlert("Session expired. Please log in again.");
+
+        const avatarFilename = currentSelectedSrc.split("/").pop();
+        const saveBtn = profileForm.querySelector('button[type="submit"]');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
+
+        try {
+            // ✅ Backend saves BOTH name fields and avatar
+            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    first_name: fName,
+                    last_name: lName,
+                    avatar: avatarFilename
+                })
+            });
+
+            // ✅ Trust the SERVER response as source of truth
+            const serverFirst  = updatedUser?.first_name || fName;
+            const serverLast   = updatedUser?.last_name  || lName;
+            const serverAvatar = updatedUser?.avatar     || avatarFilename;
+
+            localStorage.setItem("user_display_name", `${serverFirst} ${serverLast}`);
+            localStorage.setItem("full_name",         `${serverFirst} ${serverLast}`);
+            localStorage.setItem(getScopedAvatarKey(), `../images/${serverAvatar}`); // ✅ scoped
+
+            // Update topbar instantly
+            const displayNameEl = document.getElementById("userDisplayName");
+            if (displayNameEl) displayNameEl.textContent = `${serverFirst} ${serverLast}`;
+
+            const avatarBox = document.querySelector(".user-info .avatar");
+            if (avatarBox) {
+                avatarBox.innerHTML = `<img src="../images/${serverAvatar}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+                avatarBox.style.background = "transparent";
+            }
+
+            profileModal.classList.remove("show");
+            showCustomAlert("Profile updated and saved successfully!");
+
+        } catch (err) {
+            console.error("Update error:", err);
+            showCustomAlert(err.message || "Failed to update profile.");
+        } finally {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; }
         }
-
-        localStorage.setItem("user_display_name", fName + " " + lName);
-        localStorage.setItem("user_avatar_src", currentSelectedSrc);
-
-        loadSavedProfile();
-
-        profileModal.classList.remove("show");
-        showCustomAlert("Profile updated and saved successfully!");
     });
 }
 
@@ -3366,6 +3452,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     initMap();
     loadMunicipalityMapData();
     setupUserProfile();
+    initProfileDropdown();
     initProfileModal(); 
     initSearch();
     initBulkActions();
@@ -3374,6 +3461,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     initSentToProvincialFilter();
     initResubmitButton();
     initSummaryPeriodPicker();
+
+    const topbarEl = document.querySelector(".topbar");
+    if (topbarEl) {
+        window.addEventListener("scroll", () => {
+            topbarEl.classList.toggle("scrolled", window.scrollY > 8);
+        }, { passive: true });
+    }
 
     const backBtn = document.getElementById("backToPendingBtn");
     if (backBtn) {

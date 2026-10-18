@@ -16,6 +16,7 @@ class PlantingIntent(Base):
     harvest_date = Column(Date, nullable=False)
     volume = Column(DECIMAL(10, 2), nullable=False)
     remarks = Column(Text, nullable=True)
+    comment = Column(Text, nullable=True)
 
     actual_planting_date = Column(Date, nullable=True)
     actual_harvest_date = Column(Date, nullable=True)

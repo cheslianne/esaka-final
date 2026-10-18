@@ -68,8 +68,8 @@ let mapMarkersLayer = null;
 let currentOfftakePage = 1;
 const offtakePerPage = 7;
 let filteredOfftakeRequests = null;
-let OFFTAKE_REQUESTS_DATA = [];          // ✅ IDAGDAG
-let currentOfftakeRequest = null;  
+let OFFTAKE_REQUESTS_DATA = [];
+let currentOfftakeRequest = null;
 
 // Forecasting
 let FORECASTS_DATA = [];
@@ -102,128 +102,23 @@ let currentIndividualReportsPage = 1;
 let currentSubmittedReportsPage = 1;
 const reportsPerPage = 10;
 
-/* ============================================================
-   PROFILE & AVATAR PERSISTENCE (AEW)
-============================================================ */
-
-function initProfileModal() {
-    const openProfileBtn = document.getElementById("openProfileBtn");
-    const profileModal = document.getElementById("profileModal");
-    const closeProfileModalBtn = document.getElementById("closeProfileModalBtn");
-    const profileForm = document.getElementById("profileForm");
-
-    const profileUsername = document.getElementById("profileUsername");
-    const profileFirstName = document.getElementById("profileFirstName");
-    const profileLastName = document.getElementById("profileLastName");
-    const avatarOptions = document.querySelectorAll(".avatar-option");
-
-    const customAlertModal = document.getElementById("customAlertModal");
-    const customAlertText = document.getElementById("customAlertText");
-    const closeCustomAlertBtn = document.getElementById("closeCustomAlertBtn");
-
-    if (!openProfileBtn || !profileModal) return;
-
-    function showCustomAlert(message) {
-        if (customAlertText) customAlertText.textContent = message;
-        if (customAlertModal) customAlertModal.classList.add("show");
-    }
-
-    closeCustomAlertBtn?.addEventListener("click", () => {
-        customAlertModal?.classList.remove("show");
-    });
-
-    const availableAvatarSources = Array.from(avatarOptions)
-        .map((option) => option.dataset.avatarImg)
-        .filter(Boolean);
-    const savedAvatarSource = localStorage.getItem("user_avatar_src");
-    let currentSelectedSrc = availableAvatarSources.includes(savedAvatarSource)
-        ? savedAvatarSource
-        : "../images/1.png";
-
-    function loadSavedProfile() {
-        // Load saved display name
-        const savedName = localStorage.getItem("user_display_name");
-        if (savedName) {
-            const displayNameEl = document.getElementById("userDisplayName");
-            if (displayNameEl) displayNameEl.textContent = savedName;
-        }
-
-        // Load saved avatar
-        const savedAvatar = availableAvatarSources.includes(localStorage.getItem("user_avatar_src"))
-            ? localStorage.getItem("user_avatar_src")
-            : currentSelectedSrc;
-        if (savedAvatar) {
-            currentSelectedSrc = savedAvatar;
-            const avatarBox = document.querySelector(".user-info .avatar");
-            if (avatarBox) {
-                avatarBox.innerHTML = '<img src="' + savedAvatar + '" alt="Avatar">';
-                avatarBox.style.background = "transparent";
-            }
-        }
-    }
-
-    loadSavedProfile();
-
-    // Open profile modal
-    openProfileBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const currentName = document.getElementById("userDisplayName")?.textContent || "";
-        const nameParts = currentName.trim().split(" ");
-
-        if (profileFirstName) profileFirstName.value = nameParts[0] || "";
-        if (profileLastName) profileLastName.value = nameParts.slice(1).join(" ") || "";
-
-        if (profileUsername) {
-            profileUsername.value = localStorage.getItem("username") || localStorage.getItem("user_id") || "aew_user_01";
-        }
-
-        avatarOptions.forEach((opt) => {
-            opt.classList.toggle("selected", opt.dataset.avatarImg === currentSelectedSrc);
-        });
-
-        profileModal.classList.add("show");
-    });
-
-    // Avatar selection
-    avatarOptions.forEach(opt => {
-        opt.addEventListener("click", () => {
-            avatarOptions.forEach(el => el.classList.remove("selected"));
-            opt.classList.add("selected");
-            currentSelectedSrc = opt.dataset.avatarImg;
-        });
-    });
-
-    // Close modal
-    closeProfileModalBtn?.addEventListener("click", (e) => {
-        e.preventDefault();
-        profileModal.classList.remove("show");
-    });
-
-    // Close on overlay click
-    profileModal.addEventListener("click", (e) => {
-        if (e.target === profileModal) profileModal.classList.remove("show");
-    });
-
-    // Save profile
-    profileForm?.addEventListener("submit", (e) => {
-        e.preventDefault();
-
-        const fName = profileFirstName.value.trim();
-        const lName = profileLastName.value.trim();
-        if (!fName || !lName) {
-            showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields.");
-            return;
-        }
-
-        localStorage.setItem("user_display_name", fName + " " + lName);
-        localStorage.setItem("user_avatar_src", currentSelectedSrc);
-
-        loadSavedProfile();
-
-        profileModal.classList.remove("show");
-        showCustomAlert("Profile updated and saved successfully!");
-    });
-}
+// Report State
+let currentReportTab = "pending";
+const REPORT_TAB_FILTERS = {
+    pending: "all",
+    flagged: "all",
+    approved: "all"
+};
+const REPORT_TAB_CUSTOM_RANGES = {
+    pending: { from: null, to: null },
+    flagged: { from: null, to: null },
+    approved: { from: null, to: null },
+};
+const REPORTS_DATA_BY_TAB = {
+    pending: [],
+    flagged: [],
+    approved: []
+};
 
 /* ============================================================
    INITIALIZATION
@@ -243,7 +138,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     initFairPriceMonthDropdown();
     initSignout();
     setupUserProfile();
-    initProfileModal();
     initForecastResults();
     initReporting();
     initNotificationBell();
@@ -256,8 +150,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     populateFarmerDropdowns();
     setupFarmerDropdownAutoFill();
-
-    initAddIntentButton();
 
     initFarmerSearch();
     initializePlantingIntentSearch();
@@ -390,8 +282,11 @@ function formatRole(role) {
         .toUpperCase();
 }
 
-function setupUserProfile() {
-    // Priority: user_display_name > full_name > name > username
+/* ============================================================
+   USER PROFILE SETUP & FIXES
+============================================================ */
+
+async function setupUserProfile() {
     const storedName =
         localStorage.getItem("user_display_name") ||
         localStorage.getItem("full_name") ||
@@ -399,10 +294,12 @@ function setupUserProfile() {
         localStorage.getItem("username");
 
     const storedRole = localStorage.getItem("role");
-    const storedAvatar = localStorage.getItem("user_avatar_src");
+    const userId = localStorage.getItem("user_id");
+    
+    const storedAvatar = userId ? localStorage.getItem(`user_avatar_src_${userId}`) : null;
     const validAvatar = /^..\/images\/(?:[1-9]|1[0-2])\.png$/.test(storedAvatar || "")
         ? storedAvatar
-        : "../images/1.png";
+        : null;
 
     const nameEl = document.getElementById("userDisplayName");
     const roleEl = document.getElementById("userDisplayRole");
@@ -411,17 +308,37 @@ function setupUserProfile() {
     if (nameEl && storedName) nameEl.textContent = storedName;
     if (roleEl && storedRole) roleEl.textContent = formatRole(storedRole);
 
-    // Show avatar image if saved, otherwise show initials
     if (initEl) {
-        if (storedAvatar) {
+        initEl.innerHTML = "";
+        initEl.style.background = "";
+        
+        if (validAvatar) {
             initEl.innerHTML = `<img src="${validAvatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
             initEl.style.background = "transparent";
         } else {
             initEl.textContent = getInitials(storedName || storedRole);
+            initEl.style.background = "var(--green)";
+        }
+    }
+
+    if (userId) {
+        try {
+            const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
+            
+            if (user && user.avatar) {
+                const dbAvatarSrc = `../images/${user.avatar}`;
+                localStorage.setItem(`user_avatar_src_${userId}`, dbAvatarSrc);
+                
+                if (initEl) {
+                    initEl.innerHTML = `<img src="${dbAvatarSrc}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                    initEl.style.background = "transparent";
+                }
+            }
+        } catch (error) {
+            console.warn("Could not fetch fresh profile data on load:", error);
         }
     }
 }
-
 
 /* ============================================================
    API REQUEST HELPER
@@ -1011,14 +928,14 @@ function renderFilteredMapMarkers() {
             const offsetLng = baseCoordinates[1] + (index - (totalFiltered / 2)) * 0.0025;
             const markerCoordinates = [offsetLat, offsetLng];
 
-            let markerColor = "#6c757d"; // Gray = No Data
+            let markerColor = "#6c757d";
 
             if (status.includes("SURPLUS") || status.includes("OVERSUPPLY")) {
-                markerColor = "#C0392B"; // Red
+                markerColor = "#C0392B";
             } else if (status.includes("BALANCE")) {
-                markerColor = "#2E7D32"; // Green
+                markerColor = "#2E7D32";
             } else if (status.includes("DEFICIT")) {
-                markerColor = "#D97706"; // Amber
+                markerColor = "#D97706";
             }
 
             const customIcon = L.divIcon({
@@ -1876,8 +1793,9 @@ function initPlantingIntent() {
         fetchPlantingIntents();
     });
 
-    document.getElementById("submitPlantIntentForm")?.addEventListener("submit", async function(event) {
+    document.getElementById("savePlantIntentDraftBtn")?.addEventListener("click", async function(event) {
         event.preventDefault();
+        event.stopPropagation();
         await submitPlantingIntent();
     });
 
@@ -1894,6 +1812,171 @@ function initPlantingIntent() {
         await fetchPlantingIntents();
     });
 
+    // ============================================================
+    // SMART SUGGESTIONS
+    // ============================================================
+    const piCommodity = document.getElementById("piCommodity");
+    const piPlantDate = document.getElementById("piPlantDate");
+    const piHarvestDate = document.getElementById("piHarvestDate");
+    const piVolume = document.getElementById("piVolume");
+    
+    const suggestionBox = document.getElementById("smartSuggestionBox");
+    const suggestionGrid = document.getElementById("suggestionGrid");
+    const applySuggestionBtn = document.getElementById("applySuggestionBtn");
+    const plantDateSuggestion = document.getElementById("plantDateSuggestion");
+    const harvestDateSuggestion = document.getElementById("harvestDateSuggestion");
+
+    const cropData = {
+        "Tomato": { days: 65, yieldPerHa: 15000, bestMonths: [10, 11, 12, 1, 2, 5, 6, 7], seasonStr: "Oct-Feb, May-Jul" },
+        "Red Onion": { days: 110, yieldPerHa: 12000, bestMonths: [11, 12, 1], seasonStr: "Nov-Jan" },
+        "White Onion": { days: 115, yieldPerHa: 11000, bestMonths: [11, 12, 1], seasonStr: "Nov-Jan" },
+        "Squash": { days: 60, yieldPerHa: 10000, bestMonths: [10, 11, 12], seasonStr: "Oct-Dec" }
+    };
+
+    let currentCropDays = 0;
+    let currentCropYield = 0;
+
+    function formatDateHelper(d) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function displayFriendlyDate(dateStr) {
+        if (!dateStr) return "";
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function updateSuggestions() {
+        if (!currentCropDays) {
+            if (plantDateSuggestion) plantDateSuggestion.style.display = "none";
+            if (harvestDateSuggestion) harvestDateSuggestion.style.display = "none";
+            return;
+        }
+
+        const todayStr = formatDateHelper(new Date());
+
+        // 1. Check Planting Date
+        if (piPlantDate.value) {
+            if (piPlantDate.value < todayStr) {
+                plantDateSuggestion.innerHTML = `⚠️ Past dates are not allowed.`;
+                plantDateSuggestion.style.color = "#C0392B";
+                plantDateSuggestion.style.display = "block";
+                piHarvestDate.value = ""; 
+                harvestDateSuggestion.style.display = "none";
+            } else {
+                plantDateSuggestion.style.display = "none"; 
+                const plantDate = new Date(piPlantDate.value);
+                const expectedHarvest = new Date(plantDate);
+                expectedHarvest.setDate(expectedHarvest.getDate() + currentCropDays);
+                
+                harvestDateSuggestion.innerHTML = `💡 Suggested Harvest: <strong>${displayFriendlyDate(formatDateHelper(expectedHarvest))}</strong>`;
+                harvestDateSuggestion.style.color = "#D97706"; 
+                harvestDateSuggestion.style.display = "block";
+            }
+        } else {
+            plantDateSuggestion.style.display = "none";
+        }
+
+        // 2. Check Harvest Date
+        if (piHarvestDate.value) {
+            if (piHarvestDate.value < todayStr) {
+                harvestDateSuggestion.innerHTML = `⚠️ Past dates are not allowed.`;
+                harvestDateSuggestion.style.color = "#C0392B";
+                harvestDateSuggestion.style.display = "block";
+                piPlantDate.value = ""; 
+                plantDateSuggestion.style.display = "none";
+            } else if (!piPlantDate.value) {
+                const harvestDate = new Date(piHarvestDate.value);
+                const expectedPlant = new Date(harvestDate);
+                expectedPlant.setDate(expectedPlant.getDate() - currentCropDays);
+                
+                plantDateSuggestion.innerHTML = `💡 Suggested Planting: <strong>${displayFriendlyDate(formatDateHelper(expectedPlant))}</strong>`;
+                plantDateSuggestion.style.color = "#D97706"; 
+                plantDateSuggestion.style.display = "block";
+            }
+        } else {
+            if (!piPlantDate.value) harvestDateSuggestion.style.display = "none";
+        }
+    }
+
+    // 1. Commodity Selection
+    if (piCommodity) {
+        piCommodity.addEventListener("change", function() {
+            const crop = this.value;
+            if (cropData[crop]) {
+                const data = cropData[crop];
+                currentCropDays = data.days;
+                currentCropYield = data.yieldPerHa;
+                
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                let targetMonth = data.bestMonths.find(m => m >= (today.getMonth() + 1)) || data.bestMonths[0];
+                let targetYear = today.getFullYear();
+                
+                if (targetMonth < today.getMonth() + 1) {
+                    targetYear++;
+                }
+                
+                const bestPlantDate = new Date(targetYear, targetMonth - 1, 15);
+                
+                if (bestPlantDate < today) {
+                    bestPlantDate.setFullYear(bestPlantDate.getFullYear() + 1);
+                }
+
+                suggestionBox.style.display = "block";
+                
+                suggestionGrid.innerHTML = `
+                    <div style="background: #FFFFFF; padding: 12px; border-radius: 8px; border: 1px solid #FCD34D;">
+                        <div style="font-size: 10px; font-weight: 700; color: #A16207; text-transform: uppercase; margin-bottom: 4px;">🌱 Best Month</div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: #92400E;">${data.seasonStr}</div>
+                    </div>
+                    <div style="background: #FFFFFF; padding: 12px; border-radius: 8px; border: 1px solid #FCD34D;">
+                        <div style="font-size: 10px; font-weight: 700; color: #A16207; text-transform: uppercase; margin-bottom: 4px;">⏱️ Days to Harvest</div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: #92400E;">${data.days} days</div>
+                    </div>
+                    <div style="background: #FFFFFF; padding: 12px; border-radius: 8px; border: 1px solid #FCD34D;">
+                        <div style="font-size: 10px; font-weight: 700; color: #A16207; text-transform: uppercase; margin-bottom: 4px;">📦 Est. Yield</div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: #92400E;">~${data.yieldPerHa.toLocaleString()} kg/ha</div>
+                    </div>
+                `;
+
+                applySuggestionBtn.onclick = function() {
+                    piPlantDate.value = formatDateHelper(bestPlantDate);
+                    const expectedHarvest = new Date(bestPlantDate);
+                    expectedHarvest.setDate(expectedHarvest.getDate() + data.days);
+                    piHarvestDate.value = formatDateHelper(expectedHarvest);
+
+                    if (!piVolume.value) piVolume.value = data.yieldPerHa;
+                    updateSuggestions();
+                };
+
+                updateSuggestions();
+
+            } else {
+                suggestionBox.style.display = "none";
+                currentCropDays = 0;
+                currentCropYield = 0;
+                if (plantDateSuggestion) plantDateSuggestion.style.display = "none";
+                if (harvestDateSuggestion) harvestDateSuggestion.style.display = "none";
+            }
+        });
+
+        if (piCommodity.value) piCommodity.dispatchEvent(new Event('change'));
+    }
+
+    if (piPlantDate) {
+        piPlantDate.addEventListener("change", updateSuggestions);
+        piPlantDate.addEventListener("input", updateSuggestions);
+    }
+
+    if (piHarvestDate) {
+        piHarvestDate.addEventListener("change", updateSuggestions);
+        piHarvestDate.addEventListener("input", updateSuggestions);
+    }
 }
 
 // ============================================================
@@ -2152,6 +2235,8 @@ function normalizePlantingIntent(intent) {
         actual_harvest_date: intent.actual_harvest_date || null,   
         actual_harvest_volume: intent.actual_harvest_volume || null,
         remarks: intent.remarks || "",
+        comment: intent.comment || "",
+        comment_snapshot: intent.comment_snapshot || null,
         status: intent.status || intent.report_status || "Pending",
         finalized_status: intent.finalized_status || "NOT PLANTED",
         is_in_report: intent.is_in_report || false,  
@@ -2349,12 +2434,12 @@ function renderPlantingIntentsTable() {
     const draftCount = document.getElementById('draftCount');
     const submittedCount = document.getElementById('submittedCount');
     if (draftCount) draftCount.textContent = draftIntents.length;
-    if (submittedCount) submittedCount.textContent = submittedIntentsAll.length; // total, hindi apektado ng filter pill
+    if (submittedCount) submittedCount.textContent = submittedIntentsAll.length;
 
     if (draftIntents.length === 0) {
         draftTbody.innerHTML = `
             <tr>
-                <td colspan="7" style="padding:40px; text-align:center; color:#999;">
+                <td colspan="8" style="padding:40px; text-align:center; color:#999;">
                     ${filteredPlantingIntents !== null ? 'No Draft Intents match your search.' : 'No Draft Intents found.'}
                     ${filteredPlantingIntents !== null ? '<br><small>Try adjusting your search terms.</small>' : '<br>Click "Add Plant Intent" to create your first planting plan.'}
                 </td>
@@ -2373,7 +2458,7 @@ function renderPlantingIntentsTable() {
     if (submittedIntents.length === 0) {
         submittedTbody.innerHTML = `
             <tr>
-                <td colspan="11" style="padding:40px; text-align:center; color:#999;">
+                <td colspan="12" style="padding:40px; text-align:center; color:#999;">
                     ${filteredPlantingIntents !== null ? 'No Submitted Intents match your search.' : 'No Submitted Intents found.'}
                     ${filteredPlantingIntents !== null ? '<br><small>Try adjusting your search terms.</small>' : '<br>Submit a draft intent to see it here.'}
                 </td>
@@ -2398,13 +2483,11 @@ function renderPlantingIntentsTable() {
    PLANTING INTENTS SUMMARY CARDS
 ============================================================ */
 function updatePlantingSummaryCards() {
-    // Draft intents (not yet submitted)
     const draftCount = PLANTING_INTENTS_DATA.filter(function(intent) {
         const status = String(intent.status || "Pending").toLowerCase();
         return status === "draft" || status === "pending";
     }).length;
 
-    // Finalized intents (submitted to municipal or beyond)
     const submittedIntents = PLANTING_INTENTS_DATA.filter(function(intent) {
         const status = String(intent.status || "").toLowerCase();
         return (
@@ -2420,7 +2503,6 @@ function updatePlantingSummaryCards() {
 
     const finalizedCount = submittedIntents.length;
 
-    // Breakdown ng finalized intents per status
     const statusCounts = {
         "NOT PLANTED": 0,
         "PLANTED": 0,
@@ -2485,12 +2567,19 @@ function renderPagination(totalCount, type) {
     const endItem = Math.min(currentPage * perPage, totalCount);
 
     let html = `
-        <div class="pagination-container planting-intent-pagination" style="margin-top: 18px; padding-top: 14px; border-top: 1px solid #DFD8C6;">
-            <span class="pagination-info" style="font-size: 12.5px; color: #625E52;">
+        <div class="pagination-container planting-intent-pagination" style="
+            margin-top: 24px; 
+            padding-top: 16px; 
+            border-top: 1.5px solid #DFD8C6; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        ">
+            <span class="pagination-info" style="font-size: 13px; color: #625E52; font-weight: 500;">
                 Showing ${startItem}-${endItem} of ${totalCount} planting intents
             </span>
-            <div class="pagination-controls">
-                <button class="btn-page prev-pg-btn" type="button" ${currentPage <= 1 ? 'disabled' : ''}>
+            <div class="pagination-controls" style="display: flex; gap: 6px; align-items: center;">
+                <button class="btn-page prev-pg-btn" type="button" ${currentPage <= 1 ? 'disabled' : ''} style="padding: 6px 12px; border-radius: 6px; font-weight: 600;">
                     &laquo; Prev
                 </button>
     `;
@@ -2580,13 +2669,13 @@ function getAllowedStatusTransitions(currentStatus) {
 
     switch (current) {
         case "NOT PLANTED":
-            return ["PLANTED", "MEDIATING"];
+            return ["PLANTED"];                
         case "PLANTED":
             return ["HARVESTED", "MEDIATING"];
         case "HARVESTED":
             return [];
         case "MEDIATING":
-            return ["NOT PLANTED", "PLANTED", "HARVESTED"];
+            return ["HARVESTED"];
         default:
             return ["NOT PLANTED", "PLANTED", "HARVESTED", "MEDIATING"];
     }
@@ -2742,18 +2831,33 @@ function createPlantingIntentRow(intent, type) {
                     const currentStatus = (pill?.dataset.currentStatus || intent.finalized_status || "NOT PLANTED").toUpperCase();
                     
                     let reason = "";
-                    if (currentStatus === "NOT PLANTED" && newStatus === "HARVESTED") {
-                        reason = "Hindi pwedeng gawing HARVESTED ang isang intent na hindi pa PLANTED.\n\nMarkahan muna ito bilang PLANTED.";
-                    } else if (currentStatus === "HARVESTED") {
-                        reason = "Ang HARVESTED status ay FINAL at hindi na mababago.";
-                    } else if (currentStatus === "PLANTED" && newStatus === "NOT PLANTED") {
-                        reason = "Hindi na pwedeng ibalik sa NOT PLANTED ang isang intent na PLANTED na.\n\nUse MEDIATING kung may problema.";
+
+                    // Human-readable labels for each status
+                    const STATUS_LABELS = {
+                        "NOT PLANTED": "Not Planted",
+                        "PLANTED": "Planted",
+                        "MEDIATING": "Mediating",
+                        "HARVESTED": "Harvested",
+                    };
+
+                    const currentLabel = STATUS_LABELS[currentStatus] || currentStatus;
+                    const nextLabel = STATUS_LABELS[newStatus] || newStatus;
+
+                    if (currentStatus === newStatus) {
+                        // Same status — no change
+                        reason = `Ang Planting Intent ay ${currentLabel} na.`;
                     } else {
-                        reason = `Hindi pwedeng i-transition mula ${currentStatus} papuntang ${newStatus}.`;
+                        // Build a flexible, descriptive reason
+                        const baseMessage =
+                            `Hindi pwedeng i-transition ang intent mula ` +
+                            `${currentLabel} papuntang ${nextLabel}.`;
+
+                        const note = STATUS_NOTES[currentStatus];
+                        reason = note ? `${baseMessage}\n\n${note}` : baseMessage;
                     }
-                    
-                    alert("⚠️ Invalid Status Change\n\n" + reason);
-                    if (menu) menu.style.display = 'none';
+
+                    alert("Invalid Status Change\n\n" + reason);
+                    menu.style.display = 'none';
                     return;
                 }
                 
@@ -2794,9 +2898,6 @@ function openPlantingIntentDetails(intent) {
     try {
         if (list) list.classList.add("hidden-element");
         details.classList.remove("hidden-element");
-
-        console.log("✅ View switched. Details hidden?",
-                    details.classList.contains("hidden-element"));
 
         window.currentSelectedPlantingIntent = intent;
 
@@ -2842,7 +2943,6 @@ function openPlantingIntentDetails(intent) {
             actualHarvestInput.value = toDateInputValue(intent.actual_harvest_date);
         }
 
-        // ✅ NEW: Populate actual harvest volume
         const actualHarvestVolumeInput = document.getElementById("detailActualHarvestVolume");
         const actualHarvestVolumeHint = document.getElementById("detailActualHarvestVolumeHint");
 
@@ -2875,6 +2975,7 @@ function openPlantingIntentDetails(intent) {
         }
 
         setValue("detailRemarks", intent.remarks || "");
+        setValue("detailComment", intent.comment || "");
 
         const revisionInfo = document.getElementById("detailRevisionInfo");
         if (revisionInfo) {
@@ -2889,7 +2990,6 @@ function openPlantingIntentDetails(intent) {
             }
         }
 
-        // ✅ NEW: Render validation timeline
         const historyWrapper = document.getElementById("validationHistoryWrapper");
         const historyContainer = document.getElementById("validationTimelineContainer");
         if (historyContainer) {
@@ -2914,8 +3014,6 @@ function openPlantingIntentDetails(intent) {
         const status = (intent.status || "DRAFT").toUpperCase();
         const isDraft = status === "DRAFT";
         const isSubmitted = status === "SUBMITTED";
-
-        console.log("Status:", status, "| Draft:", isDraft, "| Submitted:", isSubmitted);
 
         if (isDraft) {
             if (editBtn) {
@@ -2986,19 +3084,14 @@ function openPlantingIntentDetails(intent) {
         const cancelBtn = document.getElementById("cancelEditPlantingIntentBtn");
         if (cancelBtn) cancelBtn.remove();
 
-        console.log("✅ Details view populated successfully.");
-
         (async () => {
             try {
-                // Try to find the report that includes this intent
                 let reportId = intent.report_id || intent.reportId || null;
 
-                // If not set, try to look it up (only if intent is in a report)
                 if (!reportId && intent.is_in_report) {
                     reportId = await findReportIdForIntent(intent.planting_intent_id);
                 }
 
-                // If still no report ID → hide timeline
                 if (!reportId) {
                     if (historyWrapper) historyWrapper.style.display = "none";
                     if (historyContainer) historyContainer.innerHTML = "";
@@ -3013,7 +3106,6 @@ function openPlantingIntentDetails(intent) {
                 const history = fullReport.validation_history || [];
 
                 if (history.length === 0) {
-                    // No history → hide the whole wrapper
                     if (historyWrapper) historyWrapper.style.display = "none";
                     if (historyContainer) historyContainer.innerHTML = "";
                     return;
@@ -3042,14 +3134,12 @@ function openPlantingIntentDetails(intent) {
 
 /* ============================================================
    🔍 FIND REPORT ID FOR INTENT
-   Looks up which report contains this intent
 ============================================================ */
 
 async function findReportIdForIntent(intentId) {
     if (!intentId) return null;
 
     try {
-        // Query the report submissions endpoint that returns report<intent> mapping
         const reports = await apiRequest(
             `${API_BASE_URL}/api/raw-plant-reports/`,
             { method: "GET" }
@@ -3057,7 +3147,6 @@ async function findReportIdForIntent(intentId) {
 
         if (!Array.isArray(reports)) return null;
 
-        // Each report has "intent_ids" array
         const match = reports.find(r =>
             Array.isArray(r.intent_ids) &&
             r.intent_ids.some(id => String(id) === String(intentId))
@@ -3226,6 +3315,7 @@ async function cancelPlantingIntentEdit() {
     }
 
     setValue("detailRemarks", intent.remarks || "");
+        setValue("detailComment", intent.comment || "");
 
     resetPlantingIntentDetailFields();
 
@@ -3438,6 +3528,7 @@ async function savePlantingIntentChanges() {
         }
 
         setValue("detailRemarks", intent.remarks || "");
+        setValue("detailComment", intent.comment || "");
 
         alert("Planting Intent updated successfully!");
 
@@ -3617,7 +3708,6 @@ function showConfirmModal({
     const cancelBtn = document.getElementById("cancelConfirmReportBtn");
     const proceedBtn = document.getElementById("proceedConfirmReportBtn");
 
-    // Fallback to native confirm if modal markup is missing
     if (!modal || !titleEl || !textEl || !cancelBtn || !proceedBtn) {
         ESaka.confirm(message, { title, confirmText }).then(ok => { if (ok && onConfirm) onConfirm(); });
         return;
@@ -3626,7 +3716,6 @@ function showConfirmModal({
     titleEl.textContent = title;
     textEl.innerHTML = message;
 
-    // Structured details block (optional)
     if (details && detailsEl) {
         detailsEl.innerHTML = details;
         detailsEl.style.display = "block";
@@ -3635,11 +3724,9 @@ function showConfirmModal({
         detailsEl.style.display = "none";
     }
 
-    // Confirm button text + color
     proceedBtn.textContent = confirmText;
     proceedBtn.style.background = confirmColor || "";
 
-    // Cancel button text
     cancelBtn.textContent = cancelText;
 
     const newProceedBtn = proceedBtn.cloneNode(true);
@@ -3658,7 +3745,6 @@ function showConfirmModal({
         onCancel && onCancel();
     });
 
-    // Click outside to close
     modal.onclick = function (e) {
         if (e.target === modal) modal.classList.remove("show");
     };
@@ -3686,7 +3772,6 @@ function showSuccessModal({
     const closeBtn = document.getElementById("closeReportSubmittedBtn");
     const iconEl = modal?.querySelector("div[style*='border-radius: 50%']");
 
-    // Fallback to native alert if modal markup is missing
     if (!modal || !titleEl || !messageEl || !closeBtn) {
         alert(message.replace(/<[^>]*>/g, ""));
         onClose && onClose();
@@ -3703,7 +3788,6 @@ function showSuccessModal({
         iconEl.style.background = iconBg;
     }
 
-    // Clean clone to prevent listener stacking
     const newCloseBtn = closeBtn.cloneNode(true);
     closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
 
@@ -3712,7 +3796,6 @@ function showSuccessModal({
         onClose && onClose();
     });
 
-    // Click outside to close
     modal.onclick = function (e) {
         if (e.target === modal) {
             modal.classList.remove("show");
@@ -3725,12 +3808,10 @@ function showSuccessModal({
 
 
 /* ============================================================
-   NAVIGATION HELPER — force-switch to Reports main view
-   Use after actions that should return the user to the list.
+   NAVIGATION HELPER
 ============================================================ */
 
 function switchToReportsTab() {
-    // 1. Highlight the Reports nav button
     const reportsNavBtn = document.querySelector('.nav-item[data-view="reports"]');
     if (reportsNavBtn) {
         document.querySelectorAll(".nav-item[data-view]").forEach(btn => {
@@ -3738,14 +3819,12 @@ function switchToReportsTab() {
         });
     }
 
-    // 2. Show the Reports view, hide others
     document.querySelectorAll(".view").forEach(view => {
         view.classList.remove("active-view");
     });
     const reportsView = document.getElementById("view-reports");
     if (reportsView) reportsView.classList.add("active-view");
 
-    // 3. Within Reports, show only the main list
     const mainView = document.getElementById("reportsMainSubview");
     const detailsView = document.getElementById("reportDetailsSubview");
     const submitView = document.getElementById("submitReportSubview");
@@ -3772,6 +3851,11 @@ function switchToReportsTab() {
 
 function initReporting() {
     console.log("Initializing Reporting...");
+
+    initReportTabs();         
+    initReportDateFilters(); 
+
+    setActiveReportTab("pending");
 
     const createReportBtn = document.getElementById("createReportBtn");
     const cancelReportBtn = document.getElementById("cancelReportBtn");
@@ -3811,7 +3895,6 @@ function initReporting() {
             const notes = document.getElementById("reportNotesInput")?.value?.trim() || "";
             const intents = window.selectedReportIntents || [];
 
-            // Nothing to lose → just close immediately
             if (!title && !notes && intents.length === 0) {
                 console.log("Cancelling empty report form...");
                 window.currentEditingReportId = null;
@@ -3846,9 +3929,6 @@ function initReporting() {
         });
     }
 
-    /* ============================================================
-       SUBMIT REPORT — validate first, then styled confirmation
-    ============================================================ */
     if (submitFinalBtn) {
         submitFinalBtn.addEventListener("click", function () {
             const title = document.getElementById("reportTitleInput")?.value?.trim() || "";
@@ -3976,9 +4056,6 @@ function initReporting() {
                 return;
             }
 
-            // ============================================================
-            // ✅ STEP 1: Confirm
-            // ============================================================
             const confirmed = await ESaka.confirm(
                 "Are you sure you want to resubmit this report to Municipal?\n\n" +
                 "It will be sent back for validation and moved to the Pending list.",
@@ -3991,9 +4068,6 @@ function initReporting() {
             this.textContent = "Resubmitting...";
 
             try {
-                // ============================================================
-                // ✅ STEP 2: Send PATCH request
-                // ============================================================
                 await apiRequest(`${API_BASE_URL}/api/raw-plant-reports/${reportId}/status`, {
                     method: "PATCH",
                     body: JSON.stringify({
@@ -4001,19 +4075,12 @@ function initReporting() {
                     })
                 });
 
-                // ============================================================
-                // ✅ STEP 3: Clear selection state BEFORE navigating
-                // ============================================================
                 window.currentSelectedReport = null;
                 window.currentEditingReportId = null;
                 window.selectedReportIntents = [];
 
-                // ============================================================
-                // ✅ STEP 4: Force-switch to Reports tab
-                // ============================================================
                 const reportsNavBtn = document.querySelector('.nav-item[data-view="reports"]');
                 if (reportsNavBtn) {
-                    // Remove active from all nav buttons + views
                     document.querySelectorAll(".nav-item[data-view]").forEach(btn => {
                         btn.classList.toggle("active", btn === reportsNavBtn);
                     });
@@ -4025,9 +4092,6 @@ function initReporting() {
                     if (reportsView) reportsView.classList.add("active-view");
                 }
 
-                // ============================================================
-                // ✅ STEP 5: Reset subviews — show main list only
-                // ============================================================
                 const mainView = document.getElementById("reportsMainSubview");
                 const detailsView = document.getElementById("reportDetailsSubview");
                 const submitView = document.getElementById("submitReportSubview");
@@ -4045,29 +4109,18 @@ function initReporting() {
                     mainView.style.display = "";
                 }
 
-                // Also reset the submit form fields
                 resetReportForm();
 
-                // ============================================================
-                // ✅ STEP 6: Refresh data (AWAIT both)
-                // ============================================================
                 await fetchPlantingIntents();
                 await loadReports();
 
-                // ============================================================
-                // ✅ STEP 7: Scroll to top
-                // ============================================================
                 window.scrollTo({ top: 0, behavior: "smooth" });
 
-                // ============================================================
-                // ✅ STEP 8: Styled success modal (not alert)
-                // ============================================================
                 showSuccessModal({
                     title: "Resubmitted to Municipal",
                     message: "Your revised report has been successfully resubmitted. It now appears under <strong>Pending at Municipal</strong>.",
                     confirmText: "View Reports",
                     onClose: () => {
-                        // One more refresh just in case, after user closes
                         window.scrollTo({ top: 0, behavior: "smooth" });
                     },
                 });
@@ -4081,7 +4134,6 @@ function initReporting() {
                     confirmText: "OK",
                 });
 
-                // Restore button state on error
                 this.disabled = false;
                 this.textContent = originalText || "Resubmit";
             }
@@ -4250,9 +4302,15 @@ function renderFinalizedIntents(intents) {
                 return;
             }
             
-            updateStatusPillVisual(pill, newStatus);
             menu.style.display = 'none';
-            updateFinalizedIntentStatus(intentId, newStatus);
+            const intent = PLANTING_INTENTS_DATA.find(function (i) {
+                return String(i.planting_intent_id) === String(intentId);
+            });
+            if (!intent) {
+                alert("Planting intent not found. Please refresh the page.");
+                return;
+            }
+            handleFinalizedStatusChange(intent, currentStatus, newStatus, pill);
         });
     });
     
@@ -4326,6 +4384,7 @@ async function updateFinalizedIntentStatus(intentId, newStatus, extraPayload = {
         }
 
         const result = await response.json();
+        console.log("finalized-status PATCH sent:", body, "response:", result);
 
         const intent = PLANTING_INTENTS_DATA.find(function (i) {
             return String(i.planting_intent_id) === String(intentId);
@@ -4341,6 +4400,9 @@ async function updateFinalizedIntentStatus(intentId, newStatus, extraPayload = {
             }
             if (extraPayload.actual_harvest_volume) {
                 intent.actual_harvest_volume = extraPayload.actual_harvest_volume;
+            }
+            if ("comment" in extraPayload) {
+                intent.comment = extraPayload.comment || "";
             }
             intent.updated_at = new Date().toISOString();
         }
@@ -4403,8 +4465,6 @@ async function loadReports() {
             await fetchPlantingIntents();
         }
 
-        // ✅ Only intents at MUNICIPAL level (pending or flagged)
-        //    OR final approved (for reference)
         const finalizedIntents = (PLANTING_INTENTS_DATA || []).filter(function(intent) {
             const status = String(intent.status || '').toUpperCase();
             return (
@@ -4466,7 +4526,6 @@ async function loadReports() {
 
             console.log("All reports from API:", reportsById.size);
 
-            // ✅ Only show reports at Municipal level OR final approved
             submittedReports = Array.from(reportsById.values()).filter(function(r) {
                 const status = String(r.status || '').toUpperCase().split('.').pop();
                 return (
@@ -4546,7 +4605,6 @@ function openReportDetails(report) {
     if (submitView) submitView.classList.add("hidden-element");
     detailsView.classList.remove("hidden-element");
 
-    // Reset timeline
     const historyWrapper = document.getElementById("reportValidationHistoryWrapper");
     const historyContainer = document.getElementById("reportValidationTimelineContainer");
     if (historyWrapper) historyWrapper.style.display = "none";
@@ -4656,7 +4714,6 @@ function openReportDetails(report) {
                 created_at: fullReport.created_at
             });
 
-            // ✅ Render validation timeline
             renderValidationTimeline(
                 fullReport.validation_history || [],
                 "reportValidationTimelineContainer",
@@ -4665,7 +4722,6 @@ function openReportDetails(report) {
 
         } catch (err) {
             console.error("Failed to load full report:", err);
-            // Silent lang — huwag mag-show ng error box
             if (historyWrapper) historyWrapper.style.display = "none";
             if (historyContainer) historyContainer.innerHTML = "";
         }
@@ -4881,43 +4937,35 @@ function renderIncludedPlantingIntents(report) {
     if (!Array.isArray(intents) || intents.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" style="padding:20px; text-align:center; color:#999;">
+                <td colspan="10" style="padding:20px; text-align:center; color:#999;">
                     No intents included.
                 </td>
             </tr>
         `;
+        renderVarianceRemarksPanel([]);
         return;
     }
 
+    // Enrich with live data
     intents = intents.map(function(intent) {
         const fullIntent = (PLANTING_INTENTS_DATA || []).find(function(i) {
             return String(i.planting_intent_id) === String(intent.planting_intent_id);
         });
-
         if (fullIntent) {
             return {
                 ...intent,
-                actual_planting_date: intent.actual_planting_date 
-                    || fullIntent.actual_planting_date 
-                    || null,
-                actual_harvest_date: intent.actual_harvest_date 
-                    || fullIntent.actual_harvest_date 
-                    || null,
-                actual_harvest_volume: intent.actual_harvest_volume 
-                    || fullIntent.actual_harvest_volume 
-                    || null,
-                finalized_status: intent.finalized_status 
-                    || fullIntent.finalized_status 
-                    || "NOT PLANTED",
-                finalized_status_at_submission: intent.finalized_status_at_submission 
-                    || fullIntent.finalized_status 
-                    || "NOT PLANTED"
+                actual_planting_date: intent.actual_planting_date || fullIntent.actual_planting_date || null,
+                actual_harvest_date: intent.actual_harvest_date || fullIntent.actual_harvest_date || null,
+                actual_harvest_volume: intent.actual_harvest_volume || fullIntent.actual_harvest_volume || null,
+                finalized_status: intent.finalized_status || fullIntent.finalized_status || "NOT PLANTED",
+                finalized_status_at_submission: intent.finalized_status_at_submission || fullIntent.finalized_status || "NOT PLANTED",
+                comment_snapshot: intent.comment_snapshot || fullIntent.comment || null,
             };
         }
-
         return intent;
     });
 
+    // Build the table rows
     tbody.innerHTML = intents.map(function(intent) {
         const intentId = intent.planting_intent_id || "—";
         const farmer = intent.farmer_name || "N/A";
@@ -4927,26 +4975,19 @@ function renderIncludedPlantingIntents(report) {
         const hasActual = actualVol > 0;
 
         const plannedPlanting = intent.planting_date ? formatPlantingDate(intent.planting_date) : "—";
-        const plannedHarvest = intent.harvest_date ? formatPlantingDate(intent.harvest_date) : "—";
-
-        const actualPlanting = intent.actual_planting_date 
-            ? formatPlantingDate(intent.actual_planting_date) 
-            : null;
-        const actualHarvest = intent.actual_harvest_date 
-            ? formatPlantingDate(intent.actual_harvest_date) 
-            : null;
+        const plannedHarvest  = intent.harvest_date ? formatPlantingDate(intent.harvest_date) : "—";
+        const actualPlanting  = intent.actual_planting_date ? formatPlantingDate(intent.actual_planting_date) : null;
+        const actualHarvest   = intent.actual_harvest_date  ? formatPlantingDate(intent.actual_harvest_date)  : null;
 
         function renderActualDate(actual, planned) {
             if (!actual) {
                 return `<span style="color: #BBB; font-style: italic;">Not yet recorded</span>`;
             }
-
             let varianceBadge = "";
             if (planned) {
                 const plannedDate = new Date(planned);
                 const actualDate = new Date(actual);
                 const diffDays = Math.round((actualDate - plannedDate) / (1000 * 60 * 60 * 24));
-
                 if (diffDays === 0) {
                     varianceBadge = `<span style="font-size: 10px; color: #2E7D32; margin-left: 6px;">(on time)</span>`;
                 } else if (diffDays > 0) {
@@ -4955,25 +4996,36 @@ function renderIncludedPlantingIntents(report) {
                     varianceBadge = `<span style="font-size: 10px; color: #2980B9; margin-left: 6px;">(${diffDays}d)</span>`;
                 }
             }
-
             return `<span style="color: var(--ink); font-weight: 600;">${actual}</span>${varianceBadge}`;
         }
 
-        const finalizedAtSubmission = intent.finalized_status_at_submission 
-            || intent.finalized_status 
-            || "NOT PLANTED";
+        const finalizedAtSubmission = intent.finalized_status_at_submission || intent.finalized_status || "NOT PLANTED";
+        let finalBgColor = "#6c757d", finalDisplay = "Not Planted";
+        if (finalizedAtSubmission === "PLANTED")      { finalBgColor = "#D97706"; finalDisplay = "Planted"; }
+        else if (finalizedAtSubmission === "HARVESTED")   { finalBgColor = "#2E7D32"; finalDisplay = "Harvested"; }
+        else if (finalizedAtSubmission === "MEDIATING")   { finalBgColor = "#2980B9"; finalDisplay = "Mediating"; }
 
-        let finalBgColor = "#6c757d";
-        let finalDisplay = "Not Planted";
-        if (finalizedAtSubmission === "PLANTED") {
-            finalBgColor = "#D97706";
-            finalDisplay = "Planted";
-        } else if (finalizedAtSubmission === "HARVESTED") {
-            finalBgColor = "#2E7D32";
-            finalDisplay = "Harvested";
-        } else if (finalizedAtSubmission === "MEDIATING") {
-            finalBgColor = "#2980B9";
-            finalDisplay = "Mediating";
+        // Variance badge: shows which dates have variances
+        const hasPlantingVar = isIntentDateVariance(intent.planting_date, intent.actual_planting_date);
+        const hasHarvestVar  = isIntentDateVariance(intent.harvest_date,  intent.actual_harvest_date);
+        const hasComment = !!(intent.comment_snapshot && String(intent.comment_snapshot).trim());
+
+        let varianceCell = `<span style="color:#BBB; font-style:italic; font-size:11.5px;">—</span>`;
+        if (hasPlantingVar || hasHarvestVar) {
+            const labels = [];
+            if (hasPlantingVar) labels.push("Planting");
+            if (hasHarvestVar)  labels.push("Harvest");
+            varianceCell = `<span style="
+                display:inline-block;
+                padding: 3px 10px;
+                background: #FFFBEB;
+                border: 1px solid #FCD34D;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #92400E;
+                white-space: nowrap;
+            ">⚠️ ${labels.join(" + ")}</span>`;
         }
 
         return `
@@ -4983,15 +5035,9 @@ function renderIncludedPlantingIntents(report) {
                 <td style="padding:10px 14px;">${escapeHtml(String(commodity))}</td>
                 <td style="padding:10px 14px; text-align:center;">
                     <div style="font-weight: 600;">${plannedVol.toLocaleString("en-US")} kg</div>
-                    ${hasActual ? `
-                        <div style="font-size: 11px; color: #2E7D32; margin-top: 2px;">
-                            ✓ ${actualVol.toLocaleString("en-US")} kg actual
-                        </div>
-                    ` : `
-                        <div style="font-size: 11px; color: #BBB; margin-top: 2px; font-style: italic;">
-                            not harvested
-                        </div>
-                    `}
+                    ${hasActual
+                        ? `<div style="font-size: 11px; color: #2E7D32; margin-top: 2px;">✓ ${actualVol.toLocaleString("en-US")} kg actual</div>`
+                        : `<div style="font-size: 11px; color: #BBB; margin-top: 2px; font-style: italic;">not harvested</div>`}
                 </td>
                 <td style="padding:10px 14px; text-align:center; background: #FAFAFA;">
                     ${escapeHtml(String(plannedPlanting))}
@@ -5004,6 +5050,9 @@ function renderIncludedPlantingIntents(report) {
                 </td>
                 <td style="padding:10px 14px; text-align:center; background: #FFFBF5;">
                     ${renderActualDate(actualHarvest, intent.harvest_date)}
+                </td>
+                <td style="padding:10px 14px; text-align:center;">
+                    ${varianceCell}
                 </td>
                 <td style="padding:10px 14px; text-align:center;">
                     <span class="status-pill" style="
@@ -5019,8 +5068,252 @@ function renderIncludedPlantingIntents(report) {
             </tr>
         `;
     }).join("");
+
+    // Fill the separate variance remarks panel
+    renderVarianceRemarksPanel(intents);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   SEPARATE VARIANCE REMARKS PANEL
+   One card per intent that has a variance remark
+═══════════════════════════════════════════════════════════ */
+function renderVarianceRemarksPanel(intents) {
+    const panel = document.getElementById("varianceRemarksPanel");
+    const body = document.getElementById("varianceRemarksBody");
+    const countEl = document.getElementById("varianceRemarksCount");
+    const badgeEl = document.getElementById("intentVarianceCountBadge");
+    if (!panel || !body) return;
+
+    const withRemarks = (intents || []).filter(function (intent) {
+        const hasPlantingVar = isIntentDateVariance(intent.planting_date, intent.actual_planting_date);
+        const hasHarvestVar  = isIntentDateVariance(intent.harvest_date,  intent.actual_harvest_date);
+        const hasComment     = !!(intent.comment_snapshot && String(intent.comment_snapshot).trim());
+        const hasCommentField = !!(intent.comment && String(intent.comment).trim());
+        return hasPlantingVar || hasHarvestVar || hasComment || hasCommentField;
+    });
+
+    // Update badges
+    if (countEl) countEl.textContent = String(withRemarks.length);
+
+    if (badgeEl) {
+        if (withRemarks.length > 0) {
+            badgeEl.style.display = "inline-block";
+            badgeEl.textContent = withRemarks.length === 1
+                ? "1 date variance remark"
+                : `${withRemarks.length} date variance remarks`;
+        } else {
+            badgeEl.style.display = "none";
+        }
+    }
+
+    // Show / hide panel
+    if (withRemarks.length === 0) {
+        panel.style.display = "none";
+        body.innerHTML = "";
+        return;
+    }
+    panel.style.display = "block";
+
+    // Render each intent as a remark card
+    body.innerHTML = withRemarks.map(function (intent) {
+        const intentId = intent.planting_intent_id || "—";
+        const farmer   = intent.farmer_name || "N/A";
+        const commodity = intent.commodity || "N/A";
+
+        const remarkText = String(
+            intent.comment_snapshot || intent.comment || ""
+        ).trim();
+
+        const hasPlantingVar = isIntentDateVariance(intent.planting_date, intent.actual_planting_date);
+        const hasHarvestVar  = isIntentDateVariance(intent.harvest_date,  intent.actual_harvest_date);
+
+        // Build planned vs actual pairs for each variance type
+        const plantingDates = hasPlantingVar ? {
+            label: "Planting",
+            planned: formatPlantingDate(intent.planting_date),
+            actual: formatPlantingDate(intent.actual_planting_date),
+            diffDays: getDayDiff(intent.planting_date, intent.actual_planting_date),
+        } : null;
+
+        const harvestDates = hasHarvestVar ? {
+            label: "Harvest",
+            planned: formatPlantingDate(intent.harvest_date),
+            actual: formatPlantingDate(intent.actual_harvest_date),
+            diffDays: getDayDiff(intent.harvest_date, intent.actual_harvest_date),
+        } : null;
+
+        const diffLabels = [];
+        if (plantingDates) diffLabels.push(plantingDates.label);
+        if (harvestDates)  diffLabels.push(harvestDates.label);
+
+        const varianceTag = diffLabels.length > 0
+            ? `<span style="
+                display:inline-block;
+                padding: 3px 10px;
+                background: #FFFBEB;
+                border: 1px solid #FCD34D;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 700;
+                color: #92400E;
+                white-space: nowrap;
+                margin-left: 8px;
+            ">⚠️ ${diffLabels.join(" + ")}</span>`
+            : "";
+
+        // Build the "planned → actual" preview rows
+        const datePreviewRows = [];
+        if (plantingDates) datePreviewRows.push(renderVarianceDateRow(plantingDates));
+        if (harvestDates)  datePreviewRows.push(renderVarianceDateRow(harvestDates));
+
+        return `
+            <div style="
+                padding: 14px 18px;
+                background: #FFFBEB;
+                border: 1.5px solid #FCD34D;
+                border-left: 4px solid #D97706;
+                border-radius: 10px;
+            ">
+                <!-- Header: ID + Farmer + Commodity + Variance Tag -->
+                <div style="
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 10px;
+                ">
+                    <span style="
+                        font-size: 12px;
+                        font-weight: 800;
+                        color: #92400E;
+                        background: #FEF3C7;
+                        padding: 2px 8px;
+                        border-radius: 6px;
+                    ">#${escapeHtml(String(intentId))}</span>
+                    <span style="
+                        font-size: 13px;
+                        font-weight: 700;
+                        color: var(--ink);
+                    ">${escapeHtml(String(farmer))}</span>
+                    <span style="
+                        font-size: 12px;
+                        color: var(--muted);
+                    ">· ${escapeHtml(String(commodity))}</span>
+                    ${varianceTag}
+                </div>
+
+                <!-- Planned vs Actual preview -->
+                ${datePreviewRows.length > 0 ? `
+                    <div style="
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                        gap: 8px;
+                        margin-bottom: 10px;
+                    ">
+                        ${datePreviewRows.join("")}
+                    </div>
+                ` : ""}
+
+                <!-- The remark -->
+                ${remarkText ? `
+                    <div style="
+                        background: #FFFFFF;
+                        border-left: 3px solid #D97706;
+                        padding: 10px 14px;
+                        border-radius: 0 6px 6px 0;
+                        font-size: 13px;
+                        color: var(--ink);
+                        line-height: 1.55;
+                        white-space: pre-wrap;
+                        word-break: break-word;
+                    ">
+                        <div style="
+                            font-size: 10px;
+                            font-weight: 700;
+                            color: #92400E;
+                            text-transform: uppercase;
+                            letter-spacing: 0.06em;
+                            margin-bottom: 4px;
+                        ">Remark</div>
+                        ${escapeHtml(remarkText)}
+                    </div>
+                ` : `
+                    <div style="
+                        font-size: 12px;
+                        color: var(--muted);
+                        font-style: italic;
+                    ">No remark recorded for this variance.</div>
+                `}
+            </div>
+        `;
+    }).join("");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HELPERS for renderVarianceRemarksPanel
+═══════════════════════════════════════════════════════════ */
+
+function getDayDiff(plannedDate, actualDate) {
+    if (!plannedDate || !actualDate) return null;
+    const p = new Date(`${String(plannedDate).slice(0, 10)}T00:00:00`);
+    const a = new Date(`${String(actualDate).slice(0, 10)}T00:00:00`);
+    if (isNaN(p.getTime()) || isNaN(a.getTime())) return null;
+    return Math.round((a - p) / (1000 * 60 * 60 * 24));
+}
+
+function renderVarianceDateRow(varianceInfo) {
+    const diff = varianceInfo.diffDays;
+    let diffLabel = "";
+    let diffColor = "#6c757d";
+
+    if (diff !== null && diff !== 0) {
+        if (diff > 0) {
+            diffLabel = `${diff} day${diff === 1 ? "" : "s"} late`;
+            diffColor = "#D97706";
+        } else {
+            diffLabel = `${Math.abs(diff)} day${Math.abs(diff) === 1 ? "" : "s"} early`;
+            diffColor = "#2980B9";
+        }
+    }
+
+    return `
+        <div style="
+            background: #FFFFFF;
+            border: 1px solid #FCD34D;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+        ">
+            <div style="
+                font-size: 10px;
+                font-weight: 700;
+                color: #92400E;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 4px;
+            ">${escapeHtml(varianceInfo.label)}</div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+                <span style="color: var(--muted);">Planned:</span>
+                <b style="color: var(--ink); font-weight: 700;">${escapeHtml(String(varianceInfo.planned))}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 2px;">
+                <span style="color: var(--muted);">Actual:</span>
+                <b style="color: var(--ink); font-weight: 700;">${escapeHtml(String(varianceInfo.actual))}</b>
+            </div>
+            ${diffLabel ? `
+                <div style="
+                    margin-top: 4px;
+                    padding-top: 4px;
+                    border-top: 1px dashed #FCD34D;
+                    font-size: 11px;
+                    color: ${diffColor};
+                    font-weight: 700;
+                    text-align: right;
+                ">${diffLabel}</div>
+            ` : ""}
+        </div>
+    `;
+}
 
 // ============================================================
 // UPDATE STATUS PILL VISUALLY
@@ -5271,6 +5564,7 @@ async function openSubmitReportSubviewContent(reportId = null) {
         await fetchPlantingIntents();
     }
     
+    initAddIntentButton();
     populateReportIntentSelect();
 
     if (reportId) {
@@ -5375,8 +5669,6 @@ function closeSubmitReportSubview(options = {}) {
         resubmitBtn.style.display = "none";
     }
 
-    // ✅ If forceMainView → always go back to Reports main list
-    // Otherwise → return to Details if a report is still selected
     if (forceMainView) {
         if (detailsView) {
             detailsView.classList.add("hidden-element");
@@ -5419,73 +5711,6 @@ function closeReportDetailsSubview() {
     window.currentSelectedReport = null;
 }
 
-
-// ============================================================
-// POPULATE REPORT INTENT SELECT
-// ============================================================
-
-function populateReportIntentSelect() {
-    const select = document.getElementById("reportIntentSelect");
-    if (!select) return;
-
-    const currentValue = select.value;
-    setTimeout(function () {
-        const search = document.getElementById("reportIntentSearch");
-        if (search && document.activeElement !== search) {
-            search.value = select.value ? (select.options[select.selectedIndex]?.textContent || "") : "";
-        }
-    }, 0);
-    select.innerHTML = `<option value="">Select Planting Intent</option>`;
-
-    const availableIntents = (PLANTING_INTENTS_DATA || []).filter(function(intent) {
-        const status = String(intent.status || "").toUpperCase();
-        return status === "SUBMITTED";
-    });
-
-    const selectedIds = (window.selectedReportIntents || []).map(function(intent) {
-        return String(intent.planting_intent_id);
-    });
-
-    const unselectedIntents = availableIntents.filter(function(intent) {
-        return !selectedIds.includes(String(intent.planting_intent_id));
-    });
-
-    unselectedIntents.sort(function(a, b) {
-        const dateA = new Date(a.updated_at || a.created_at || 0);
-        const dateB = new Date(b.updated_at || b.created_at || 0);
-        return dateB - dateA;
-    });
-
-    unselectedIntents.forEach(function(intent) {
-        const option = document.createElement("option");
-        option.value = intent.planting_intent_id;
-
-        let locationStr = "-";
-        if (intent.barangay && intent.municipality) {
-            locationStr = `${intent.barangay}, ${intent.municipality}`;
-        } else if (intent.location && intent.location !== "-") {
-            locationStr = intent.location;
-        }
-
-        const intentId = intent.planting_intent_id || "-";
-        const farmer = intent.farmer_name || "Unknown Farmer";
-        const commodity = intent.commodity || "-";
-        const volume = intent.volume ? formatPlantingVolume(intent.volume) : "-";
-        const plantingDate = intent.planting_date ? formatPlantingDate(intent.planting_date) : "-";
-        const finalizedStatus = intent.finalized_status || "NOT PLANTED";
-
-        option.textContent = `${intentId} - ${locationStr}, ${farmer} (${commodity}, ${volume}, ${plantingDate}) [${finalizedStatus}]`;
-
-        select.appendChild(option);
-    });
-
-    if (currentValue && unselectedIntents.some(function(i) {
-        return String(i.planting_intent_id) === String(currentValue);
-    })) {
-        select.value = currentValue;
-    }
-}
-
 /* ============================================================
    RESET REPORT FORM
 ============================================================ */
@@ -5499,6 +5724,11 @@ function resetReportForm() {
     const titleInput = document.getElementById("reportTitleInput");
     if (titleInput) {
         titleInput.value = "";
+    }
+
+    const categorySelect = document.getElementById("reportCategorySelect");
+    if (categorySelect) {
+        categorySelect.value = "Planting Report";
     }
 
     const selectedBody = document.getElementById("selectedIntentsTableBody");
@@ -5515,6 +5745,7 @@ function resetReportForm() {
     setReportAttachments([]);
 
     window.selectedReportIntents = [];
+    renderReportIntentSummary();
     
     const select = document.getElementById("reportIntentSelect");
     if (select) {
@@ -5524,109 +5755,440 @@ function resetReportForm() {
     populateReportIntentSelect();
 }
 
+/* ============================================================
+   INTENT PICKER (Create Report form)
+============================================================ */
 
-// ============================================================
-// ADD INTENT TO REPORT
-// ============================================================
+const INTENT_PICKER = {
+    datePeriod: "week",
+    customFrom: null,
+    customTo: null,
+    statusFilter: "all",
+    selectedIds: new Set(),
+    available: [],
+};
 
-function initAddIntentButton() {
-    initSearchableSelection("reportIntentSearch", "reportIntentSelect");
-    const btn = document.getElementById("addIntentToReportBtn");
-    if (!btn) {
-        console.warn("addIntentToReportBtn not found");
-        return;
+// Date used by the Filter-by-Date pills, based on how far the intent has progressed:
+// Harvested -> actual (or planned) harvest date, Planted/Mediating -> actual (or planned)
+// planting date, Not Planted -> planned planting date.
+function getIntentFilterDate(intent) {
+    const s = String(intent.finalized_status || "NOT PLANTED").toUpperCase();
+    if (s === "HARVESTED") {
+        return intent.actual_harvest_date || intent.harvest_date || intent.planting_date || null;
     }
-    
-    btn.addEventListener("click", function(event) {
-        event.preventDefault();
-        event.stopPropagation();
-
-        const select = document.getElementById("reportIntentSelect");
-        if (!select || !select.value) {
-            alert("Please select a planting intent.");
-            return;
-        }
-
-        const intentId = select.value;
-        const intent = (PLANTING_INTENTS_DATA || []).find(function (item) {
-            return String(item.planting_intent_id) === String(intentId);
-        });
-
-        if (!intent) {
-            alert("Planting intent not found.");
-            return;
-        }
-
-        if (!window.selectedReportIntents) {
-            window.selectedReportIntents = [];
-        }
-
-        const alreadySelected = window.selectedReportIntents.some(function (item) {
-            return String(item.planting_intent_id) === String(intentId);
-        });
-
-        if (alreadySelected) {
-            alert("This planting intent is already added.");
-            return;
-        }
-
-        window.selectedReportIntents.push(intent);
-
-        if (!allIndividualReports) {
-            allIndividualReports = [];
-        }
-
-        const alreadyInTable = allIndividualReports.some(function (r) {
-            return String(r.planting_intent_id) === String(intentId);
-        });
-
-        if (!alreadyInTable) {
-            allIndividualReports.unshift({
-                report_id: intent.planting_intent_id,
-                planting_intent_id: intent.planting_intent_id,
-                farmer_name: intent.farmer_name || 'Unknown',
-                commodity: intent.commodity || '-',
-                volume: intent.volume || 0,
-                planting_date: intent.planting_date || null,
-                harvest_date: intent.harvest_date || null,
-                submitted_at: new Date().toISOString(),
-                finalized_status: intent.finalized_status || 'NOT PLANTED',
-                status: intent.status
-            });
-
-            if (typeof renderFinalizedIntents === "function") {
-                renderFinalizedIntents(allIndividualReports);
-            }
-        }
-        select.value = "";
-        select.selectedIndex = 0;
-
-        renderSelectedReportIntents();
-        populateReportIntentSelect();
-
-        console.log("✅ Intent added:", intentId);
-    });
-    
-    console.log("✅ Add Intent button listener attached");
+    if (s === "PLANTED" || s === "MEDIATING") {
+        return intent.actual_planting_date || intent.planting_date || null;
+    }
+    return intent.planting_date || null;
 }
 
+function intentMatchesDatePeriod(intent, period) {
+    if (period === "all") return true;
+    const filterDate = getIntentFilterDate(intent);
+    if (!filterDate) return false;
 
+    const d = new Date(`${String(filterDate).slice(0, 10)}T00:00:00`);
+    if (isNaN(d.getTime())) return false;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (period === "week") {
+        const day = today.getDay();
+        const mondayOffset = day === 0 ? -6 : 1 - day;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + mondayOffset);
+        
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        
+        return d >= monday && d <= sunday;
+    }
+    if (period === "month") {
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }
+    if (period === "year") {
+        return d.getFullYear() === now.getFullYear();
+    }
+    if (period === "custom" && INTENT_PICKER.customFrom && INTENT_PICKER.customTo) {
+        const [fYear, fMonth, fDay] = INTENT_PICKER.customFrom.split("-").map(Number);
+        const [tYear, tMonth, tDay] = INTENT_PICKER.customTo.split("-").map(Number);
+        const from = new Date(fYear, fMonth - 1, fDay, 0, 0, 0, 0);
+        const to = new Date(tYear, tMonth - 1, tDay, 23, 59, 59, 999);
+        return d >= from && d <= to;
+    }
+    return true;
+}
+
+function getPickerEligibleIntents() {
+    const alreadySelectedIds = new Set(
+        (window.selectedReportIntents || []).map(i => String(i.planting_intent_id))
+    );
+
+    return (PLANTING_INTENTS_DATA || []).filter(intent => {
+        const status = String(intent.status || "").toUpperCase();
+        if (status !== "SUBMITTED") return false;
+        if (alreadySelectedIds.has(String(intent.planting_intent_id))) return false;
+
+        const finalized = String(intent.finalized_status || "NOT PLANTED").toUpperCase();
+        
+        if (INTENT_PICKER.statusFilter === "all") return true;
+        
+        return finalized === INTENT_PICKER.statusFilter;
+    });
+}
+
+function renderIntentPicker() {
+    const tbody = document.getElementById("reportIntentPoolBody");
+    const summary = document.getElementById("intentPoolSummary");
+    const addBtn = document.getElementById("addSelectedIntentsBtn");
+    const selectAll = document.getElementById("selectAllPoolIntents");
+    if (!tbody) return;
+
+    const eligible = getPickerEligibleIntents();
+
+    const filtered = eligible.filter(intent => {
+        return intentMatchesDatePeriod(intent, INTENT_PICKER.datePeriod);
+    });
+
+    INTENT_PICKER.available = filtered;
+
+    const visibleIds = new Set(filtered.map(i => String(i.planting_intent_id)));
+    INTENT_PICKER.selectedIds.forEach(id => {
+        if (!visibleIds.has(id)) INTENT_PICKER.selectedIds.delete(id);
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:20px; text-align:center; color:#999;">No matching planting intents for the current filters.</td></tr>`;
+    } else {
+        tbody.innerHTML = filtered.map(intent => {
+            const id = String(intent.planting_intent_id);
+            const checked = INTENT_PICKER.selectedIds.has(id);
+
+            let locationStr = "-";
+            if (intent.barangay && intent.municipality) {
+                locationStr = `${intent.barangay}, ${intent.municipality}`;
+            } else if (intent.location && intent.location !== "-") {
+                locationStr = intent.location;
+            }
+
+            const farmer = intent.farmer_name || "Unknown Farmer";
+            const commodity = intent.commodity || "-";
+            const volume = intent.volume ? formatPlantingVolume(intent.volume) : "-";
+            const plantingDate = intent.planting_date ? formatPlantingDate(intent.planting_date) : "-";
+            const harvestDate = intent.harvest_date ? formatPlantingDate(intent.harvest_date) : "-";
+            const actualPlantingDate = intent.actual_planting_date ? formatPlantingDate(intent.actual_planting_date) : "-";
+            const actualHarvestDate = intent.actual_harvest_date ? formatPlantingDate(intent.actual_harvest_date) : "-";
+            const actualVolumeNum = Number(intent.actual_harvest_volume) || 0;
+            const actualVolumeHtml = actualVolumeNum > 0
+                ? `<div style="font-size:11px; font-weight:600; color:#2E7D32;">Actual: ${escapeHtml(actualVolumeNum.toLocaleString("en-US"))} kg</div>`
+                : "";
+
+            const hs = String(intent.finalized_status || "NOT PLANTED").toUpperCase();
+            let statusLabel = "Not Planted";
+            let statusBg = "#6c757d";
+            if (hs === "PLANTED") { statusLabel = "Planted"; statusBg = "#D97706"; }
+            else if (hs === "HARVESTED") { statusLabel = "Harvested"; statusBg = "#2E7D32"; }
+            else if (hs === "MEDIATING") { statusLabel = "Mediating"; statusBg = "#2980B9"; }
+
+            return `
+                <tr>
+                    <td style="text-align:center;">
+                        <input type="checkbox" class="intent-picker-check" data-intent-id="${escapeHtml(id)}" ${checked ? "checked" : ""} style="cursor:pointer;">
+                    </td>
+                    <td style="text-align:center; font-weight:600;">#${escapeHtml(id)}</td>
+                    <td>${escapeHtml(String(farmer))}</td>
+                    <td>${escapeHtml(String(commodity))}</td>
+                    <td>${escapeHtml(String(volume))}${actualVolumeHtml}</td>
+                    <td style="text-align:center; vertical-align:middle;">${renderPlanActualDates(plantingDate, actualPlantingDate)}</td>
+                    <td style="text-align:center; vertical-align:middle;">${renderPlanActualDates(harvestDate, actualHarvestDate)}</td>
+                    <td style="text-align:center;">
+                        <span class="status-pill" style="display:inline-block; padding:3px 12px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background-color:${statusBg};">${statusLabel}</span>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    if (selectAll) {
+        selectAll.checked = filtered.length > 0 && filtered.every(i => INTENT_PICKER.selectedIds.has(String(i.planting_intent_id)));
+        selectAll.indeterminate = INTENT_PICKER.selectedIds.size > 0 && !selectAll.checked;
+    }
+
+    const selectedCount = INTENT_PICKER.selectedIds.size;
+    if (summary) summary.textContent = `${filtered.length} intents visible`;
+    if (addBtn) {
+        addBtn.disabled = selectedCount === 0;
+        addBtn.textContent = `Add ${selectedCount} Selected to Report`;
+    }
+
+    tbody.querySelectorAll(".intent-picker-check").forEach(cb => {
+        cb.addEventListener("change", function () {
+            const id = String(this.dataset.intentId);
+            if (this.checked) INTENT_PICKER.selectedIds.add(id);
+            else INTENT_PICKER.selectedIds.delete(id);
+            renderIntentPicker();
+        });
+    });
+}
+
+function initIntentPicker() {
+    const datePills = document.querySelectorAll("[data-intent-period]");
+    const selectAll = document.getElementById("selectAllPoolIntents");
+    const addBtn = document.getElementById("addSelectedIntentsBtn");
+
+    if (addBtn && addBtn.dataset.intentPickerBound === "true") {
+        renderIntentPicker();
+        return;
+    }
+    if (addBtn) addBtn.dataset.intentPickerBound = "true";
+    
+    const customWrap = document.getElementById("intentCustomDateWrap");
+    const dateFrom = document.getElementById("intentDateFrom");
+    const dateTo = document.getElementById("intentDateTo");
+    const applyDateBtn = document.getElementById("applyIntentDateRange");
+    
+    // --- BIND STATUS PILLS ---
+    const statusPills = document.querySelectorAll("[data-intent-status]");
+    statusPills.forEach(pill => {
+        pill.addEventListener("click", function () {
+            statusPills.forEach(p => p.classList.remove("active"));
+            this.classList.add("active");
+            INTENT_PICKER.statusFilter = this.dataset.intentStatus;
+            renderIntentPicker();
+        });
+    });
+
+    datePills.forEach(pill => {
+        pill.addEventListener("click", function () {
+            datePills.forEach(p => p.classList.remove("active"));
+            this.classList.add("active");
+            
+            const period = this.dataset.intentPeriod;
+            INTENT_PICKER.datePeriod = period;
+
+            if (period === "custom") {
+                customWrap.style.display = "flex";
+            } else {
+                customWrap.style.display = "none";
+                INTENT_PICKER.customFrom = null;
+                INTENT_PICKER.customTo = null;
+                renderIntentPicker();
+            }
+        });
+    });
+
+    applyDateBtn?.addEventListener("click", function() {
+        const from = dateFrom?.value || "";
+        const to = dateTo?.value || "";
+        if (!from || !to) {
+            alert("Please select both a start and end date.");
+            return;
+        }
+        if (from > to) {
+            alert("Start date must be before or equal to the end date.");
+            return;
+        }
+        INTENT_PICKER.customFrom = from;
+        INTENT_PICKER.customTo = to;
+        renderIntentPicker();
+    });
+
+    selectAll?.addEventListener("change", function () {
+        const visibleIds = INTENT_PICKER.available.map(i => String(i.planting_intent_id));
+        if (this.checked) {
+            visibleIds.forEach(id => INTENT_PICKER.selectedIds.add(id));
+        } else {
+            visibleIds.forEach(id => INTENT_PICKER.selectedIds.delete(id));
+        }
+        renderIntentPicker();
+    });
+
+    addBtn?.addEventListener("click", function () {
+        if (INTENT_PICKER.selectedIds.size === 0) return;
+
+        if (!window.selectedReportIntents) window.selectedReportIntents = [];
+
+        const picked = Array.from(INTENT_PICKER.selectedIds).map(id => {
+            return (PLANTING_INTENTS_DATA || []).find(i => String(i.planting_intent_id) === id);
+        }).filter(Boolean);
+
+        let addedCount = 0;
+        picked.forEach(intent => {
+            const already = window.selectedReportIntents.some(i => String(i.planting_intent_id) === String(intent.planting_intent_id));
+            if (already) return;
+
+            window.selectedReportIntents.push(intent);
+            addedCount++;
+
+            if (!Array.isArray(allIndividualReports)) allIndividualReports = [];
+            const alreadyInTable = allIndividualReports.some(r => String(r.planting_intent_id) === String(intent.planting_intent_id));
+            if (!alreadyInTable) {
+                allIndividualReports.unshift({
+                    report_id: intent.planting_intent_id,
+                    planting_intent_id: intent.planting_intent_id,
+                    farmer_name: intent.farmer_name || "Unknown",
+                    commodity: intent.commodity || "-",
+                    volume: intent.volume || 0,
+                    planting_date: intent.planting_date || null,
+                    harvest_date: intent.harvest_date || null,
+                    submitted_at: new Date().toISOString(),
+                    finalized_status: intent.finalized_status || "NOT PLANTED",
+                    status: intent.status
+                });
+            }
+        });
+
+        INTENT_PICKER.selectedIds.clear();
+        renderSelectedReportIntents();
+        renderIntentPicker();
+
+        console.log(`✅ Added ${addedCount} intent(s) to report`);
+    });
+}
+
+function populateReportIntentSelect() {
+    renderIntentPicker();
+}
+
+function initAddIntentButton() {
+    initIntentPicker();
+    console.log("✅ Intent Picker initialized");
+}
 
 /* ============================================================
    RENDER SELECTED INTENTS
 ============================================================ */
 
+/* Compact "Plan / Actual" date cell, used by the intent pool table */
+function renderPlanActualDates(plan, actual) {
+    const hasActual = actual && actual !== "-";
+    const isVariance = hasActual && plan && plan !== "-" && plan !== actual;
+    const actualColor = hasActual ? (isVariance ? "#D97706" : "#2E7D32") : "var(--muted)";
+    return `
+        <div style="font-size:12px; line-height:1.4;">
+            <span style="color:var(--muted);">${escapeHtml(String(plan || "-"))}</span><br>
+            <strong style="color:${actualColor};">${escapeHtml(String(hasActual ? actual : "-"))}</strong>
+        </div>
+    `;
+}
+
+/* ============================================================
+   REPORT SUMMARY CARDS (Create / Edit Report form)
+============================================================ */
+
+function isIntentDateVariance(plan, actual) {
+    if (!plan || !actual) return false;
+    return String(plan).slice(0, 10) !== String(actual).slice(0, 10);
+}
+
+function computeReportIntentSummary(intents) {
+    const summary = {
+        count: intents.length,
+        plannedVolume: 0,
+        actualVolume: 0,
+        harvestedPlannedVolume: 0,
+        harvestedCount: 0,
+        exceptions: 0,
+        statusCounts: { "NOT PLANTED": 0, "PLANTED": 0, "MEDIATING": 0, "HARVESTED": 0 }
+    };
+
+    intents.forEach(function (intent) {
+        const planned = Number(intent.volume) || 0;
+        const actual = Number(intent.actual_harvest_volume) || 0;
+        const status = String(intent.finalized_status || "NOT PLANTED").toUpperCase();
+
+        summary.plannedVolume += planned;
+        if (summary.statusCounts[status] !== undefined) summary.statusCounts[status]++;
+
+        if (actual > 0) {
+            summary.actualVolume += actual;
+            summary.harvestedPlannedVolume += planned;
+            summary.harvestedCount++;
+        }
+
+        const hasException =
+            isIntentDateVariance(intent.planting_date, intent.actual_planting_date) ||
+            isIntentDateVariance(intent.harvest_date, intent.actual_harvest_date) ||
+            !!String(intent.comment || "").trim();
+        if (hasException) summary.exceptions++;
+    });
+
+    return summary;
+}
+
+function renderReportIntentSummary() {
+    const container = document.getElementById("reportIntentSummaryCards");
+    if (!container) return;
+
+    const intents = window.selectedReportIntents || [];
+    if (intents.length === 0) {
+        container.style.display = "none";
+        container.innerHTML = "";
+        return;
+    }
+
+    const s = computeReportIntentSummary(intents);
+    const fmt = function (n) { return Number(n).toLocaleString("en-US"); };
+
+    const statusParts = [
+        ["HARVESTED", "Harvested"], ["PLANTED", "Planted"],
+        ["MEDIATING", "Mediating"], ["NOT PLANTED", "Not Planted"]
+    ].filter(function (p) { return s.statusCounts[p[0]] > 0; })
+     .map(function (p) { return s.statusCounts[p[0]] + " " + p[1]; });
+
+    let harvestSub = `<span style="color:var(--muted);">No harvest recorded yet</span>`;
+    if (s.harvestedCount > 0 && s.harvestedPlannedVolume > 0) {
+        const pct = Math.round(((s.actualVolume - s.harvestedPlannedVolume) / s.harvestedPlannedVolume) * 100);
+        if (pct === 0) {
+            harvestSub = `<span style="color:#2E7D32; font-weight:600;">On target vs planned</span>`;
+        } else if (pct > 0) {
+            harvestSub = `<span style="color:#2E7D32; font-weight:600;">↑ ${pct}% above planned (${fmt(s.harvestedPlannedVolume)} kg)</span>`;
+        } else {
+            harvestSub = `<span style="color:#C0392B; font-weight:600;">↓ ${Math.abs(pct)}% below planned (${fmt(s.harvestedPlannedVolume)} kg)</span>`;
+        }
+    }
+
+    const exceptionSub = s.exceptions > 0
+        ? `<span style="color:#D97706; font-weight:600;">Date variance / remark attached</span>`
+        : `<span style="color:#2E7D32; font-weight:600;">All on schedule</span>`;
+
+    const card = function (label, value, sub, accent) {
+        return `
+            <div style="background:#fff; border:1.5px solid var(--border); border-left:4px solid ${accent}; border-radius:var(--radius-sm); padding:12px 14px;">
+                <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px;">${label}</div>
+                <div style="font-size:22px; font-weight:800; color:var(--ink); line-height:1.2;">${value}</div>
+                <div style="font-size:11.5px; margin-top:4px;">${sub}</div>
+            </div>
+        `;
+    };
+
+    container.innerHTML =
+        card("Intents in Report", fmt(s.count),
+             `<span style="color:var(--muted);">${escapeHtml(statusParts.join(" · "))}</span>`, "#2E7D32") +
+        card("Planned Volume", `${fmt(s.plannedVolume)} <span style="font-size:13px; font-weight:600;">kg</span>`,
+             `<span style="color:var(--muted);">Across ${fmt(s.count)} intent${s.count === 1 ? "" : "s"}</span>`, "#2980B9") +
+        card("Actual Harvested", s.harvestedCount > 0 ? `${fmt(s.actualVolume)} <span style="font-size:13px; font-weight:600;">kg</span>` : "—",
+             harvestSub, "#D97706") +
+        card("Date Exceptions", fmt(s.exceptions), exceptionSub, s.exceptions > 0 ? "#D97706" : "#2E7D32");
+
+    container.style.display = "grid";
+}
+
 function renderSelectedReportIntents() {
     const tbody = document.getElementById("selectedIntentsTableBody");
     if (!tbody) return;
+
+    renderReportIntentSummary();
 
     const intents = window.selectedReportIntents || [];
 
     if (intents.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" style="padding:20px; text-align:center; color:#999;">
-                    No planting intents selected. Click "Add Row" to add.
+                <td colspan="9" style="padding:24px; text-align:center; color:#999;">
+                    No planting intents selected. Use the table above to add.
                 </td>
             </tr>
         `;
@@ -5635,64 +6197,61 @@ function renderSelectedReportIntents() {
 
     tbody.innerHTML = intents.map(function(intent, index) {
         const intentId = intent.planting_intent_id || "-";
-
-        let locationStr = "-";
-        if (intent.barangay && intent.municipality) {
-            locationStr = `${intent.barangay}, ${intent.municipality}`;
-        } else if (intent.location && intent.location !== "-") {
-            locationStr = intent.location;
-        } else if (intent.barangay) {
-            locationStr = intent.barangay;
-        } else if (intent.municipality) {
-            locationStr = intent.municipality;
-        }
-
         const farmer = intent.farmer_name || "N/A";
         const commodity = intent.commodity || "N/A";
         const volume = intent.volume ? formatPlantingVolume(intent.volume) : "-";
-        const plantingDate = intent.planting_date ? formatPlantingDate(intent.planting_date) : "-";
-        const harvestDate = intent.harvest_date ? formatPlantingDate(intent.harvest_date) : "-";
+        
+        const plannedPlanting = intent.planting_date ? formatPlantingDate(intent.planting_date) : "-";
+        const actualPlanting = intent.actual_planting_date ? formatPlantingDate(intent.actual_planting_date) : "-";
+        const plannedHarvest = intent.harvest_date ? formatPlantingDate(intent.harvest_date) : "-";
+        const actualHarvest = intent.actual_harvest_date ? formatPlantingDate(intent.actual_harvest_date) : "-";
+        
+        const exceptionRemark = intent.comment || "";
+        const selActualVol = Number(intent.actual_harvest_volume) || 0;
+        const selActualVolHtml = selActualVol > 0
+            ? `<div style="font-size:11px; font-weight:600; color:#2E7D32;">Actual: ${escapeHtml(selActualVol.toLocaleString("en-US"))} kg</div>`
+            : "";
 
-        const status = intent.finalized_status || "NOT PLANTED";
-        const statusUpper = status.toUpperCase();
+        const statusUpper = (intent.finalized_status || "NOT PLANTED").toUpperCase();
+        let displayText = 'Not Planted', bgColor = '#6c757d';
+        if (statusUpper === 'PLANTED') { displayText = 'Planted'; bgColor = '#D97706'; }
+        else if (statusUpper === 'HARVESTED') { displayText = 'Harvested'; bgColor = '#2E7D32'; }
+        else if (statusUpper === 'MEDIATING') { displayText = 'Mediating'; bgColor = '#2980B9'; }
 
-        let displayText = statusUpper;
-        let bgColor = '#6c757d';
-
-        if (statusUpper === 'NOT PLANTED') {
-            displayText = 'Not Planted';
-            bgColor = '#6c757d';
-        } else if (statusUpper === 'PLANTED') {
-            displayText = 'Planted';
-            bgColor = '#D97706';
-        } else if (statusUpper === 'HARVESTED') {
-            displayText = 'Harvested';
-            bgColor = '#2E7D32';
-        } else if (statusUpper === 'MEDIATING') {
-            displayText = 'Mediating';
-            bgColor = '#2980B9';
-        }
+        // Helper to format Plan/Actual compactly
+        const renderDates = (plan, actual) => {
+            const isVariance = actual !== "-" && plan !== "-" && plan !== actual;
+            const actualColor = isVariance ? "#D97706" : "#2E7D32"; // Amber for variance, Green for on-time
+            return `
+                <div style="font-size:12px; line-height:1.4;">
+                    <span style="color:var(--muted);">${plan}</span><br>
+                    <strong style="color:${actual !== '-' ? actualColor : 'var(--muted)'};">${actual}</strong>
+                </div>
+            `;
+        };
 
         return `
             <tr>
-                <td>#${escapeHtml(String(intentId))}</td>
-                <td>${escapeHtml(String(locationStr))}</td>
+                <td style="text-align:center; font-weight:600;">#${escapeHtml(String(intentId))}</td>
                 <td>${escapeHtml(String(farmer))}</td>
                 <td>${escapeHtml(String(commodity))}</td>
-                <td>${escapeHtml(String(volume))}</td>
-                <td>${escapeHtml(String(plantingDate))}</td>
-                <td>${escapeHtml(String(harvestDate))}</td>
+                <td>${escapeHtml(String(volume))}${selActualVolHtml}</td>
+                <td style="text-align:center; vertical-align:middle;">${renderDates(plannedPlanting, actualPlanting)}</td>
+                <td style="text-align:center; vertical-align:middle;">${renderDates(plannedHarvest, actualHarvest)}</td>
                 <td style="text-align:center;">
-                    <span class="status-pill"
-                          style="display:inline-block; padding:4px 14px; border-radius:999px; font-size:11px; font-weight:700; color:#FFFFFF; text-shadow:0 1px 1px rgba(0,0,0,0.2); text-align:center; white-space:nowrap; letter-spacing:0.02em; background-color:${bgColor};">
+                    <span class="status-pill" style="display:inline-block; padding:4px 12px; border-radius:999px; font-size:11px; font-weight:700; color:#FFFFFF; text-shadow:0 1px 1px rgba(0,0,0,0.2); background-color:${bgColor};">
                         ${escapeHtml(displayText)}
                     </span>
                 </td>
-                <td class="center-col">
-                    <button type="button"
-                            class="btn-outline-report remove-intent-btn"
-                            data-index="${index}"
-                            style="padding:2px 10px; font-size:11px; border-color:#C0392B; color:#C0392B; cursor:pointer;">
+                <td style="vertical-align:middle;">
+                    ${exceptionRemark ? `
+                        <div style="font-size:11.5px; color:#92400E; background:#FFFBEB; border:1px solid #FCD34D; padding:6px 10px; border-radius:6px; line-height:1.4;">
+                            ⚠️ ${escapeHtml(exceptionRemark)}
+                        </div>
+                    ` : `<span style="color:#BBB; font-style:italic; font-size:11.5px;">None</span>`}
+                </td>
+                <td class="center-col" style="vertical-align:middle;">
+                    <button type="button" class="btn-outline-report remove-intent-btn" data-index="${index}" style="padding:4px 10px; font-size:11px; border-color:#C0392B; color:#C0392B; cursor:pointer;">
                         Remove
                     </button>
                 </td>
@@ -5704,133 +6263,364 @@ function renderSelectedReportIntents() {
         btn.addEventListener("click", function (event) {
             event.preventDefault();
             event.stopPropagation();
-
             const idx = parseInt(this.dataset.index, 10);
-            if (isNaN(idx)) return;
-
-            removeSelectedReportIntent(idx);
+            if (!isNaN(idx)) removeSelectedReportIntent(idx);
         });
     });
-
-    const formSummaryBody = document.getElementById("formSummaryBody");
-    if (formSummaryBody) {
-        const municipalSubmitted = (PLANTING_INTENTS_DATA || []).filter(function(i) {
-            const st = String(i.status || "").toUpperCase();
-            return st === "SUBMITTED" || st.startsWith("SUBMITTED_");
-        });
-    }
 }
 
 
 /* ============================================================
-   RENDER SUBMITTED REPORTS — SPLIT INTO BLOCKS
+   REPORT TABS — classification & rendering
 ============================================================ */
+
+function classifyReportStatus(statusRaw) {
+    const s = String(statusRaw || "").toUpperCase().split(".").pop();
+
+    if (
+        s === "SUBMITTED_MUNICIPAL_PENDING" ||
+        s === "FOR_MUNICIPAL_VALIDATION" ||
+        s === "SUBMITTED_PROVINCIAL_PENDING" ||
+        s === "SUBMITTED_REGIONAL_PENDING"
+    ) return "pending";
+
+    if (
+        s === "SUBMITTED_MUNICIPAL_FLAGGED" ||
+        s === "SUBMITTED_PROVINCIAL_FLAGGED" ||
+        s === "SUBMITTED_REGIONAL_FLAGGED" ||
+        s === "REVISION_REQUIRED"
+    ) return "flagged";
+
+    if (
+        s === "SUBMITTED_REGIONAL_APPROVED" ||
+        s === "FINAL_APPROVED"
+    ) return "approved";
+
+    return null;
+}
+
+/* ============================================================
+   REPORT TAB SWITCHING
+============================================================ */
+
+function initReportTabs() {
+    const cards = document.querySelectorAll("#reportSummaryCards [data-report-tab]");
+    if (!cards.length) return;
+
+    cards.forEach(function (card) {
+        const switchTab = () => {
+            const tab = card.dataset.reportTab;
+            if (!tab || tab === currentReportTab) return;
+            setActiveReportTab(tab);
+        };
+
+        card.addEventListener("click", switchTab);
+        card.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                switchTab();
+            }
+        });
+    });
+}
+
+function setActiveReportTab(tab) {
+    currentReportTab = tab;
+
+    document.querySelectorAll("#reportSummaryCards [data-report-tab]").forEach(function (card) {
+        card.setAttribute("aria-pressed", card.dataset.reportTab === tab ? "true" : "false");
+    });
+
+    document.querySelectorAll(".report-tab-panel").forEach(function (panel) {
+        panel.classList.toggle("hidden-element", panel.dataset.tab !== tab);
+    });
+
+    renderReportTabPanel(tab);
+}
+
+/* ============================================================
+   REPORT DATE FILTERS
+============================================================ */
+
+function initReportDateFilters() {
+    const rows = document.querySelectorAll(".report-date-filter");
+    if (!rows.length) return;
+
+    rows.forEach(function (row) {
+        const tab = row.dataset.filterTab;
+        if (!tab) return;
+
+        const rangeBox = row.querySelector(".report-date-range");
+        const startInput = row.querySelector(".report-date-start");
+        const endInput = row.querySelector(".report-date-end");
+        const applyBtn = row.querySelector(".report-date-apply");
+        const clearBtn = row.querySelector(".report-date-clear");
+        const presets = row.querySelectorAll(".report-date-presets .filter-pill");
+
+        const saved = REPORT_TAB_CUSTOM_RANGES[tab];
+        if (saved) {
+            if (saved.from && startInput) startInput.value = saved.from;
+            if (saved.to && endInput) endInput.value = saved.to;
+        }
+
+        presets.forEach(function (pill) {
+            pill.addEventListener("click", function () {
+                const period = pill.dataset.period || "all";
+
+                presets.forEach(function (p) {
+                    p.classList.toggle("active", p === pill);
+                });
+
+                if (period === "custom") {
+                    rangeBox?.classList.remove("hidden-element");
+                    if (startInput && !startInput.value) {
+                        const r = getReportPeriodRange("month");
+                        if (r) {
+                            startInput.value = r.from.toISOString().slice(0, 10);
+                            endInput.value = r.to.toISOString().slice(0, 10);
+                        }
+                    }
+                } else {
+                    rangeBox?.classList.add("hidden-element");
+                    REPORT_TAB_CUSTOM_RANGES[tab] = { from: null, to: null };
+                }
+
+                REPORT_TAB_FILTERS[tab] = period;
+                renderReportTabPanel(tab);
+            });
+        });
+
+        applyBtn?.addEventListener("click", function () {
+            const from = startInput?.value || "";
+            const to = endInput?.value || "";
+
+            if (!from || !to) {
+                alert("Please select both a start and end date.");
+                return;
+            }
+            if (from > to) {
+                alert("Start date must be before or equal to the end date.");
+                return;
+            }
+
+            REPORT_TAB_CUSTOM_RANGES[tab] = { from, to };
+            REPORT_TAB_FILTERS[tab] = "custom";
+            renderReportTabPanel(tab);
+        });
+
+        clearBtn?.addEventListener("click", function () {
+            if (startInput) startInput.value = "";
+            if (endInput) endInput.value = "";
+            REPORT_TAB_CUSTOM_RANGES[tab] = { from: null, to: null };
+            REPORT_TAB_FILTERS[tab] = "all";
+
+            presets.forEach(function (p) {
+                p.classList.toggle("active", p.dataset.period === "all");
+            });
+            rangeBox?.classList.add("hidden-element");
+            renderReportTabPanel(tab);
+        });
+    });
+}
 
 function renderSubmittedReports(reports) {
-    const pending = [];
-    const flagged = [];
-    const approved = [];
+    REPORTS_DATA_BY_TAB.pending = [];
+    REPORTS_DATA_BY_TAB.flagged = [];
+    REPORTS_DATA_BY_TAB.approved = [];
 
-    (reports || []).forEach(r => {
-        const s = String(r.status || "").toUpperCase().split(".").pop();
-
-        if (s === "SUBMITTED_MUNICIPAL_PENDING" ||
-            s === "FOR_MUNICIPAL_VALIDATION" ||
-            s === "SUBMITTED_PROVINCIAL_PENDING" ||
-            s === "SUBMITTED_REGIONAL_PENDING") {
-            pending.push(r);
-        }
-        else if (s === "SUBMITTED_MUNICIPAL_FLAGGED" ||
-             s === "REVISION_REQUIRED" ||
-                 s === "SUBMITTED_PROVINCIAL_FLAGGED" ||
-             s === "SUBMITTED_REGIONAL_FLAGGED") {
-            flagged.push(r);
-        }
-        else if (s === "SUBMITTED_REGIONAL_APPROVED" ||
-                 s === "FINAL_APPROVED") {
-            approved.push(r);
-        }
+    (reports || []).forEach(function (r) {
+        const bucket = classifyReportStatus(r.status);
+        if (bucket) REPORTS_DATA_BY_TAB[bucket].push(r);
     });
 
-    renderReportBlock("pendingReportsTableBody", "pendingReportsCountBadge", pending, "pending");
-    renderReportBlock("flaggedReportsTableBody", "flaggedReportsCountBadge", flagged, "flagged");
-    renderReportBlock("submittedReportsTableBody", "submittedReportsCountBadge", approved, "approved");
+    updateReportTabCounts();
+    renderActiveReportTab();
 }
 
+function updateReportTabCounts() {
+    const setCount = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
 
-/* ============================================================
-   RENDER ONE REPORT BLOCK
-============================================================ */
+    setCount("pendingReportCount", REPORTS_DATA_BY_TAB.pending.length);
+    setCount("flaggedReportCount", REPORTS_DATA_BY_TAB.flagged.length);
+    setCount("approvedReportCount", REPORTS_DATA_BY_TAB.approved.length);
 
-function renderReportBlock(tbodyId, badgeId, reports, blockType) {
-    const tbody = document.getElementById(tbodyId);
+    setCount("pendingTabBadge", REPORTS_DATA_BY_TAB.pending.length);
+    setCount("flaggedTabBadge", REPORTS_DATA_BY_TAB.flagged.length);
+    setCount("approvedTabBadge", REPORTS_DATA_BY_TAB.approved.length);
+}
+
+function renderActiveReportTab() {
+    renderReportTabPanel("pending");
+    renderReportTabPanel("flagged");
+    renderReportTabPanel("approved");
+}
+
+function renderReportTabPanel(tab) {
+    const data = REPORTS_DATA_BY_TAB[tab] || [];
+    const period = REPORT_TAB_FILTERS[tab] || "all";
+    const dateField = tab === "flagged"
+        ? "flaggedDate"
+        : tab === "approved"
+            ? "approvedDate"
+            : "submittedDate";
+
+    const customRange = REPORT_TAB_CUSTOM_RANGES[tab] || null;
+    const filtered = filterReportsByPeriod(data, period, dateField, customRange);
+
+    const tbodyMap = {
+        pending: "pendingReportsTableBody",
+        flagged: "flaggedReportsTableBody",
+        approved: "submittedReportsTableBody"
+    };
+
+    const tbody = document.getElementById(tbodyMap[tab]);
     if (!tbody) return;
 
-    const badge = document.getElementById(badgeId);
-    if (badge) badge.textContent = reports.length;
-
-    tbody.innerHTML = "";
-
-    if (reports.length === 0) {
-        const emptyMessages = {
-            draft: "No draft reports.",
-            pending: "No pending reports.",
-            flagged: "No flagged reports.",
-            approved: "No approved reports.",
+    if (filtered.length === 0) {
+        const friendly = {
+            pending: "No pending reports in this period. Try changing the filter or submitting a new report.",
+            flagged: "No flagged reports in this period. Great — no pending revisions.",
+            approved: "No approved reports in this period."
         };
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" style="padding:30px; text-align:center; color:#999;">
-                    ${emptyMessages[blockType] || "No reports."}
+                    ${friendly[tab] || "No reports."}
                 </td>
             </tr>
         `;
         return;
     }
 
-    reports.forEach(report => {
-        const sl = reportStatusLabelAndClass(report.status);
+    tbody.innerHTML = "";
 
-        const tr = document.createElement("tr");
-        tr.className = "clickable-row";
-        tr.dataset.reportId = report.report_id;
-
-        let dateField = report.submitted_at || report.created_at;
-        let dateLabel = "Submitted";
-
-        if (blockType === "flagged") {
-            dateLabel = "Flagged At";
-            dateField = report.updated_at || report.submitted_at;
-        } else if (blockType === "approved") {
-            dateLabel = "Approved At";
-            dateField = report.approved_at || report.updated_at || report.submitted_at;
-        }
-
-        const dateValue = formatReportDate(dateField);
-
-        tr.innerHTML = `
-            <td class="center-col" style="font-weight: 600;">
-                #${escapeHtml(report.report_id)}
-            </td>
-            <td>${escapeHtml(report.title || "—")}</td>
-            <td>${escapeHtml(report.commodity || "—")}</td>
-            <td>${escapeHtml(report.municipality || "—")}</td>
-            <td class="center-col">${dateValue}</td>
-            <td class="center-col">
-                <span class="status-pill ${sl.cls}">
-                    ${escapeHtml(sl.text)}
-                </span>
-            </td>
-        `;
-
-        tr.addEventListener("click", () => {
-            openReportDetails(report);
-        });
-
-        tbody.appendChild(tr);
+    filtered.forEach(function (report) {
+        tbody.appendChild(createReportTabRow(report, tab));
     });
 }
 
+function createReportTabRow(report, tab) {
+    const sl = reportStatusLabelAndClass(report.status);
+    const tr = document.createElement("tr");
+    tr.className = "clickable-row";
+    tr.dataset.reportId = report.report_id;
+
+    let dateField;
+    if (tab === "flagged") {
+        dateField = report.updated_at || report.submitted_at;
+    } else if (tab === "approved") {
+        dateField = report.approved_at || report.updated_at || report.submitted_at;
+    } else {
+        dateField = report.submitted_at || report.created_at;
+    }
+
+    const dateValue = formatReportDate(dateField);
+
+    let displayTitle = report.title || "—";
+    let categoryBadge = "";
+    const match = displayTitle.match(/^\[(.*?)\]\s*(.*)$/);
+    if (match) {
+        const cat = match[1];
+        displayTitle = match[2];
+        categoryBadge = `<span style="display:inline-block; padding: 2px 8px; background: #F0F3F5; color: #5F6B66; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px; text-transform: uppercase;">${escapeHtml(cat)}</span>`;
+    }
+
+    tr.innerHTML = `
+        <td class="center-col" style="font-weight: 600;">#${escapeHtml(report.report_id)}</td>
+        <td>${categoryBadge}${escapeHtml(displayTitle)}</td>
+        <td>${escapeHtml(report.commodity || "—")}</td>
+        <td>${escapeHtml(report.municipality || "—")}</td>
+        <td class="center-col">${dateValue}</td>
+        <td class="center-col">
+            <span class="status-pill ${sl.cls}">${escapeHtml(sl.text)}</span>
+        </td>
+    `;
+
+    tr.addEventListener("click", () => openReportDetails(report));
+    return tr;
+}
+
+/* ============================================================
+   REPORT DATE PERIOD FILTER
+============================================================ */
+
+function getReportPeriodRange(period) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (period === "week") {
+        const day = today.getDay();
+        const mondayOffset = day === 0 ? -6 : 1 - day;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + mondayOffset);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        return { from: monday, to: sunday };
+    }
+
+    if (period === "month") {
+        return {
+            from: new Date(now.getFullYear(), now.getMonth(), 1),
+            to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        };
+    }
+
+    if (period === "year") {
+        return {
+            from: new Date(now.getFullYear(), 0, 1),
+            to: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+        };
+    }
+
+    return null;
+}
+
+function filterReportsByPeriod(reports, period, dateFieldName, customRange) {
+    if (period === "all") return reports.slice();
+
+    if (period === "custom" && customRange && customRange.from && customRange.to) {
+        const [fYear, fMonth, fDay] = customRange.from.split("-").map(Number);
+        const [tYear, tMonth, tDay] = customRange.to.split("-").map(Number);
+
+        const from = new Date(fYear, fMonth - 1, fDay, 0, 0, 0, 0);
+        const to = new Date(tYear, tMonth - 1, tDay, 23, 59, 59, 999);
+
+        if (isNaN(from.getTime()) || isNaN(to.getTime())) return reports.slice();
+
+        return reports.filter(function (report) {
+            const raw = getReportDateFieldValue(report, dateFieldName);
+            if (!raw) return false;
+            const dt = new Date(raw);
+            if (isNaN(dt.getTime())) return false;
+            return dt >= from && dt <= to;
+        });
+    }
+
+    const range = getReportPeriodRange(period);
+    if (!range) return reports.slice();
+
+    return reports.filter(function (report) {
+        const raw = getReportDateFieldValue(report, dateFieldName);
+        if (!raw) return false;
+        const dt = new Date(raw);
+        if (isNaN(dt.getTime())) return false;
+        return dt >= range.from && dt <= range.to;
+    });
+}
+
+function getReportDateFieldValue(report, dateFieldName) {
+    if (dateFieldName === "flaggedDate") {
+        return report.updated_at || report.submitted_at;
+    }
+    if (dateFieldName === "approvedDate") {
+        return report.approved_at || report.updated_at || report.submitted_at;
+    }
+    return report.submitted_at || report.created_at;
+}
 
 /* ============================================================
    STATUS LABEL FOR AEW REPORTS
@@ -5916,7 +6706,6 @@ async function saveReport(status) {
         return;
     }
 
-    // ✅ KUNIN ANG MGA FILES BAGO MAG-SAVE
     const fileInput = document.getElementById("reportFileInput");
     const filesToUpload = fileInput?.files ? Array.from(fileInput.files) : [];
 
@@ -5951,8 +6740,11 @@ async function saveReport(status) {
         apiStatus = "SUBMITTED_MUNICIPAL_PENDING";
     }
 
+    const category = document.getElementById("reportCategorySelect")?.value || "Planting Report";
+    const finalTitle = `[${category}] ${title}`;
+
     const reportData = {
-        title: title,
+        title: finalTitle,
         status: apiStatus,
         notes: notes,
         planting_intent_ids: intents.map(function(intent) {
@@ -5973,7 +6765,7 @@ async function saveReport(status) {
             await apiRequest(`${API_BASE_URL}/api/raw-plant-reports/${editingReportId}`, {
                 method: "PUT",
                 body: JSON.stringify({
-                    title: title,
+                    title: finalTitle,
                 })
             });
 
@@ -6001,9 +6793,6 @@ async function saveReport(status) {
                 || null;
         }
 
-        // ============================================================
-        // ✅ I-UPLOAD ANG MGA ATTACHMENTS PAGKATAPOS MA-SAVE ANG REPORT
-        // ============================================================
         if (savedReportId && filesToUpload.length > 0) {
             console.log(`📤 Uploading ${filesToUpload.length} attachment(s) to report #${savedReportId}...`);
 
@@ -6030,26 +6819,19 @@ async function saveReport(status) {
             }
         }
 
-        // ✅ I-CLEAR ANG FILE INPUT PAGKATAPOS I-UPLOAD
         setReportAttachments([]);
 
-        // ============================================================
-        // ✅ FORCE RETURN TO REPORTS MAIN LIST
-        // ============================================================
         window.currentSelectedReport = null;
         window.currentEditingReportId = null;
         window.selectedReportIntents = [];
 
         closeSubmitReportSubview({ forceMainView: true });
 
-        // ✅ Refresh data AFTER view is reset
         await fetchPlantingIntents();
         await loadReports();
 
-        // ✅ Scroll to top
         window.scrollTo({ top: 0, behavior: "smooth" });
 
-        // ✅ Styled success modal
         showSuccessModal({
             title: editingReportId
                 ? "Resubmitted to Municipal"
@@ -6197,9 +6979,35 @@ async function loadReportForEditing(reportId) {
 function populateReportForm(report) {
     console.log("Populating report form:", report);
     
+    const rawTitle = report.title || "";
+    let displayTitle = rawTitle;
+    let category = "Planting Report";
+    let categoryFound = false;
+
+    const match = rawTitle.match(/^\[(.*?)\]\s*(.*)$/);
+    if (match) {
+        category = match[1];
+        displayTitle = match[2];
+        categoryFound = true;
+    }
+
     const titleInput = document.getElementById("reportTitleInput");
     if (titleInput) {
-        titleInput.value = report.title || "";
+        titleInput.value = displayTitle;
+    }
+
+    const categorySelect = document.getElementById("reportCategorySelect");
+    if (categorySelect) {
+        if (categoryFound) {
+            const exists = Array.from(categorySelect.options).some(opt => opt.value === category);
+            if (exists) {
+                categorySelect.value = category;
+            } else {
+                categorySelect.value = "Planting Report";
+            }
+        } else {
+            categorySelect.value = "Planting Report";
+        }
     }
     
     const notes = document.getElementById("reportNotesInput");
@@ -6244,11 +7052,11 @@ function populateReportForm(report) {
 function renderReportSummary(selectedIntents, allSubmittedIntents, reportMeta) {
     const allSubmitted = Array.isArray(allSubmittedIntents) ? allSubmittedIntents : [];
     const meta = reportMeta || {};
-    const selected = (Array.isArray(selectedIntents) ? selectedIntents : []).map(function(intent) {
-        const fullIntent = (PLANTING_INTENTS_DATA || []).find(function(i) {
+
+    const selected = (Array.isArray(selectedIntents) ? selectedIntents : []).map(function (intent) {
+        const fullIntent = (PLANTING_INTENTS_DATA || []).find(function (i) {
             return String(i.planting_intent_id) === String(intent.planting_intent_id);
         });
-
         if (fullIntent) {
             return {
                 ...intent,
@@ -6262,135 +7070,57 @@ function renderReportSummary(selectedIntents, allSubmittedIntents, reportMeta) {
                 actual_harvest_volume: fullIntent.actual_harvest_volume || intent.actual_harvest_volume || null,
             };
         }
-
         return intent;
     });
 
     const selectedCount = selected.length;
 
-    const totalVolume = selected.reduce(function(sum, i) {
-        return sum + (Number(i.volume) || 0);
-    }, 0);
-
-    const uniqueFarmers = new Set(
-        selected
-            .map(function(i) { return i.farmer_id || i.farmer_name; })
-            .filter(Boolean)
-    );
-    const uniqueFarmerCount = uniqueFarmers.size;
-
-    const pendingCount = selected.filter(function(i) {
-        return String(i.status || "").toUpperCase() === "SUBMITTED";
-    }).length;
-
-    const harvestedIntents = selected.filter(function(i) {
-        return (i.finalized_status || "").toUpperCase() === "HARVESTED";
-    });
-    const harvestedVolume = harvestedIntents.reduce(function(sum, i) {
-        const actualVol = Number(i.actual_harvest_volume);
-        const plannedVol = Number(i.volume);
-        return sum + (actualVol > 0 ? actualVol : (plannedVol || 0));
-    }, 0);
-
-    const harvestRate = selectedCount > 0 
-        ? Math.round((harvestedIntents.length / selectedCount) * 100) 
-        : 0;
-
-    const municipalCount = allSubmitted.length;
-    const coverage = municipalCount > 0 
-        ? Math.round((selectedCount / municipalCount) * 100) 
-        : 0;
-
+    // --- Coverage period ---
     let coveragePeriod = "—";
     if (meta.submitted_at || meta.created_at) {
         const reportDate = new Date(meta.submitted_at || meta.created_at);
         const weekStart = new Date(reportDate);
         weekStart.setDate(reportDate.getDate() - 6);
-        
-        const fmt = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const fmt = (d) =>
+            d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
         coveragePeriod = `${fmt(weekStart)} – ${fmt(reportDate)}`;
     }
     setText("summaryCoveragePeriod", "Coverage: " + coveragePeriod);
 
-    setText("summarySelectedCount", selectedCount + " intent" + (selectedCount !== 1 ? "s" : ""));
-    setText("summarySelectedSubtext", 
-        selectedCount > 0 
-            ? "Included in this report" 
-            : "No intents selected"
-    );
+    // --- CARD 1: Selected Intents ---
+    setText("summarySelectedCount", String(selectedCount));
+    setText("summarySelectedSubtext",
+        selectedCount === 0 ? "No intents in this report"
+            : selectedCount === 1 ? "1 intent · included"
+            : `${selectedCount} intents · included`);
 
-    setText("summaryTotalVolume", 
-        totalVolume > 0 
+    // --- CARD 2: Total Volume ---
+    const totalVolume = selected.reduce((sum, i) => sum + (Number(i.volume) || 0), 0);
+    setText("summaryTotalVolume",
+        totalVolume > 0
             ? totalVolume.toLocaleString("en-US", { maximumFractionDigits: 2 }) + " kg"
-            : "0 kg"
-    );
-    setText("summaryTotalVolumeSubtext", 
-        selectedCount > 0 
-            ? "Across " + selectedCount + " intent" + (selectedCount !== 1 ? "s" : "")
-            : "—"
-    );
+            : "0 kg");
+    setText("summaryTotalVolumeSubtext",
+        selectedCount > 0
+            ? "Sum of estimated volumes"
+            : "No volume recorded");
 
-    setText("summaryUniqueFarmers", uniqueFarmerCount + " farmer" + (uniqueFarmerCount !== 1 ? "s" : ""));
-    setText("summaryUniqueFarmersSubtext", 
-        uniqueFarmerCount > 0 
-            ? "Beneficiaries in this report"
-            : "No farmers"
+    // --- CARD 3: Unique Farmers ---
+    const uniqueFarmers = new Set(
+        selected.map((i) => i.farmer_id || i.farmer_name).filter(Boolean)
     );
+    const uniqueFarmerCount = uniqueFarmers.size;
+    setText("summaryUniqueFarmers", String(uniqueFarmerCount));
+    setText("summaryUniqueFarmersSubtext",
+        uniqueFarmerCount === 0 ? "No farmers"
+            : uniqueFarmerCount === 1 ? "1 beneficiary"
+            : `${uniqueFarmerCount} beneficiaries`);
 
-    setText("summaryPendingCount", pendingCount + " intent" + (pendingCount !== 1 ? "s" : ""));
-    setText("summaryPendingSubtext", 
-        pendingCount > 0 
-            ? "Awaiting status update" 
-            : "All intents finalized"
-    );
-
-    const pendingEl = document.getElementById("summaryPendingCount");
-    if (pendingEl) {
-        pendingEl.style.color = pendingCount > 0 ? "#D97706" : "#2E7D32";
-    }
-
-    setText("summaryHarvestedVolume", 
-        harvestedVolume > 0 
-            ? harvestedVolume.toLocaleString("en-US") + " kg" 
-            : "0 kg"
-    );
-    setText("summaryHarvestedVolumeSubtext", 
-        harvestedIntents.length + " intent" + (harvestedIntents.length !== 1 ? "s" : "") + " harvested"
-    );
-
-    setText("summaryHarvestRate", harvestRate + "%");
-    setText("summaryHarvestRateSubtext", 
-        harvestedIntents.length + " of " + selectedCount + " harvested"
-    );
-
-    const harvestRateEl = document.getElementById("summaryHarvestRate");
-    if (harvestRateEl) {
-        harvestRateEl.style.color = 
-            harvestRate === 100 ? "#2E7D32" 
-            : harvestRate > 0 ? "#D97706" 
-            : "#6c757d";
-    }
-
-    const municipalityName = meta.municipality || "Municipality";
-    setText("summaryMunicipalLabel", "🏛️ " + municipalityName + " Total");
-    setText("summaryMunicipalTotal", municipalCount + " intent" + (municipalCount !== 1 ? "s" : ""));
-    setText("summaryMunicipalSubtext", 
-        municipalCount > 0 
-            ? "Submitted sa parehong period"
-            : "Walang ibang submission"
-    );
-
-    setText("summaryCoverage", coverage + "%");
-    setText("summaryCoverageSubtext", 
-        "of " + municipalityName + " submissions"
-    );
-
+    // --- CARD 4: By Commodity ---
     const byCommodity = {};
-    selected.forEach(function(intent) {
+    selected.forEach(function (intent) {
         const c = intent.commodity || "Unknown";
-        if (!byCommodity[c]) {
-            byCommodity[c] = { count: 0, volume: 0 };
-        }
+        if (!byCommodity[c]) byCommodity[c] = { count: 0, volume: 0 };
         byCommodity[c].count += 1;
         byCommodity[c].volume += Number(intent.volume) || 0;
     });
@@ -6398,49 +7128,27 @@ function renderReportSummary(selectedIntents, allSubmittedIntents, reportMeta) {
     const commodityEl = document.getElementById("summaryByCommodity");
     if (commodityEl) {
         const entries = Object.entries(byCommodity);
-        if (entries.length === 0) {
-            commodityEl.innerHTML = '<span style="color: var(--muted); font-style: italic;">No intents selected.</span>';
-        } else {
-            commodityEl.innerHTML = entries
-                .sort(function(a, b) { return b[1].volume - a[1].volume; })
-                .map(function([name, data]) {
-                    return `
-                        <div style="
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            padding: 6px 0;
-                            border-bottom: 1px dashed var(--border-light);
-                        ">
-                            <span style="font-weight: 600;">${escapeHtml(name)}</span>
-                            <span style="
-                                font-size: 12px;
-                                color: var(--muted);
-                                font-variant-numeric: tabular-nums;
-                            ">
-                                ${data.count} · 
-                                <b style="color: var(--green-dark);">${formatPlantingVolume(data.volume)}</b>
-                            </span>
-                        </div>
-                    `;
-                }).join("");
-        }
+        commodityEl.innerHTML = entries.length === 0
+            ? '<span style="color: var(--muted); font-style: italic;">No intents selected.</span>'
+            : entries
+                .sort((a, b) => b[1].volume - a[1].volume)
+                .map(([name, data]) =>
+                    `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border-light);">
+                        <span style="font-weight:600;">${escapeHtml(name)}</span>
+                        <span style="font-size:12px; color:var(--muted); font-variant-numeric: tabular-nums;">
+                            ${data.count} · <b style="color:var(--green-dark);">${formatPlantingVolume(data.volume)}</b>
+                        </span>
+                    </div>`)
+                .join("");
     }
 
+    // --- CARD 5: By Barangay ---
     const byBarangay = {};
-    selected.forEach(function(intent) {
+    selected.forEach(function (intent) {
         let b = intent.barangay;
-        
-        if (!b && intent.location) {
-            const parts = String(intent.location).split(",");
-            b = parts[0].trim();
-        }
-        
+        if (!b && intent.location) b = String(intent.location).split(",")[0].trim();
         if (!b) b = intent.municipality || "Unknown";
-        
-        if (!byBarangay[b]) {
-            byBarangay[b] = { count: 0, volume: 0 };
-        }
+        if (!byBarangay[b]) byBarangay[b] = { count: 0, volume: 0 };
         byBarangay[b].count += 1;
         byBarangay[b].volume += Number(intent.volume) || 0;
     });
@@ -6448,304 +7156,121 @@ function renderReportSummary(selectedIntents, allSubmittedIntents, reportMeta) {
     const barangayEl = document.getElementById("summaryByBarangay");
     if (barangayEl) {
         const entries = Object.entries(byBarangay);
-        if (entries.length === 0) {
-            barangayEl.innerHTML = '<span style="color: var(--muted); font-style: italic;">No barangay data.</span>';
-        } else if (entries.length === 1) {
-            barangayEl.innerHTML = `
-                <div style="color: var(--muted); font-style: italic; font-size: 12px;">
-                    All intents from <b>${escapeHtml(entries[0][0])}</b>
-                </div>
-            `;
-        } else {
-            barangayEl.innerHTML = entries
-                .sort(function(a, b) { return b[1].volume - a[1].volume; })
-                .map(function([name, data]) {
-                    return `
-                        <div style="
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            padding: 6px 0;
-                            border-bottom: 1px dashed var(--border-light);
-                        ">
-                            <span style="font-weight: 600;">📍 ${escapeHtml(name)}</span>
-                            <span style="
-                                font-size: 12px;
-                                color: var(--muted);
-                                font-variant-numeric: tabular-nums;
-                            ">
-                                ${data.count} · 
-                                <b style="color: var(--green-dark);">${formatPlantingVolume(data.volume)}</b>
-                            </span>
-                        </div>
-                    `;
-                }).join("");
-        }
+        barangayEl.innerHTML = entries.length === 0
+            ? '<span style="color: var(--muted); font-style: italic;">No barangay data.</span>'
+            : entries
+                .sort((a, b) => b[1].volume - a[1].volume)
+                .map(([name, data]) =>
+                    `<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border-light);">
+                        <span style="font-weight:600;">📍 ${escapeHtml(name)}</span>
+                        <span style="font-size:12px; color:var(--muted); font-variant-numeric: tabular-nums;">
+                            ${data.count} · <b style="color:var(--green-dark);">${formatPlantingVolume(data.volume)}</b>
+                        </span>
+                    </div>`)
+                .join("");
     }
 
-    const byStatus = {
-        "NOT PLANTED": { count: 0, volume: 0, label: "Not Planted", color: "#6c757d" },
-        "PLANTED": { count: 0, volume: 0, label: "Planted", color: "#D97706" },
-        "HARVESTED": { count: 0, volume: 0, label: "Harvested", color: "#2E7D32" },
-        "MEDIATING": { count: 0, volume: 0, label: "Mediating", color: "#2980B9" }
-    };
-
-    selected.forEach(function(intent) {
-        const s = (intent.finalized_status || "NOT PLANTED").toUpperCase();
-        if (byStatus[s]) {
-            byStatus[s].count += 1;
-            byStatus[s].volume += Number(intent.volume) || 0;
-        }
-    });
-
-    const statusEl = document.getElementById("summaryByStatus");
-    if (statusEl) {
-        statusEl.innerHTML = Object.values(byStatus).map(function(data) {
-            const isZero = data.count === 0;
-            return `
-                <div style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 6px 0;
-                    border-bottom: 1px dashed var(--border-light);
-                    opacity: ${isZero ? 0.45 : 1};
-                ">
-                    <span style="font-weight: 600; color: ${isZero ? 'var(--muted)' : 'var(--ink)'};">
-                        <span style="
-                            display: inline-block;
-                            width: 8px;
-                            height: 8px;
-                            border-radius: 50%;
-                            background: ${data.color};
-                            margin-right: 8px;
-                        "></span>
-                        ${data.label}
-                    </span>
-                    <span style="
-                        font-size: 12px;
-                        color: var(--muted);
-                        font-variant-numeric: tabular-nums;
-                    ">
-                        ${data.count} · 
-                        <b style="color: ${isZero ? 'var(--muted)' : data.color};">${formatPlantingVolume(data.volume)}</b>
-                    </span>
-                </div>
-            `;
-        }).join("");
-    }
-
-    // ============================================================
-    // 📊 YIELD PERFORMANCE — Expected vs Actual
-    // ============================================================
+    // --- CARD 6: Yield Performance ---
+    const harvestedIntents = selected.filter(
+        (i) => String(i.finalized_status || "").toUpperCase() === "HARVESTED"
+    );
     const yieldEl = document.getElementById("summaryYieldPerformance");
     if (yieldEl) {
-        const totalActual = harvestedIntents.reduce(function(sum, i) {
+        const totalActual = harvestedIntents.reduce((sum, i) => {
             const v = Number(i.actual_harvest_volume);
             return sum + (v > 0 ? v : 0);
         }, 0);
-
         const totalPlanned = totalVolume;
-        const hasActualData = totalActual > 0;
+        const hasActual = totalActual > 0;
 
-        if (hasActualData) {
-            const variance = totalPlanned > 0 
-                ? Math.round(((totalActual - totalPlanned) / totalPlanned) * 100) 
+        if (hasActual) {
+            const variance = totalPlanned > 0
+                ? Math.round(((totalActual - totalPlanned) / totalPlanned) * 100)
                 : 0;
-            
-            let varianceColor = "#2E7D32";
-            let varianceIcon = "↑";
-            let varianceLabel = "surplus";
-            
-            if (variance < 0) {
-                varianceColor = "#C0392B";
-                varianceIcon = "↓";
-                varianceLabel = "shortfall";
-            } else if (variance === 0) {
-                varianceColor = "#6c757d";
-                varianceIcon = "→";
-                varianceLabel = "on target";
-            }
-            
+            let color = "#6c757d", icon = "→", label = "on target";
+            if (variance > 0) { color = "#2E7D32"; icon = "↑"; label = "surplus"; }
+            else if (variance < 0) { color = "#C0392B"; icon = "↓"; label = "shortfall"; }
+
             yieldEl.innerHTML = `
-                <div style="
-                    font-size: 11px;
-                    font-weight: 700;
-                    color: var(--muted);
-                    text-transform: uppercase;
-                    letter-spacing: 0.06em;
-                    margin-bottom: 10px;
-                    padding-bottom: 6px;
-                    border-bottom: 1px solid var(--border-light);
-                ">📊 Yield Performance</div>
-
-                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                    <span style="color: var(--muted);">Expected (planned):</span>
-                    <b style="color: var(--ink);">${totalPlanned.toLocaleString("en-US")} kg</b>
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                    <span style="color:var(--muted);">Expected (planned):</span>
+                    <b style="color:var(--ink);">${totalPlanned.toLocaleString("en-US")} kg</b>
                 </div>
-
-                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                    <span style="color: var(--muted);">Actual (harvested):</span>
-                    <b style="color: var(--ink);">${totalActual.toLocaleString("en-US")} kg</b>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <span style="color:var(--muted);">Actual (harvested):</span>
+                    <b style="color:var(--ink);">${totalActual.toLocaleString("en-US")} kg</b>
                 </div>
-
-                <div style="
-                    display: inline-block;
-                    padding: 4px 12px;
-                    background: ${varianceColor}15;
-                    border-radius: 6px;
-                    font-size: 13px;
-                    font-weight: 700;
-                    color: ${varianceColor};
-                ">
-                    ${varianceIcon} ${Math.abs(variance)}% ${varianceLabel}
+                <div style="display:inline-block; padding:4px 12px; background:${color}15; border-radius:6px; font-size:13px; font-weight:700; color:${color};">
+                    ${icon} ${Math.abs(variance)}% ${label}
                 </div>
-
-                <div style="
-                    margin-top: 8px;
-                    font-size: 11px;
-                    color: var(--muted);
-                    font-style: italic;
-                ">
+                <div style="margin-top:8px; font-size:11px; color:var(--muted); font-style:italic;">
                     Based on ${harvestedIntents.length} of ${selectedCount} harvested
                 </div>
             `;
         } else {
-            yieldEl.innerHTML = `
-                <div style="
-                    font-size: 11px;
-                    font-weight: 700;
-                    color: var(--muted);
-                    text-transform: uppercase;
-                    letter-spacing: 0.06em;
-                    margin-bottom: 10px;
-                    padding-bottom: 6px;
-                    border-bottom: 1px solid var(--border-light);
-                ">📊 Yield Performance</div>
-                <span style="color: var(--muted); font-style: italic;">No actual harvest volume recorded yet.</span>
-            `;
+            yieldEl.innerHTML = `<span style="color:var(--muted); font-style:italic;">No actual harvest volume recorded yet.</span>`;
         }
     }
 
-    // ============================================================
-    // 📅 PLANTING WINDOW — Earliest & Latest
-    // ============================================================
+    // --- CARD 7: Planting Window ---
     const windowEl = document.getElementById("summaryPlantingWindow");
     if (windowEl) {
         const plantingDates = selected
-            .map(function(i) { return i.planting_date; })
-            .filter(function(d) { return d; })
-            .map(function(d) { return new Date(d); })
-            .filter(function(d) { return !isNaN(d.getTime()); });
-
+            .map((i) => i.planting_date).filter(Boolean)
+            .map((d) => new Date(d)).filter((d) => !isNaN(d.getTime()));
         const harvestDates = selected
-            .map(function(i) { return i.harvest_date; })
-            .filter(function(d) { return d; })
-            .map(function(d) { return new Date(d); })
-            .filter(function(d) { return !isNaN(d.getTime()); });
+            .map((i) => i.harvest_date).filter(Boolean)
+            .map((d) => new Date(d)).filter((d) => !isNaN(d.getTime()));
 
         if (plantingDates.length > 0) {
+            const fmt = (d) =>
+                d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
             const earliest = new Date(Math.min.apply(null, plantingDates));
             const latest = new Date(Math.max.apply(null, plantingDates));
             const spanDays = Math.round((latest - earliest) / (1000 * 60 * 60 * 24));
 
-            const fmt = (d) => d.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric"
-            });
-
             let harvestInfo = "";
             if (harvestDates.length > 0) {
-                const earliestHarvest = new Date(Math.min.apply(null, harvestDates));
-                const latestHarvest = new Date(Math.max.apply(null, harvestDates));
-                const harvestSpan = Math.round((latestHarvest - earliestHarvest) / (1000 * 60 * 60 * 24));
-
+                const eH = new Date(Math.min.apply(null, harvestDates));
+                const lH = new Date(Math.max.apply(null, harvestDates));
+                const hSpan = Math.round((lH - eH) / (1000 * 60 * 60 * 24));
                 harvestInfo = `
-                    <div style="
-                        margin-top: 10px;
-                        padding-top: 10px;
-                        border-top: 1px dashed var(--border-light);
-                    ">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                            <span style="color: var(--muted);">🌾 Harvest earliest:</span>
-                            <b style="color: var(--ink);">${fmt(earliestHarvest)}</b>
+                    <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border-light);">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                            <span style="color:var(--muted);">🌾 Harvest earliest:</span>
+                            <b style="color:var(--ink);">${fmt(eH)}</b>
                         </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                            <span style="color: var(--muted);">Harvest latest:</span>
-                            <b style="color: var(--ink);">${fmt(latestHarvest)}</b>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                            <span style="color:var(--muted);">Harvest latest:</span>
+                            <b style="color:var(--ink);">${fmt(lH)}</b>
                         </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: var(--muted);">Harvest span:</span>
-                            <b style="color: var(--ink);">${harvestSpan} day${harvestSpan !== 1 ? "s" : ""}</b>
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:var(--muted);">Harvest span:</span>
+                            <b style="color:var(--ink);">${hSpan} day${hSpan !== 1 ? "s" : ""}</b>
                         </div>
                     </div>
                 `;
             }
 
             windowEl.innerHTML = `
-                <div style="
-                    font-size: 11px;
-                    font-weight: 700;
-                    color: var(--muted);
-                    text-transform: uppercase;
-                    letter-spacing: 0.06em;
-                    margin-bottom: 10px;
-                    padding-bottom: 6px;
-                    border-bottom: 1px solid var(--border-light);
-                "> Planting Window</div>
-
-                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                    <span style="color: var(--muted);">🌱 Earliest:</span>
-                    <b style="color: var(--ink);">${fmt(earliest)}</b>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span style="color:var(--muted);">🌱 Earliest:</span>
+                    <b style="color:var(--ink);">${fmt(earliest)}</b>
                 </div>
-
-                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                    <span style="color: var(--muted);">Latest:</span>
-                    <b style="color: var(--ink);">${fmt(latest)}</b>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                    <span style="color:var(--muted);">Latest:</span>
+                    <b style="color:var(--ink);">${fmt(latest)}</b>
                 </div>
-
-                <div style="display: flex; justify-content: space-between;">
-                    <span style="color: var(--muted);">Span:</span>
-                    <b style="color: var(--ink);">${spanDays} day${spanDays !== 1 ? "s" : ""}</b>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:var(--muted);">Span:</span>
+                    <b style="color:var(--ink);">${spanDays} day${spanDays !== 1 ? "s" : ""}</b>
                 </div>
-
                 ${harvestInfo}
             `;
         } else {
-            windowEl.innerHTML = `
-                <div style="
-                    font-size: 11px;
-                    font-weight: 700;
-                    color: var(--muted);
-                    text-transform: uppercase;
-                    letter-spacing: 0.06em;
-                    margin-bottom: 10px;
-                    padding-bottom: 6px;
-                    border-bottom: 1px solid var(--border-light);
-                ">  Planting Window</div>
-                <span style="color: var(--muted); font-style: italic;">No planting dates available.</span>
-            `;
+            windowEl.innerHTML = `<span style="color:var(--muted); font-style:italic;">No planting dates available.</span>`;
         }
     }
-
-    // ============================================================
-    // FOOTER META
-    // ============================================================
-    const preparedBy = localStorage.getItem("full_name") 
-        || localStorage.getItem("name") 
-        || localStorage.getItem("username") 
-        || "AEW";
-    setText("summaryPreparedBy", preparedBy);
-
-    const now = new Date();
-    setText("summaryGeneratedAt", now.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit"
-    }));
 }
 
 
@@ -6767,23 +7292,6 @@ function renderIndividualReportsError(error) {
         </tr>
     `;
 }
-
-
-function renderSubmittedReportsError(error) {
-    const tbody = document.getElementById("submittedReportsTableBody");
-    if (!tbody) return;
-
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="4" style="padding:30px; text-align:center; color:#C0392B;">
-                Failed to load submitted reports.
-                <br>
-                <small>${escapeHtml(error?.message || "Please check the server.")}</small>
-            </td>
-        </tr>
-    `;
-}
-
 
 /* ============================================================
    HELPERS
@@ -6990,13 +7498,14 @@ function handleFinalizedStatusChange(intent, currentStatus, newStatus, pillEleme
             fieldLabel: "Actual Planting Date",
             fieldId: "modalActualDate",
             intent: intent,
-            onConfirm: function (dateValue) {
+            onConfirm: function (dateValue, commentValue) {
                 if (pillElement) updateStatusPillVisual(pillElement, newStatus);
-                updateFinalizedIntentStatus(intent.planting_intent_id, newStatus, {
-                    actual_planting_date: dateValue
-                });
+                const payload = { actual_planting_date: dateValue };
+                if (commentValue) payload.comment = commentValue;
+                updateFinalizedIntentStatus(intent.planting_intent_id, newStatus, payload);
                 intent.finalized_status = newStatus;
                 intent.actual_planting_date = dateValue;
+                intent.comment = commentValue || "";
             }
         });
         return;
@@ -7005,15 +7514,18 @@ function handleFinalizedStatusChange(intent, currentStatus, newStatus, pillEleme
     if (newStatusUpper === "HARVESTED" && currentStatus !== "HARVESTED") {
         openHarvestModal({
             intent: intent,
-            onConfirm: function (dateValue, volumeValue) {
+            onConfirm: function (dateValue, volumeValue, commentValue) {
                 if (pillElement) updateStatusPillVisual(pillElement, newStatus);
-                updateFinalizedIntentStatus(intent.planting_intent_id, newStatus, {
+                const payload = {
                     actual_harvest_date: dateValue,
                     actual_harvest_volume: volumeValue
-                });
+                };
+                if (commentValue) payload.comment = commentValue;
+                updateFinalizedIntentStatus(intent.planting_intent_id, newStatus, payload);
                 intent.finalized_status = newStatus;
                 intent.actual_harvest_date = dateValue;
                 intent.actual_harvest_volume = volumeValue;
+                intent.comment = commentValue || "";
             }
         });
         return;
@@ -7026,7 +7538,7 @@ function handleFinalizedStatusChange(intent, currentStatus, newStatus, pillEleme
 
 
 /* ============================================================
-   HARVEST MODAL
+   HARVEST MODAL (with conditional comment on date variance)
 ============================================================ */
 
 function openHarvestModal({ intent, onConfirm }) {
@@ -7043,6 +7555,11 @@ function openHarvestModal({ intent, onConfirm }) {
     const plannedVolume = Number(intent.volume) || 0;
     const plannedVolumeStr = plannedVolume.toLocaleString("en-US");
 
+    const plannedHarvestIso = intent.harvest_date ? toDateInputValue(intent.harvest_date) : "";
+    const plannedHarvestLabel = plannedHarvestIso
+        ? new Date(`${plannedHarvestIso}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : "not set";
+
     const modalHTML = `
         <div class="modal-overlay show" id="harvestModal" style="
             position: fixed; inset: 0; background: rgba(30,35,28,0.6);
@@ -7050,8 +7567,9 @@ function openHarvestModal({ intent, onConfirm }) {
             z-index: 5000;">
             <div class="modal-box" style="
                 background: var(--cream); border: 1.5px solid var(--border);
-                border-radius: 12px; padding: 28px 32px; max-width: 480px;
-                width: 90%; box-shadow: 0 14px 35px rgba(0,0,0,0.25);">
+                border-radius: 12px; padding: 28px 32px; max-width: 520px;
+                width: 92%; box-shadow: 0 14px 35px rgba(0,0,0,0.25);
+                max-height: 90vh; overflow-y: auto;">
                 <h2 style="font-size:20px; font-weight:800; color:var(--green); margin-bottom:12px;">
                     🌾 Record Harvest
                 </h2>
@@ -7069,7 +7587,8 @@ function openHarvestModal({ intent, onConfirm }) {
                     color: var(--muted);
                     margin-bottom: 16px;
                 ">
-                    <b style="color: var(--ink);">Planned Volume:</b> ${plannedVolumeStr} kg
+                    <b style="color: var(--ink);">Planned Volume:</b> ${plannedVolumeStr} kg<br>
+                    <b style="color: var(--ink);">Planned Harvest Date:</b> ${escapeHtml(plannedHarvestLabel)}
                 </div>
 
                 <div style="margin-bottom:16px; text-align: left;">
@@ -7088,7 +7607,7 @@ function openHarvestModal({ intent, onConfirm }) {
                                outline:none;">
                 </div>
 
-                <div style="margin-bottom:20px; text-align: left;">
+                <div style="margin-bottom:16px; text-align: left;">
                     <label for="harvestActualVolume" style="
                         display:block; font-size:12.5px; font-weight:700;
                         color:var(--ink); text-transform:uppercase;
@@ -7108,6 +7627,27 @@ function openHarvestModal({ intent, onConfirm }) {
                         color: var(--muted);
                         margin-top: 4px;
                     ">Enter the actual weight harvested (not the planned estimate).</div>
+                </div>
+
+                <div id="harvestVarianceBox" style="display:none; margin-bottom:16px; padding:12px 14px; background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:10px; text-align: left;">
+                    <div id="harvestVarianceText" style="font-size:12.5px; color:#92400E; font-weight:700; margin-bottom:8px;"></div>
+                    <label for="harvestVarianceComment" style="
+                        display:block; font-size:12px; font-weight:700;
+                        color:#92400E; text-transform:uppercase;
+                        letter-spacing:0.02em; margin-bottom:6px;">
+                        Reason for the date variance <span style="color:#C0392B;">*</span>
+                    </label>
+                    <textarea id="harvestVarianceComment" rows="3"
+                        placeholder="e.g. Early harvest due to incoming typhoon; late harvest because of irrigation backlog."
+                        style="
+                            width:100%; padding:10px 12px;
+                            border:1.5px solid #FCD34D;
+                            border-radius:8px; font-size:13px;
+                            background:#fff; color:var(--ink);
+                            outline:none; resize:vertical;"></textarea>
+                    <div style="font-size:11px; color:#A16207; margin-top:4px;">
+                        Required when the actual harvest date differs from the planned date.
+                    </div>
                 </div>
 
                 <div style="display:flex; justify-content:flex-end; gap:10px;">
@@ -7135,6 +7675,9 @@ function openHarvestModal({ intent, onConfirm }) {
     const modal = document.getElementById("harvestModal");
     const dateInput = document.getElementById("harvestActualDate");
     const volumeInput = document.getElementById("harvestActualVolume");
+    const varianceBox = document.getElementById("harvestVarianceBox");
+    const varianceText = document.getElementById("harvestVarianceText");
+    const commentInput = document.getElementById("harvestVarianceComment");
     const confirmBtn = document.getElementById("harvestModalConfirm");
     const cancelBtn = document.getElementById("harvestModalCancel");
 
@@ -7145,6 +7688,32 @@ function openHarvestModal({ intent, onConfirm }) {
             dateInput?.focus();
         }
     }, 50);
+
+    function formatFriendly(iso) {
+        return new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
+            month: "short", day: "numeric", year: "numeric"
+        });
+    }
+
+    function evaluateVariance() {
+        if (!plannedHarvestIso || !dateInput.value || dateInput.value === plannedHarvestIso) {
+            varianceBox.style.display = "none";
+            commentInput.value = "";
+            return;
+        }
+        const plannedMs = new Date(`${plannedHarvestIso}T00:00:00`).getTime();
+        const actualMs = new Date(`${dateInput.value}T00:00:00`).getTime();
+        const diffDays = Math.round((actualMs - plannedMs) / (1000 * 60 * 60 * 24));
+        const kind = diffDays < 0
+            ? `early harvest — ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"} before plan`
+            : `late harvest — ${diffDays} day${diffDays === 1 ? "" : "s"} after plan`;
+        varianceText.textContent = `⚠ This is ${kind}. Planned: ${formatFriendly(plannedHarvestIso)}. Actual: ${formatFriendly(dateInput.value)}.`;
+        varianceBox.style.display = "block";
+    }
+
+    dateInput.addEventListener("change", evaluateVariance);
+    dateInput.addEventListener("input", evaluateVariance);
+    evaluateVariance();
 
     volumeInput.addEventListener("input", function() {
         const hint = document.getElementById("harvestVolumeHint");
@@ -7197,9 +7766,18 @@ function openHarvestModal({ intent, onConfirm }) {
             return;
         }
 
+        const isVariance = plannedHarvestIso && dateValue !== plannedHarvestIso;
+        const commentValue = (commentInput.value || "").trim();
+
+        if (isVariance && !commentValue) {
+            alert(`This is ${dateValue < plannedHarvestIso ? "earlier" : "later"} than the planned harvest date (${formatFriendly(plannedHarvestIso)}).\n\nPlease explain why.`);
+            commentInput.focus();
+            return;
+        }
+
         modal.remove();
         document.removeEventListener("keydown", escHandler);
-        onConfirm(dateValue, volumeValue);
+        onConfirm(dateValue, volumeValue, isVariance ? commentValue : null);
     });
 
     volumeInput.addEventListener("keydown", (e) => {
@@ -7212,23 +7790,27 @@ function openHarvestModal({ intent, onConfirm }) {
 
 
 /* ============================================================
-   ACTUAL DATE MODAL
+   ACTUAL DATE MODAL (with conditional comment on date variance)
 ============================================================ */
 
 function openActualDateModal({ title, message, fieldLabel, fieldId, intent, onConfirm }) {
     const existing = document.getElementById("actualDateModal");
     if (existing) existing.remove();
 
-    const today = new Date().toISOString().split("T")[0];
-
     let prefill = "";
-    if (fieldId === "modalActualDate") {
-        if (title.includes("Planting") && intent.actual_planting_date) {
-            prefill = toDateInputValue(intent.actual_planting_date);
-        } else if (title.includes("Harvest") && intent.actual_harvest_date) {
-            prefill = toDateInputValue(intent.actual_harvest_date);
-        }
+    const isPlanting = title.includes("Planting");
+    if (isPlanting && intent.actual_planting_date) {
+        prefill = toDateInputValue(intent.actual_planting_date);
+    } else if (!isPlanting && intent.actual_harvest_date) {
+        prefill = toDateInputValue(intent.actual_harvest_date);
     }
+
+    const plannedDateRaw = isPlanting ? intent.planting_date : intent.harvest_date;
+    const plannedDateIso = plannedDateRaw ? toDateInputValue(plannedDateRaw) : "";
+    const plannedLabel = plannedDateIso
+        ? new Date(`${plannedDateIso}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : "not set";
+    const transitionLabel = isPlanting ? "planting" : "harvest";
 
     const modalHTML = `
         <div class="modal-overlay show" id="actualDateModal" style="
@@ -7237,15 +7819,16 @@ function openActualDateModal({ title, message, fieldLabel, fieldId, intent, onCo
             z-index: 5000;">
             <div class="modal-box" style="
                 background: var(--cream); border: 1.5px solid var(--border);
-                border-radius: 12px; padding: 28px 32px; max-width: 440px;
-                width: 90%; box-shadow: 0 14px 35px rgba(0,0,0,0.25);">
+                border-radius: 12px; padding: 28px 32px; max-width: 500px;
+                width: 92%; box-shadow: 0 14px 35px rgba(0,0,0,0.25);
+                max-height: 90vh; overflow-y: auto;">
                 <h2 style="font-size:20px; font-weight:800; color:var(--green); margin-bottom:12px;">
                     ${escapeHtml(title)}
                 </h2>
                 <p style="font-size:14px; color:var(--ink); line-height:1.5; margin-bottom:20px;">
                     ${message}
                 </p>
-                <div style="margin-bottom:20px;">
+                <div style="margin-bottom:16px; text-align: left;">
                     <label for="modalActualDate" style="
                         display:block; font-size:12.5px; font-weight:700;
                         color:var(--ink); text-transform:uppercase;
@@ -7259,7 +7842,32 @@ function openActualDateModal({ title, message, fieldLabel, fieldId, intent, onCo
                                border-radius:8px; font-size:13.5px;
                                background:#fff; color:var(--ink);
                                outline:none;">
+                    <div style="font-size:11.5px; color:var(--muted); margin-top:4px;">
+                        Planned ${transitionLabel} date: <b>${escapeHtml(plannedLabel)}</b>
+                    </div>
                 </div>
+
+                <div id="modalActualDateVariance" style="display:none; margin-bottom:16px; padding:12px 14px; background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:10px; text-align: left;">
+                    <div id="modalActualDateVarianceText" style="font-size:12.5px; color:#92400E; font-weight:700; margin-bottom:8px;"></div>
+                    <label for="modalActualDateComment" style="
+                        display:block; font-size:12px; font-weight:700;
+                        color:#92400E; text-transform:uppercase;
+                        letter-spacing:0.02em; margin-bottom:6px;">
+                        Reason for the date variance <span style="color:#C0392B;">*</span>
+                    </label>
+                    <textarea id="modalActualDateComment" rows="3"
+                        placeholder="e.g. Early ${transitionLabel} due to incoming typhoon; late ${transitionLabel} because of irrigation backlog."
+                        style="
+                            width:100%; padding:10px 12px;
+                            border:1.5px solid #FCD34D;
+                            border-radius:8px; font-size:13px;
+                            background:#fff; color:var(--ink);
+                            outline:none; resize:vertical;"></textarea>
+                    <div style="font-size:11px; color:#A16207; margin-top:4px;">
+                        Required when the actual ${transitionLabel} date differs from the planned date.
+                    </div>
+                </div>
+
                 <div style="display:flex; justify-content:flex-end; gap:10px;">
                     <button type="button" id="modalActualDateCancel"
                             class="btn-outline-report" style="
@@ -7284,14 +7892,40 @@ function openActualDateModal({ title, message, fieldLabel, fieldId, intent, onCo
 
     const modal = document.getElementById("actualDateModal");
     const input = document.getElementById("modalActualDate");
+    const varianceBox = document.getElementById("modalActualDateVariance");
+    const varianceText = document.getElementById("modalActualDateVarianceText");
+    const commentInput = document.getElementById("modalActualDateComment");
     const confirmBtn = document.getElementById("modalActualDateConfirm");
     const cancelBtn = document.getElementById("modalActualDateCancel");
 
-    setTimeout(() => input?.focus(), 50);
+    function formatFriendly(iso) {
+        return new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", {
+            month: "short", day: "numeric", year: "numeric"
+        });
+    }
 
-    cancelBtn.addEventListener("click", () => {
-        modal.remove();
-    });
+    function evaluateVariance() {
+        if (!plannedDateIso || !input.value || input.value === plannedDateIso) {
+            varianceBox.style.display = "none";
+            commentInput.value = "";
+            return;
+        }
+        const plannedMs = new Date(`${plannedDateIso}T00:00:00`).getTime();
+        const actualMs = new Date(`${input.value}T00:00:00`).getTime();
+        const diffDays = Math.round((actualMs - plannedMs) / (1000 * 60 * 60 * 24));
+        const kind = diffDays < 0
+            ? `early ${transitionLabel} — ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"} before plan`
+            : `late ${transitionLabel} — ${diffDays} day${diffDays === 1 ? "" : "s"} after plan`;
+        varianceText.textContent = `⚠ This is ${kind}. Planned: ${formatFriendly(plannedDateIso)}. Actual: ${formatFriendly(input.value)}.`;
+        varianceBox.style.display = "block";
+    }
+
+    setTimeout(() => input?.focus(), 50);
+    input.addEventListener("change", evaluateVariance);
+    input.addEventListener("input", evaluateVariance);
+    evaluateVariance();
+
+    cancelBtn.addEventListener("click", () => modal.remove());
 
     modal.addEventListener("click", (e) => {
         if (e.target === modal) modal.remove();
@@ -7314,9 +7948,18 @@ function openActualDateModal({ title, message, fieldLabel, fieldId, intent, onCo
             return;
         }
 
+        const isVariance = plannedDateIso && dateValue !== plannedDateIso;
+        const commentValue = (commentInput.value || "").trim();
+
+        if (isVariance && !commentValue) {
+            alert(`This is ${dateValue < plannedDateIso ? "earlier" : "later"} than the planned ${transitionLabel} date (${formatFriendly(plannedDateIso)}).\n\nPlease explain why.`);
+            commentInput.focus();
+            return;
+        }
+
         modal.remove();
         document.removeEventListener("keydown", escHandler);
-        onConfirm(dateValue);
+        onConfirm(dateValue, isVariance ? commentValue : null);
     });
 
     input.addEventListener("keydown", (e) => {
@@ -7384,6 +8027,7 @@ function initOfftakeRequest() {
     const confirmSub = document.getElementById("confirmOfftakeSubview");
     const submittedModal = document.getElementById("offtakeSubmittedModal");
 
+    initOfftakeLocationCascade();
     fetchOfftakeRequests();
 
     document.getElementById("createOfftakeBtn")?.addEventListener("click", function() {
@@ -7448,10 +8092,8 @@ function initOfftakeRequest() {
         currentOfftakeRequest = null;
         resetOfftakeForm();
     });
-        // ============================================================
-    // ✅ SEARCH FILTER FOR OFFTAKE REQUESTS
-    // ============================================================
-        const offtakeSearchInput = document.getElementById("searchOfftakeInput");
+
+    const offtakeSearchInput = document.getElementById("searchOfftakeInput");
 
     if (offtakeSearchInput) {
         offtakeSearchInput.addEventListener("input", function () {
@@ -7586,7 +8228,6 @@ function renderOfftakeTable() {
 function updateOfftakeSummaryCards(requests) {
     const total = (requests || []).length;
 
-    // Count per commodity (case-insensitive)
     const commodityCounts = {};
     (requests || []).forEach(req => {
         const commodity = String(req.commodity || "").trim().toLowerCase();
@@ -7759,6 +8400,7 @@ function populateOfftakeForm(data) {
     setOfftakeValue(["offtakeHarvestDate", "harvestDate"], data.harvest_date);
     setOfftakeValue(["offtakeCommodityPhoto", "commodityPhoto"], data.commodity_photo);
     setOfftakeValue(["offtakeBuyer", "buyer"], data.buyer);
+
     const locationParts = Object.fromEntries(
         String(data.delivery_location || "")
             .split(/,\s*(?=[^,]+:\s)/)
@@ -7769,14 +8411,33 @@ function populateOfftakeForm(data) {
                     : [part.slice(0, separator).trim(), part.slice(separator + 1).trim()];
             })
     );
-    [
-        ["Region", "offtakeRegion"],
-        ["Province", "offtakeProvince"],
-        ["Municipality/City", "offtakeMunicipality"],
-        ["Barangay", "offtakeBarangay"],
-        ["Street/Purok/Sitio", "offtakeStreet"],
-        ["Landmark", "offtakeLandmark"]
-    ].forEach(([label, id]) => setOfftakeValue([id], locationParts[label]));
+
+    const regionSel = document.getElementById("offtakeRegion");
+    const provSel   = document.getElementById("offtakeProvince");
+    const muniSel   = document.getElementById("offtakeMunicipality");
+    const brgySel   = document.getElementById("offtakeBarangay");
+
+    if (regionSel && locationParts["Region"]) {
+        regionSel.value = locationParts["Region"];
+        regionSel.dispatchEvent(new Event("change", { bubbles: true }));
+
+        if (provSel && locationParts["Province"]) {
+            provSel.value = locationParts["Province"];
+            provSel.dispatchEvent(new Event("change", { bubbles: true }));
+
+            if (muniSel && locationParts["Municipality/City"]) {
+                muniSel.value = locationParts["Municipality/City"];
+                muniSel.dispatchEvent(new Event("change", { bubbles: true }));
+
+                if (brgySel && locationParts["Barangay"]) {
+                    brgySel.value = locationParts["Barangay"];
+                }
+            }
+        }
+    }
+
+    setOfftakeValue(["offtakeStreet"], locationParts["Street/Purok/Sitio"]);
+    setOfftakeValue(["offtakeLandmark"], locationParts["Landmark"]);
 }
 
 function setOfftakeValue(ids, value) {
@@ -7863,6 +8524,10 @@ function resetOfftakeForm() {
             break;
         }
     }
+    resetOfftakeProvinceDropdown("Select Region first");
+    resetOfftakeMunicipalityDropdown("Select Province first");
+    resetOfftakeBarangayDropdown("Select Municipality first");
+
     currentOfftakeRequest = null;
 }
 
@@ -7917,6 +8582,15 @@ function escapeHtml(value) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+}
+
+function renderCommentCell(text) {
+    const raw = String(text || "").trim();
+    if (!raw) {
+        return `<span style="color:#BBB;font-style:italic;font-size:11.5px;">—</span>`;
+    }
+    const short = raw.length > 60 ? raw.slice(0, 60).trimEnd() + "…" : raw;
+    return `<span title="${escapeHtml(raw)}" style="display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;font-size:12.5px;">${escapeHtml(short)}</span>`;
 }
 
 /* ============================================================
@@ -9349,8 +10023,6 @@ async function loadMarketPriceDashboard() {
         MARKET_PRICES_DATA = [];
         MARKET_PRICE_FORECASTS_DATA = forecasts
             .map((forecast) => {
-                // The monthly endpoint returns year/month instead of the
-                // weekly forecast_date used by the dashboard filters.
                 const year = Number(forecast.year);
                 const month = Number(forecast.month);
                 const forecastDate = forecast.forecast_date
@@ -9409,7 +10081,6 @@ function groupMarketForecastsByYear(forecasts) {
     const grouped = {};
 
     forecasts.forEach(function (forecast) {
-        // Ang bagong endpoint ay may "year" at "month" fields
         const year = forecast.year;
         if (!year) return;
 
@@ -10683,4 +11354,274 @@ function showNoNotifications() {
     if (notificationDot) {
         notificationDot.style.display = "none";
     }
+}
+
+/* ============================================================
+   PROFILE DROPDOWN & SIGN OUT LOGIC
+============================================================ */
+document.addEventListener("DOMContentLoaded", () => {
+    const openProfileBtn  = document.getElementById("openProfileBtn");
+    const profileDropdown = document.getElementById("profileDropdown");
+    const menuEditProfile = document.getElementById("menuEditProfile");
+    const menuSignOut     = document.getElementById("menuSignOut");
+    const profileModal    = document.getElementById("profileModal");
+
+    if (!openProfileBtn || !profileDropdown) return;
+
+    openProfileBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isOpen = profileDropdown.style.display === "block";
+        profileDropdown.style.display = isOpen ? "none" : "block";
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!profileDropdown.contains(e.target) && !openProfileBtn.contains(e.target)) {
+            profileDropdown.style.display = "none";
+        }
+    });
+
+    menuSignOut?.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        profileDropdown.style.display = "none";
+
+        const confirmed = await ESaka.confirm(
+            "Are you sure you want to sign out of eSaka?",
+            { title: "Sign Out Confirmation", confirmText: "Sign Out", danger: true }
+        );
+        
+        if (confirmed) {
+            localStorage.clear();
+            window.location.href = "../index.html";
+        }
+    });
+
+    menuEditProfile?.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        profileDropdown.style.display = "none";
+
+        if (!profileModal) return;
+
+        const userId = localStorage.getItem("user_id");
+        if (!userId) {
+            alert("Session expired. Please log in again.");
+            return;
+        }
+
+        try {
+            const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
+
+            document.getElementById("profileFirstName").value = user.first_name || "";
+            document.getElementById("profileLastName").value  = user.last_name  || "";
+            document.getElementById("profileUsername").value  = user.username   || "";
+
+            let avatarFile = user.avatar;
+            if (!avatarFile) {
+                const saved = localStorage.getItem(`user_avatar_src_${userId}`);
+                if (saved) avatarFile = saved.split("/").pop();
+            }
+            const currentSelectedSrc = avatarFile ? `../images/${avatarFile}` : "../images/1.png";
+
+            let matched = false;
+            document.querySelectorAll(".avatar-option").forEach((opt) => {
+                const isMatch = opt.dataset.avatarImg === currentSelectedSrc;
+                opt.classList.toggle("selected", isMatch);
+                if (isMatch) matched = true;
+            });
+            if (!matched) {
+                const firstOpt = document.querySelector(".avatar-option");
+                if (firstOpt) firstOpt.classList.add("selected");
+            }
+
+            profileModal.classList.add("show");
+        } catch (err) {
+            console.error("Failed to load profile:", err);
+            alert("Could not load profile data. Please try again.");
+        }
+    });
+
+    const profileForm = document.getElementById("profileForm");
+    if (profileForm) {
+        profileForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const userId = localStorage.getItem("user_id");
+            const fName  = document.getElementById("profileFirstName").value.trim();
+            const lName  = document.getElementById("profileLastName").value.trim();
+            const selectedAvatar = document.querySelector(".avatar-option.selected");
+            const avatarFilename = selectedAvatar ? selectedAvatar.dataset.avatarImg.split("/").pop() : "1.png";
+
+            if (!fName || !lName || !userId) {
+                alert("Please fill in all required fields.");
+                return;
+            }
+
+            const saveBtn = profileForm.querySelector('button[type="submit"]');
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
+
+            try {
+                const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
+                    method: "PUT",
+                    body: JSON.stringify({ first_name: fName, last_name: lName, avatar: avatarFilename })
+                });
+
+                await setupUserProfile();
+
+                const serverFirst  = updatedUser?.first_name || fName;
+                const serverLast   = updatedUser?.last_name  || lName;
+                const serverAvatar = updatedUser?.avatar     || avatarFilename;
+
+                localStorage.setItem(`user_avatar_src_${userId}`, `../images/${serverAvatar}`);
+                localStorage.setItem("user_display_name", `${serverFirst} ${serverLast}`);
+                localStorage.setItem("full_name", `${serverFirst} ${serverLast}`);
+
+                const nameEl = document.getElementById("userDisplayName");
+                if (nameEl) nameEl.textContent = `${serverFirst} ${serverLast}`;
+
+                const greetingEl = document.getElementById("aewDashboardGreeting");
+                if (greetingEl) greetingEl.textContent = `Mabuhay, ${serverFirst}!`;
+
+                const avatarBox = document.getElementById("userDisplayInitials");
+                if (avatarBox) {
+                    avatarBox.innerHTML = `<img src="../images/${serverAvatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                    avatarBox.style.background = "transparent";
+                }
+
+                profileModal.classList.remove("show");
+
+                const alertModal = document.getElementById("customAlertModal");
+                if (alertModal) {
+                    document.getElementById("customAlertText").textContent = "Profile updated successfully!";
+                    alertModal.classList.add("show");
+                }
+            } catch (err) {
+                console.error("Update error:", err);
+                alert("Failed to update profile: " + (err.message || "Unknown error"));
+            } finally {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; }
+            }
+        });
+    }
+
+    document.getElementById("closeProfileModalBtn")?.addEventListener("click", () => profileModal.classList.remove("show"));
+    document.getElementById("closeCustomAlertBtn")?.addEventListener("click", () => document.getElementById("customAlertModal").classList.remove("show"));
+    
+    profileModal?.addEventListener("click", (e) => { 
+        if (e.target === profileModal) profileModal.classList.remove("show"); 
+    });
+
+    document.querySelectorAll(".avatar-option").forEach(opt => {
+        opt.addEventListener("click", () => {
+            document.querySelectorAll(".avatar-option").forEach(el => el.classList.remove("selected"));
+            opt.classList.add("selected");
+        });
+    });
+});
+
+/* ============================================================
+   DELIVERY LOCATION CASCADE
+============================================================ */
+
+const OFFTAKE_LOCATION_DATA = {
+    "Region III (Central Luzon)": {
+        provinces: {
+            "Pampanga": Object.keys(BARANGAYS_BY_MUNICIPALITY),
+        }
+    }
+};
+
+function populateOfftakeRegionDropdown() {
+    const regionSel = document.getElementById("offtakeRegion");
+    if (!regionSel || regionSel.dataset.cascadeReady === "true") return;
+
+    regionSel.innerHTML = `<option value="" disabled selected>Select Region</option>`;
+    Object.keys(OFFTAKE_LOCATION_DATA).forEach((region) => {
+        const opt = document.createElement("option");
+        opt.value = region;
+        opt.textContent = region;
+        regionSel.appendChild(opt);
+    });
+    regionSel.dataset.cascadeReady = "true";
+}
+
+function resetOfftakeProvinceDropdown(placeholder = "Select Region first") {
+    const prov = document.getElementById("offtakeProvince");
+    if (!prov) return;
+    prov.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+    prov.disabled = true;
+}
+
+function resetOfftakeMunicipalityDropdown(placeholder = "Select Province first") {
+    const muni = document.getElementById("offtakeMunicipality");
+    if (!muni) return;
+    muni.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+    muni.disabled = true;
+}
+
+function resetOfftakeBarangayDropdown(placeholder = "Select Municipality first") {
+    const brgy = document.getElementById("offtakeBarangay");
+    if (!brgy) return;
+    brgy.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+    brgy.disabled = true;
+}
+
+function initOfftakeLocationCascade() {
+    populateOfftakeRegionDropdown();
+
+    const regionSel = document.getElementById("offtakeRegion");
+    const provSel   = document.getElementById("offtakeProvince");
+    const muniSel   = document.getElementById("offtakeMunicipality");
+    const brgySel   = document.getElementById("offtakeBarangay");
+
+    if (!regionSel || !provSel || !muniSel || !brgySel) return;
+    if (regionSel.dataset.cascadeBound === "true") return;
+
+    regionSel.addEventListener("change", function () {
+        const region = this.value;
+        const provinces = OFFTAKE_LOCATION_DATA[region]?.provinces || {};
+
+        provSel.innerHTML = `<option value="" disabled selected>Select Province</option>`;
+        Object.keys(provinces).forEach((prov) => {
+            const opt = document.createElement("option");
+            opt.value = prov;
+            opt.textContent = prov;
+            provSel.appendChild(opt);
+        });
+        provSel.disabled = Object.keys(provinces).length === 0;
+
+        resetOfftakeMunicipalityDropdown("Select Province first");
+        resetOfftakeBarangayDropdown("Select Municipality first");
+    });
+
+    provSel.addEventListener("change", function () {
+        const region = regionSel.value;
+        const province = this.value;
+        const municipalities = OFFTAKE_LOCATION_DATA[region]?.provinces?.[province] || [];
+
+        muniSel.innerHTML = `<option value="" disabled selected>Select Municipality/City</option>`;
+        municipalities.forEach((muni) => {
+            const opt = document.createElement("option");
+            opt.value = muni;
+            opt.textContent = muni;
+            muniSel.appendChild(opt);
+        });
+        muniSel.disabled = municipalities.length === 0;
+
+        resetOfftakeBarangayDropdown("Select Municipality first");
+    });
+
+    muniSel.addEventListener("change", function () {
+        const municipality = this.value;
+        const barangays = BARANGAYS_BY_MUNICIPALITY[municipality] || [];
+
+        brgySel.innerHTML = `<option value="" disabled selected>Select Barangay</option>`;
+        barangays.forEach((brgy) => {
+            const opt = document.createElement("option");
+            opt.value = brgy;
+            opt.textContent = brgy;
+            brgySel.appendChild(opt);
+        });
+        brgySel.disabled = barangays.length === 0;
+    });
+
+    regionSel.dataset.cascadeBound = "true";
 }

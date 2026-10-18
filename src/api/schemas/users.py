@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
 import unicodedata
@@ -62,9 +63,10 @@ class UserBase(BaseModel):
     email_address: EmailStr
     phone_number: str
     role: str
-    region: str | None = None
-    province: str | None = None
-    municipality: str | None = None
+    region: Optional[str] = None
+    province: Optional[str] = None
+    municipality: Optional[str] = None
+    avatar: Optional[str] = None  # 👈 DAPAT NANDITO ITO
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -92,30 +94,31 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
-    username: str | None = None
-    email_address: EmailStr | None = None
-    phone_number: str | None = None
-    password: str | None = None
-    role: str | None = None
-    region: str | None = None
-    province: str | None = None
-    municipality: str | None = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+    email_address: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[str] = None
+    region: Optional[str] = None
+    province: Optional[str] = None
+    municipality: Optional[str] = None
+    avatar: Optional[str] = None  # 👈 DAPAT NANDITO ITO
 
     @field_validator("first_name", "last_name")
     @classmethod
-    def names_contain_supported_characters(cls, value: str | None) -> str | None:
+    def names_contain_supported_characters(cls, value: Optional[str]) -> Optional[str]:
         return format_person_name(value) if value is not None else None
 
     @field_validator("username")
     @classmethod
-    def username_contains_supported_characters(cls, value: str | None) -> str | None:
+    def username_contains_supported_characters(cls, value: Optional[str]) -> Optional[str]:
         return validate_username(value) if value is not None else None
 
     @field_validator("phone_number")
     @classmethod
-    def phone_number_is_numeric(cls, value: str | None) -> str | None:
+    def phone_number_is_numeric(cls, value: Optional[str]) -> Optional[str]:
         return validate_phone_number(value) if value is not None else None
 
 
@@ -123,29 +126,23 @@ class UserStatusUpdate(BaseModel):
     is_active: bool
 
 
-# ============================================================
-# ARCHIVE
-# ============================================================
-
 class UserArchiveUpdate(BaseModel):
     is_archived: bool
-    remarks: str | None = None      # ✅ BAGO
+    remarks: Optional[str] = None
 
 
 class UserResponse(UserBase):
     user_id: int
     is_active: bool
-    is_archived: bool          # ← idagdag
-    archived_at: datetime | None = None   # ← idagdag
-    archive_remarks: str | None = None      # ✅ BAGO
-    archived_by: int | None = None
-    archived_by_name: str | None = None
+    is_archived: bool
+    archived_at: Optional[datetime] = None
+    archive_remarks: Optional[str] = None
+    archived_by: Optional[int] = None
+    archived_by_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-
     class Config:
         from_attributes = True
-
 
 
 class ForgotPasswordRequest(BaseModel):

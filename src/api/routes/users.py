@@ -243,6 +243,7 @@ def read_archived_users(
             "created_at": user.created_at,
             "updated_at": user.updated_at,
             "archived_by_name": None,
+            "avatar": user.avatar,
         }
 
         # Hanapin yung admin na nag-archive
@@ -398,11 +399,17 @@ def update_user(
         "email_address": db_user.email_address,
         "phone_number": db_user.phone_number,
         "role": db_user.role,
-        "is_active": db_user.is_active
+        "is_active": db_user.is_active,
+        "avatar": db_user.avatar
     }
 
     # UPDATE DATA
     update_data = user.dict(exclude_unset=True)
+
+    # Prevent explicit None from wiping optional columns
+    for optional_field in ("avatar", "region", "province", "municipality"):
+        if optional_field in update_data and update_data[optional_field] is None:
+            update_data.pop(optional_field)
 
     # ONLY ADMIN CAN CHANGE ROLE
     if (
@@ -461,11 +468,19 @@ def update_user(
             update_data["password"]
         )
 
-    # APPLY UPDATE
+    # ✅ APPLY UPDATE (allowlist — iwasan ang stray fields)
+    ALLOWED_UPDATE_COLUMNS = {
+        "first_name", "last_name", "username", "email_address",
+        "phone_number", "password", "role",
+        "region", "province", "municipality", "avatar",
+    }
     for key, value in update_data.items():
-        setattr(db_user, key, value)
+        if key in ALLOWED_UPDATE_COLUMNS:
+            setattr(db_user, key, value)
+            print(f"[UPDATE_USER] Setting {key} = {value!r} for user_id={db_user.user_id}")
 
     db.flush()
+
 
     # NEW VALUES
     new_values = {
@@ -818,7 +833,8 @@ def delete_user(
         "email_address": db_user.email_address,
         "phone_number": db_user.phone_number,
         "role": db_user.role,
-        "is_active": db_user.is_active
+        "is_active": db_user.is_active,
+        "avatar": db_user.avatar
     }
 
     deleted_user_id = db_user.user_id

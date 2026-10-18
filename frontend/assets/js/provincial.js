@@ -3145,51 +3145,68 @@ function initProfileModal() {
         customAlertModal?.classList.remove("show");
     });
 
-    let currentSelectedSrc = localStorage.getItem("user_avatar_src") || "../images/1.png";
+    // Default avatar just in case
+    let currentSelectedSrc = "../images/1.png";
+    
+    // Get current user ID from localStorage
+    const userId = localStorage.getItem("user_id");
 
-    function loadSavedProfile() {
-        // Load saved display name
-        const savedName = localStorage.getItem("user_display_name");
-        if (savedName) {
-            const displayNameEl = document.getElementById("userDisplayName");
-            if (displayNameEl) displayNameEl.textContent = savedName;
-        }
-
-        // Load saved avatar
-        const savedAvatar = localStorage.getItem("user_avatar_src");
-        if (savedAvatar) {
-            currentSelectedSrc = savedAvatar;
-            const avatarBox = document.querySelector(".user-info .avatar");
-            if (avatarBox) {
-                avatarBox.innerHTML = '<img src="' + savedAvatar + '" alt="Avatar">';
-                avatarBox.style.background = "transparent";
-            }
-        }
-    }
-
-    loadSavedProfile();
-
-    // Open profile modal
-    openProfileBtn.addEventListener("click", (e) => {
+    // Open profile modal - fetch fresh data from DB
+    openProfileBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
-        const currentName = document.getElementById("userDisplayName")?.textContent || "";
-        const nameParts = currentName.trim().split(" ").filter(Boolean);
-
-        if (profileFirstName) profileFirstName.value = nameParts[0] || "";
-        if (profileLastName) profileLastName.value = nameParts.slice(1).join(" ") || "";
-
-        if (profileUsername) {
-            profileUsername.value = localStorage.getItem("username") || localStorage.getItem("user_id") || "pcoord_user_01";
+        
+        if (!userId) {
+            showCustomAlert("Session expired. Please log in again.");
+            return;
         }
 
-        avatarOptions.forEach(opt => {
-            opt.classList.toggle("selected", opt.dataset.avatarImg === currentSelectedSrc);
-        });
+        try {
+            // Fetch real user data from backend
+            const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
+            
+            // Populate form
+            if (profileFirstName) profileFirstName.value = user.first_name || "";
+            if (profileLastName) profileLastName.value = user.last_name || "";
+            if (profileUsername) profileUsername.value = user.username || "";
 
-        profileModal.classList.add("show");
+            let avatarFile = user.avatar;
+
+            if (!avatarFile) {
+                const savedLocal = localStorage.getItem("user_avatar_src");
+                if (savedLocal) {
+                    avatarFile = savedLocal.split("/").pop(); // kunin filename lang
+                }
+            }
+
+            if (avatarFile) {
+                currentSelectedSrc = `../images/${avatarFile}`;
+            } else {
+                currentSelectedSrc = "../images/1.png";
+            }
+
+            let matched = false;
+            avatarOptions.forEach((opt) => {
+                opt.classList.remove("selected");
+                // Check kung tugma yung filename
+                if (opt.dataset.avatarImg === currentSelectedSrc) {
+                    opt.classList.add("selected");
+                    matched = true;
+                }
+            });
+
+            if (!matched && avatarOptions.length > 0) {
+                avatarOptions[0].classList.add("selected");
+                currentSelectedSrc = avatarOptions[0].dataset.avatarImg;
+            }
+
+            profileModal.classList.add("show");
+        } catch (error) {
+            console.error("Failed to load profile:", error);
+            showCustomAlert("Could not load profile data. Please try again.");
+        }
     });
 
-    // Avatar selection
+    // Avatar selection UI highlight
     avatarOptions.forEach(opt => {
         opt.addEventListener("click", () => {
             avatarOptions.forEach(el => el.classList.remove("selected"));
@@ -3198,37 +3215,77 @@ function initProfileModal() {
         });
     });
 
-    // Close modal button
+    // Close modal
     closeProfileModalBtn?.addEventListener("click", (e) => {
         e.preventDefault();
         profileModal.classList.remove("show");
     });
 
-    // Close on overlay click
     profileModal.addEventListener("click", (e) => {
         if (e.target === profileModal) profileModal.classList.remove("show");
     });
 
-    // Save profile
-    profileForm?.addEventListener("submit", (e) => {
+    // Save profile to Database
+    profileForm?.addEventListener("submit", async (e) => {
         e.preventDefault();
 
         const fName = profileFirstName.value.trim();
         const lName = profileLastName.value.trim();
+        
         if (!fName || !lName) {
             showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields.");
             return;
         }
 
-        localStorage.setItem("user_display_name", fName + " " + lName);
-        localStorage.setItem("user_avatar_src", currentSelectedSrc);
+        // Extract just the filename e.g. "2.png"
+        const avatarFilename = currentSelectedSrc.split("/").pop();
 
-        loadSavedProfile();
+        const saveBtn = profileForm.querySelector('button[type="submit"]');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = "Saving...";
+        }
 
-        profileModal.classList.remove("show");
-        showCustomAlert("Profile updated and saved successfully!");
+        try {
+            // PUT request to save to DB
+            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    first_name: fName,
+                    last_name: lName,
+                    avatar: avatarFilename
+                })
+            });
+
+            // Update localStorage (for fallback/legacy code)
+            localStorage.setItem("user_display_name", `${fName} ${lName}`);
+            localStorage.setItem("user_avatar_src", currentSelectedSrc);
+
+            // Update Topbar UI instantly
+            const displayNameEl = document.getElementById("userDisplayName");
+            if (displayNameEl) displayNameEl.textContent = `${fName} ${lName}`;
+
+            const avatarBox = document.querySelector(".user-info .avatar");
+            if (avatarBox) {
+                avatarBox.innerHTML = `<img src="${currentSelectedSrc}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                avatarBox.style.background = "transparent";
+            }
+
+            profileModal.classList.remove("show");
+            showCustomAlert("Profile updated and saved successfully!");
+
+        } catch (error) {
+            console.error("Update error:", error);
+            showCustomAlert(error.message || "Failed to update profile.");
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = "Save Changes";
+            }
+        }
     });
 }
+
 /* ============================================================
    INITIALIZATION
 ============================================================ */

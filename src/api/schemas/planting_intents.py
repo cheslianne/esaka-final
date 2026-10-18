@@ -11,6 +11,7 @@ class PlantingIntentBase(BaseModel):
     harvest_date: date
     volume: Decimal
     remarks: Optional[str] = None
+    comment: Optional[str] = None
     notes: Optional[str] = None  
     
 

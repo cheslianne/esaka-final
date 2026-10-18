@@ -1,5 +1,9 @@
 import asyncio
 import json
+import os
+import uuid
+from datetime import date, datetime
+from typing import Optional
 
 from fastapi import (
     APIRouter,
@@ -12,12 +16,10 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from pydantic import BaseModel
-import os
-import uuid
-from datetime import datetime
 
 from src.core.config import settings
 from src.core.database import SessionLocal, get_db
@@ -57,8 +59,8 @@ def build_planting_intent_response(planting_intent: PlantingIntent, farmer: Farm
         "farmer_id": planting_intent.farmer_id,
         "farmer_name": f"{farmer.first_name} {farmer.last_name}",
         "location": farmer.address,
-        "barangay": farmer.barangay,                   
-        "municipality": farmer.municipality,        
+        "barangay": farmer.barangay,
+        "municipality": farmer.municipality,
         "commodity": planting_intent.commodity,
         "planting_date": planting_intent.planting_date,
         "harvest_date": planting_intent.harvest_date,
@@ -67,8 +69,9 @@ def build_planting_intent_response(planting_intent: PlantingIntent, farmer: Farm
         "actual_harvest_volume": float(planting_intent.actual_harvest_volume) if planting_intent.actual_harvest_volume else None,
         "volume": planting_intent.volume,
         "remarks": planting_intent.remarks,
+        "comment": planting_intent.comment,
         "status": status,
-        "finalized_status": planting_intent.finalized_status or "NOT PLANTED",  
+        "finalized_status": planting_intent.finalized_status or "NOT PLANTED",
         "created_at": planting_intent.created_at,
         "attachment_url": f"/api/planting-intents/{planting_intent.planting_intent_id}/attachment"
             if planting_intent.attachment_path else None,
@@ -95,21 +98,21 @@ def get_planting_intents(
     Get planting intents with pagination.
     Only shows intents for farmers under the current AEW.
     """
-    
+
     # Base query - only show intents for farmers under this AEW
     query = (
         db.query(PlantingIntent)
         .join(Farmer, PlantingIntent.farmer_id == Farmer.farmer_id)
         .filter(Farmer.aew_id == current_user.user_id)
     )
-    
+
     # Apply filters
     if status:
         query = query.filter(PlantingIntent.status == status)
-    
+
     if commodity:
         query = query.filter(PlantingIntent.commodity.ilike(f"%{commodity}%"))
-    
+
     if search:
         query = query.filter(
             (Farmer.first_name.ilike(f"%{search}%")) |
@@ -118,10 +121,10 @@ def get_planting_intents(
 
     if farmer_id is not None:
         query = query.filter(PlantingIntent.farmer_id == farmer_id)
-    
+
     # Get total count for pagination
     total = query.count()
-    
+
     # Apply pagination
     offset = (page - 1) * per_page
     intents = (
@@ -131,34 +134,34 @@ def get_planting_intents(
         .limit(per_page)
         .all()
     )
-    
+
     # Build response
     result = []
     for intent in intents:
         farmer = db.query(Farmer).filter(Farmer.farmer_id == intent.farmer_id).first()
         if farmer:
             result.append({
-            "planting_intent_id": intent.planting_intent_id,
-            "farmer_id": intent.farmer_id,
-            "farmer_name": f"{farmer.first_name} {farmer.last_name}",
-            "commodity": intent.commodity,
-            "volume": intent.volume,
-            "location": f"{farmer.barangay}, {farmer.municipality}",
-            "barangay": farmer.barangay,
-            "municipality": farmer.municipality,
-            "planting_date": intent.planting_date,
-            "harvest_date": intent.harvest_date,
-            "actual_planting_date": intent.actual_planting_date, 
-            "actual_harvest_date": intent.actual_harvest_date,   
-            "actual_harvest_volume": float(intent.actual_harvest_volume) if intent.actual_harvest_volume else None,
-            "status": intent.status or "Draft",
-            "finalized_status": intent.finalized_status or "NOT PLANTED",
-            "is_in_report": intent.is_in_report or False,
-            "created_at": intent.created_at,
-            "remarks": intent.remarks,
-        })
+                "planting_intent_id": intent.planting_intent_id,
+                "farmer_id": intent.farmer_id,
+                "farmer_name": f"{farmer.first_name} {farmer.last_name}",
+                "commodity": intent.commodity,
+                "volume": intent.volume,
+                "location": f"{farmer.barangay}, {farmer.municipality}",
+                "barangay": farmer.barangay,
+                "municipality": farmer.municipality,
+                "planting_date": intent.planting_date,
+                "harvest_date": intent.harvest_date,
+                "actual_planting_date": intent.actual_planting_date,
+                "actual_harvest_date": intent.actual_harvest_date,
+                "actual_harvest_volume": float(intent.actual_harvest_volume) if intent.actual_harvest_volume else None,
+                "status": intent.status or "Draft",
+                "finalized_status": intent.finalized_status or "NOT PLANTED",
+                "is_in_report": intent.is_in_report or False,
+                "created_at": intent.created_at,
+                "remarks": intent.remarks,
+                "comment": intent.comment,
+            })
 
-    
     return {
         "data": result,
         "pagination": {
@@ -184,7 +187,7 @@ def get_intent_counts(
     """
     Get counts of draft, submitted, and total intents for the current AEW.
     """
-    
+
     draft_count = (
         db.query(PlantingIntent)
         .join(Farmer, PlantingIntent.farmer_id == Farmer.farmer_id)
@@ -192,7 +195,7 @@ def get_intent_counts(
         .filter(PlantingIntent.status == "Draft")
         .count()
     )
-    
+
     submitted_count = (
         db.query(PlantingIntent)
         .join(Farmer, PlantingIntent.farmer_id == Farmer.farmer_id)
@@ -200,7 +203,7 @@ def get_intent_counts(
         .filter(PlantingIntent.status == "Submitted")
         .count()
     )
-    
+
     # Locked/Used in report
     locked_count = (
         db.query(PlantingIntent)
@@ -209,9 +212,9 @@ def get_intent_counts(
         .filter(PlantingIntent.status == "Locked")
         .count()
     )
-    
+
     total_count = draft_count + submitted_count + locked_count
-    
+
     return {
         "draft": draft_count,
         "submitted": submitted_count,
@@ -239,47 +242,47 @@ async def create_planting_intent_with_attachment(
     """
     Create a planting intent with optional file attachment.
     """
-    
+
     # Check if farmer exists and belongs to this AEW
     farmer = db.query(Farmer).filter(
         Farmer.farmer_id == farmer_id,
         Farmer.aew_id == current_user.user_id
     ).first()
-    
+
     if not farmer:
         raise HTTPException(
             status_code=404,
             detail="Farmer not found or not under your supervision"
         )
-    
+
     # Handle attachment
     attachment_path = None
-    
+
     if attachment:
         filename = attachment.filename or ""
         extension = os.path.splitext(filename)[1].lower()
-        
+
         allowed_extensions = {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".doc", ".docx", ".xls", ".xlsx"}
-        
+
         if extension not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
             )
-        
+
         file_content = await attachment.read()
         if len(file_content) > 5 * 1024 * 1024:
             raise HTTPException(
                 status_code=400,
                 detail="File size exceeds 5MB limit"
             )
-        
+
         unique_filename = f"{uuid.uuid4()}{extension}"
         attachment_path = os.path.join(UPLOAD_DIR, unique_filename)
-        
+
         with open(attachment_path, "wb") as file:
             file.write(file_content)
-    
+
     # Parse dates
     try:
         planting_date_obj = datetime.strptime(planting_date, "%Y-%m-%d").date()
@@ -289,7 +292,7 @@ async def create_planting_intent_with_attachment(
             status_code=400,
             detail="Invalid date format. Use YYYY-MM-DD"
         )
-    
+
     # Create planting intent
     db_planting = PlantingIntent(
         farmer_id=farmer_id,
@@ -301,11 +304,11 @@ async def create_planting_intent_with_attachment(
         attachment_path=attachment_path,
         status="Draft"
     )
-    
+
     db.add(db_planting)
     db.commit()
     db.refresh(db_planting)
-    
+
     return build_planting_intent_response(db_planting, farmer, "Draft")
 
 
@@ -324,23 +327,24 @@ def create_planting_intent(
         Farmer.farmer_id == planting_intent.farmer_id,
         Farmer.aew_id == current_user.user_id
     ).first()
-    
+
     if not farmer:
         raise HTTPException(
             status_code=404,
             detail="Farmer not found or not under your supervision"
         )
-    
+
     db_planting = PlantingIntent(
         **planting_intent.model_dump(),
         status="DRAFT"
     )
-    
+
     db.add(db_planting)
     db.commit()
     db.refresh(db_planting)
-    
+
     return build_planting_intent_response(db_planting, farmer, "DRAFT")
+
 
 @router.get("/municipality-map")
 def get_municipality_map_data(
@@ -408,7 +412,6 @@ def _get_municipality_map_data(db: Session):
             base_demand * threshold_percent / 100
         )
 
-       
         if total_supply > alert_limit:
             status = "OVERSUPPLY"
         elif total_supply > base_demand:
@@ -513,11 +516,10 @@ async def municipality_map_updates(websocket: WebSocket):
     except WebSocketDisconnect:
         return
 
+
 # ============================================================
 # GET ATTACHMENT
 # ============================================================
-
-from fastapi.responses import FileResponse
 
 @router.get("/{planting_intent_id}/attachment")
 def get_planting_intent_attachment(
@@ -528,37 +530,37 @@ def get_planting_intent_attachment(
     """
     Download the attachment for a planting intent.
     """
-    
+
     planting_intent = (
         db.query(PlantingIntent)
         .filter(PlantingIntent.planting_intent_id == planting_intent_id)
         .first()
     )
-    
+
     if not planting_intent:
         raise HTTPException(status_code=404, detail="Planting intent not found")
-    
+
     # Check if this intent belongs to a farmer under this AEW
     farmer = db.query(Farmer).filter(
         Farmer.farmer_id == planting_intent.farmer_id,
         Farmer.aew_id == current_user.user_id
     ).first()
-    
+
     if not farmer:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     if not planting_intent.attachment_path:
         raise HTTPException(status_code=404, detail="No attachment found")
-    
+
     file_path = os.path.abspath(planting_intent.attachment_path)
-    
+
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="Attachment file does not exist")
-    
+
     # Determine media type
     extension = os.path.splitext(file_path)[1].lower()
     media_type = "application/octet-stream"
-    
+
     if extension == ".pdf":
         media_type = "application/pdf"
     elif extension in [".jpg", ".jpeg"]:
@@ -571,7 +573,7 @@ def get_planting_intent_attachment(
         media_type = "application/msword"
     elif extension == ".docx":
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    
+
     return FileResponse(
         path=file_path,
         media_type=media_type,
@@ -600,22 +602,22 @@ def update_planting_intent(
         )
         .first()
     )
-    
+
     if not db_planting:
         raise HTTPException(status_code=404, detail="Planting intent not found")
-    
+
     if db_planting.status != "DRAFT":
         raise HTTPException(
             status_code=400,
             detail="Cannot edit a planting intent that has already been submitted."
         )
-    
+
     update_data = planting_intent.model_dump(exclude_unset=True)
-    
+
     # Don't allow status update through this endpoint
     if "status" in update_data:
         del update_data["status"]
-    
+
     if "farmer_id" in update_data:
         farmer = db.query(Farmer).filter(
             Farmer.farmer_id == update_data["farmer_id"],
@@ -623,19 +625,20 @@ def update_planting_intent(
         ).first()
         if not farmer:
             raise HTTPException(status_code=404, detail="Farmer not found")
-    
+
     for key, value in update_data.items():
         setattr(db_planting, key, value)
-    
+
     db.commit()
     db.refresh(db_planting)
-    
+
     farmer = db.query(Farmer).filter(Farmer.farmer_id == db_planting.farmer_id).first()
     return build_planting_intent_response(
         db_planting,
         farmer,
         db_planting.status or "DRAFT"
     )
+
 
 # ============================================================
 # DELETE PLANTING INTENT
@@ -656,16 +659,16 @@ def delete_planting_intent(
         )
         .first()
     )
-    
+
     if not db_planting:
         raise HTTPException(status_code=404, detail="Planting intent not found")
-    
+
     if db_planting.status != "DRAFT":
         raise HTTPException(
             status_code=400,
             detail="Cannot delete a planting intent that has already been submitted."
         )
-    
+
     # Delete the attachment file if it exists
     if db_planting.attachment_path:
         file_path = os.path.abspath(db_planting.attachment_path)
@@ -674,10 +677,10 @@ def delete_planting_intent(
                 os.remove(file_path)
             except Exception as e:
                 print(f"Warning: Could not delete attachment file: {e}")
-    
+
     db.delete(db_planting)
     db.commit()
-    
+
     return {"message": "Planting intent deleted successfully."}
 
 
@@ -695,7 +698,7 @@ def submit_planting_intent(
     Submit a planting intent - moves from DRAFT to SUBMITTED status.
     Once submitted, it cannot be edited or deleted.
     """
-    
+
     db_planting = (
         db.query(PlantingIntent)
         .join(Farmer, PlantingIntent.farmer_id == Farmer.farmer_id)
@@ -705,25 +708,26 @@ def submit_planting_intent(
         )
         .first()
     )
-    
+
     if not db_planting:
         raise HTTPException(status_code=404, detail="Planting intent not found")
-    
+
     if db_planting.status != "DRAFT":
         raise HTTPException(
             status_code=400,
             detail=f"Cannot submit a planting intent with status: {db_planting.status}"
         )
-    
+
     db_planting.status = "SUBMITTED"
     db.commit()
     db.refresh(db_planting)
-    
+
     return {
         "message": "Planting intent submitted successfully",
         "planting_intent_id": db_planting.planting_intent_id,
         "status": db_planting.status
     }
+
 
 @router.post("/{planting_intent_id}/pull")
 def pull_planting_intent(
@@ -734,7 +738,7 @@ def pull_planting_intent(
     """
     Pull a planting intent back to DRAFT from SUBMITTED.
     """
-    
+
     db_planting = (
         db.query(PlantingIntent)
         .join(Farmer, PlantingIntent.farmer_id == Farmer.farmer_id)
@@ -744,20 +748,20 @@ def pull_planting_intent(
         )
         .first()
     )
-    
+
     if not db_planting:
         raise HTTPException(status_code=404, detail="Planting intent not found")
-    
+
     if db_planting.status != "SUBMITTED":
         raise HTTPException(
             status_code=400,
             detail=f"Cannot pull a planting intent with status: {db_planting.status}"
         )
-    
+
     db_planting.status = "DRAFT"
     db.commit()
     db.refresh(db_planting)
-    
+
     return {
         "message": "Planting intent pulled back to DRAFT",
         "planting_intent_id": db_planting.planting_intent_id,
@@ -765,16 +769,16 @@ def pull_planting_intent(
     }
 
 
-# Endpoint for Finalized Intents
-
-from datetime import date
-from pydantic import BaseModel, validator
+# ============================================================
+# FINALIZED STATUS UPDATE (with conditional comment)
+# ============================================================
 
 class FinalizedStatusUpdate(BaseModel):
     finalized_status: str
-    actual_planting_date: date | None = None
-    actual_harvest_date: date | None = None
-    actual_harvest_volume: float | None = None  # ✅ ADD THIS
+    actual_planting_date: Optional[date] = None
+    actual_harvest_date: Optional[date] = None
+    actual_harvest_volume: Optional[float] = None
+    comment: Optional[str] = None
 
 
 @router.patch("/{planting_intent_id}/finalized-status")
@@ -784,7 +788,12 @@ def update_finalized_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """..."""
+    """
+    Update the finalized status of a planting intent.
+    If the actual planting/harvest date differs from the planned date,
+    a comment explaining the variance is required. If the date matches
+    the plan, a comment is rejected and any stale comment is cleared.
+    """
     ALLOWED = {"NOT PLANTED", "PLANTED", "HARVESTED", "MEDIATING"}
     new_status = payload.finalized_status.upper().strip()
 
@@ -839,7 +848,66 @@ def update_finalized_status(
     if payload.actual_harvest_volume and new_status != "HARVESTED":
         db_planting.actual_harvest_volume = payload.actual_harvest_volume
 
+    # ── Comment: only allowed when actual date ≠ planned date ──
+    comment = (payload.comment or "").strip() or None
+
+    date_variance = False
+    variance_msg = ""
+
+    planting_off = bool(
+        db_planting.actual_planting_date
+        and db_planting.planting_date
+        and db_planting.actual_planting_date != db_planting.planting_date
+    )
+
+    if new_status == "PLANTED" and planting_off:
+        date_variance = True
+        diff = (db_planting.actual_planting_date - db_planting.planting_date).days
+        variance_msg = (
+            f"early planting ({abs(diff)} day{'s' if abs(diff) != 1 else ''} before plan)"
+            if diff < 0 else
+            f"late planting ({diff} day{'s' if diff != 1 else ''} after plan)"
+        )
+
+    elif new_status == "HARVESTED":
+        if (
+            db_planting.actual_harvest_date
+            and db_planting.harvest_date
+            and db_planting.actual_harvest_date != db_planting.harvest_date
+        ):
+            date_variance = True
+            diff = (db_planting.actual_harvest_date - db_planting.harvest_date).days
+            variance_msg = (
+                f"early harvest ({abs(diff)} day{'s' if abs(diff) != 1 else ''} before plan)"
+                if diff < 0 else
+                f"late harvest ({diff} day{'s' if diff != 1 else ''} after plan)"
+            )
+
+    if date_variance and not comment:
+        raise HTTPException(status_code=400, detail=(
+            f"A comment is required for {variance_msg}. "
+            "Please explain why the actual date differs from the planned date."
+        ))
+
+    if comment and not date_variance:
+        raise HTTPException(status_code=400, detail=(
+            "A comment can only be provided when the actual date differs from the planned date."
+        ))
+
+    if date_variance:
+        if new_status == "HARVESTED" and planting_off and db_planting.comment:
+            # keep the planting remark, add the harvest one
+            db_planting.comment = f"{db_planting.comment}\nHarvest: {comment}"
+        else:
+            db_planting.comment = comment
+    elif new_status == "PLANTED":
+        db_planting.comment = None
+    elif new_status == "HARVESTED" and not planting_off:
+        db_planting.comment = None
+    # HARVESTED on time after a planting variance keeps the existing remark
+
     db_planting.finalized_status = new_status
+
     db.commit()
     db.refresh(db_planting)
 
@@ -849,5 +917,9 @@ def update_finalized_status(
         "finalized_status": db_planting.finalized_status,
         "actual_planting_date": db_planting.actual_planting_date,
         "actual_harvest_date": db_planting.actual_harvest_date,
-        "actual_harvest_volume": float(db_planting.actual_harvest_volume) if db_planting.actual_harvest_volume else None,
+        "actual_harvest_volume": (
+            float(db_planting.actual_harvest_volume)
+            if db_planting.actual_harvest_volume else None
+        ),
+        "comment": db_planting.comment,
     }
