@@ -121,6 +121,10 @@ let daDashboardData = null;
 /* ---------- PAGINATION STATE (7 items per page) ---------- */
 const ITEMS_PER_PAGE = 7;
 const ALERTS_PER_PAGE = 4;   // alert cards are taller, so 4 per page
+const REPORTS_PAGE_SIZE = 3;
+let currentPendingReportsPage = 1;
+let currentReturnedReportsPage = 1;
+let currentApprovedReportsPage = 1;
 
 let currentPendingPage = 1;
 let currentVerifiedPage = 1;
@@ -1466,10 +1470,18 @@ function renderPendingReports() {
 
     if (reports.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="padding:30px; text-align:center; color:#999;">No reports awaiting DA-RFO validation.</td></tr>`;
+        removePaginationControls("pendingReportsPagination");
         return;
     }
 
-    reports.forEach(report => {
+    // --- PAGINATION (3 items per page) ---
+    const totalPages = Math.ceil(reports.length / REPORTS_PAGE_SIZE) || 1;
+    if (currentPendingReportsPage > totalPages) currentPendingReportsPage = totalPages;
+    if (currentPendingReportsPage < 1) currentPendingReportsPage = 1;
+    const startIndex = (currentPendingReportsPage - 1) * REPORTS_PAGE_SIZE;
+    const paginatedReports = reports.slice(startIndex, startIndex + REPORTS_PAGE_SIZE);
+
+    paginatedReports.forEach(report => {
         const tr = document.createElement("tr");
         tr.className = "clickable-row";
         tr.dataset.reportId = report.report_id;
@@ -1508,6 +1520,11 @@ function renderPendingReports() {
     });
 
     updateSelectAllCheckbox();
+
+    renderPaginationUI("pendingReportsBody", currentPendingReportsPage, totalPages, (newPage) => {
+        currentPendingReportsPage = newPage;
+        renderPendingReports();
+    }, "pendingReportsPagination", { totalItems: reports.length, pageSize: REPORTS_PAGE_SIZE, label: "pending reports" });
 }
 
 async function loadReturnedToProvincial() {
@@ -1538,10 +1555,18 @@ function renderReturnedToProvincial() {
 
     if (returnedToProvincialReports.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No reports returned to Provincial.</td></tr>`;
+        removePaginationControls("returnedReportsPagination");
         return;
     }
 
-    returnedToProvincialReports.forEach(report => {
+    // --- PAGINATION (3 items per page) ---
+    const totalPages = Math.ceil(returnedToProvincialReports.length / REPORTS_PAGE_SIZE) || 1;
+    if (currentReturnedReportsPage > totalPages) currentReturnedReportsPage = totalPages;
+    if (currentReturnedReportsPage < 1) currentReturnedReportsPage = 1;
+    const startIndex = (currentReturnedReportsPage - 1) * REPORTS_PAGE_SIZE;
+    const paginatedReports = returnedToProvincialReports.slice(startIndex, startIndex + REPORTS_PAGE_SIZE);
+
+    paginatedReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
         const tr = document.createElement("tr");
         tr.className = "clickable-row";
@@ -1557,6 +1582,11 @@ function renderReturnedToProvincial() {
         tr.addEventListener("click", () => openReportDetail(report));
         tbody.appendChild(tr);
     });
+
+    renderPaginationUI("returnedToProvincialBody", currentReturnedReportsPage, totalPages, (newPage) => {
+        currentReturnedReportsPage = newPage;
+        renderReturnedToProvincial();
+    }, "returnedReportsPagination", { totalItems: returnedToProvincialReports.length, pageSize: REPORTS_PAGE_SIZE, label: "returned reports" });
 }
 
 async function loadApprovedReports() {
@@ -1586,10 +1616,18 @@ function renderApprovedReports() {
 
     if (approvedReports.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No approved reports yet.</td></tr>`;
+        removePaginationControls("approvedReportsPagination");
         return;
     }
 
-    approvedReports.forEach(report => {
+    // --- PAGINATION (3 items per page) ---
+    const totalPages = Math.ceil(approvedReports.length / REPORTS_PAGE_SIZE) || 1;
+    if (currentApprovedReportsPage > totalPages) currentApprovedReportsPage = totalPages;
+    if (currentApprovedReportsPage < 1) currentApprovedReportsPage = 1;
+    const startIndex = (currentApprovedReportsPage - 1) * REPORTS_PAGE_SIZE;
+    const paginatedReports = approvedReports.slice(startIndex, startIndex + REPORTS_PAGE_SIZE);
+
+    paginatedReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
         const tr = document.createElement("tr");
         tr.className = "clickable-row";
@@ -1605,6 +1643,11 @@ function renderApprovedReports() {
         tr.addEventListener("click", () => openReportDetail(report));
         tbody.appendChild(tr);
     });
+
+    renderPaginationUI("approvedReportsBody", currentApprovedReportsPage, totalPages, (newPage) => {
+        currentApprovedReportsPage = newPage;
+        renderApprovedReports();
+    }, "approvedReportsPagination", { totalItems: approvedReports.length, pageSize: REPORTS_PAGE_SIZE, label: "approved reports" });
 }
 
 function initReportSearch() {

@@ -3285,7 +3285,8 @@ document.addEventListener("DOMContentLoaded", async () => {
    (Individual report exports removed per requirement.)
 ============================================================ */
 (function () {
-    const PAGE_SIZE = 8;
+    // ✅ 3 REPORTS PER PAGE
+    const PAGE_SIZE = 3;
     const paginationState = {
         pendingReportsBody: 1,
         awaitingRevisionBody: 1,
@@ -3312,10 +3313,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    // ✅ PAGINATION WITH PAGE NUMBERS (auto-creates the container if missing in HTML)
     function paginateTable(config) {
         const body = document.getElementById(config.bodyId);
-        const host = document.getElementById(config.hostId);
-        if (!body || !host) return;
+        if (!body) return;
+
+        let host = document.getElementById(config.hostId);
+        if (!host) {
+            const table = body.closest("table");
+            if (!table) return;
+            host = document.createElement("div");
+            host.id = config.hostId;
+            table.insertAdjacentElement("afterend", host);
+        }
 
         const allRows = Array.from(body.querySelectorAll("tr[data-report-id]"));
         const matches = visibleRows(body);
@@ -3334,46 +3344,51 @@ document.addEventListener("DOMContentLoaded", async () => {
             row.style.display = onPage.has(row) ? "" : "none";
         });
 
-        const fragment = document.createDocumentFragment();
+        host.style.cssText =
+            "display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;" +
+            "gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid #DFD8C6;" +
+            "font-size:12.5px;color:#625E52;";
 
-        const addLabel = (className, text) => {
-            const el = document.createElement("span");
-            el.textContent = text;
-            if (className) el.className = className;
-            fragment.appendChild(el);
+        const go = (target) => {
+            paginationState[config.bodyId] = Math.min(pageCount, Math.max(1, target));
+            paginateTable(config);
         };
 
-        const addButton = (action, text, disabled) => {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.dataset.pageAction = action;
-            button.textContent = text;
-            button.disabled = disabled;
-
-            button.addEventListener("click", () => {
-                paginationState[config.bodyId] =
-                    action === "prev"
-                        ? Math.max(1, page - 1)
-                        : Math.min(pageCount, page + 1);
-
-                paginateTable(config);
-            });
-
-            fragment.appendChild(button);
+        const makeBtn = (text, target, { disabled = false, active = false } = {}) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = text;
+            b.disabled = disabled;
+            b.style.cssText =
+                `padding:5px 11px;border-radius:4px;font-size:12px;font-weight:600;` +
+                `border:1px solid ${active ? "#5B6B4F" : "#DFD8C6"};` +
+                `background:${active ? "#5B6B4F" : "#fff"};` +
+                `color:${active ? "#fff" : "#2E2A22"};` +
+                `cursor:${disabled ? "not-allowed" : "pointer"};opacity:${disabled ? 0.4 : 1};`;
+            if (!disabled) b.addEventListener("click", () => go(target));
+            return b;
         };
 
-        addLabel(
-            "pagination-range",
-            matches.length
-                ? `${start + 1}–${Math.min(start + PAGE_SIZE, matches.length)} of ${matches.length} ${config.label}`
-                : `0 ${config.label}`
-        );
+        const info = document.createElement("span");
+        info.className = "pagination-range";
+        info.textContent = matches.length
+            ? `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, matches.length)} of ${matches.length} ${config.label}`
+            : `0 ${config.label}`;
 
-        addButton("prev", "Previous", page <= 1);
-        addLabel("pagination-page", `Page ${page} / ${pageCount}`);
-        addButton("next", "Next", page >= pageCount);
+        const nodes = [info];
 
-        host.replaceChildren(fragment);
+        if (pageCount > 1) {
+            const controls = document.createElement("div");
+            controls.style.cssText = "display:flex;gap:4px;align-items:center;";
+            controls.appendChild(makeBtn("« Prev", page - 1, { disabled: page <= 1 }));
+            for (let i = 1; i <= pageCount; i++) {
+                controls.appendChild(makeBtn(String(i), i, { active: i === page }));
+            }
+            controls.appendChild(makeBtn("Next »", page + 1, { disabled: page >= pageCount }));
+            nodes.push(controls);
+        }
+
+        host.replaceChildren(...nodes);
     }
 
     function refreshReportTables() {
@@ -5216,6 +5231,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    // ✅ STATUS CARDS — icon removed
     function ensureMunicipalStatusCards() {
         const header = document.getElementById("reportsMainHeader");
         if (!header || document.getElementById("municipalStatusCards")) return;
@@ -5223,13 +5239,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         cards.id = "municipalStatusCards";
         cards.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:0 0 20px;";
         const definitions = [
-            {key:"pending",label:"Pending Reports",desc:"Awaiting municipal validation",countId:"reportCountPending",color:"#d97706",icon:"◷"},
-            {key:"revision",label:"Awaiting Revision",desc:"Returned to AEWs for updates",countId:"reportCountRevision",color:"#b45309",icon:"↻"},
-            {key:"provincial",label:"Sent to Provincial",desc:"Forwarded for provincial review",countId:"reportCountProvincial",color:"#2563eb",icon:"↗"},
-            {key:"approved",label:"Approved Reports",desc:"Approved by provincial office",countId:"reportCountApproved",color:"#15803d",icon:"✓"}
+            {key:"pending",label:"Pending Reports",desc:"Awaiting municipal validation",countId:"reportCountPending",color:"#d97706"},
+            {key:"revision",label:"Awaiting Revision",desc:"Returned to AEWs for updates",countId:"reportCountRevision",color:"#b45309"},
+            {key:"provincial",label:"Sent to Provincial",desc:"Forwarded for provincial review",countId:"reportCountProvincial",color:"#2563eb"},
+            {key:"approved",label:"Approved Reports",desc:"Approved by provincial office",countId:"reportCountApproved",color:"#15803d"}
         ];
         cards.innerHTML = definitions.map(item => `<button type="button" data-report-kpi="${item.key}" aria-pressed="false" style="display:flex;align-items:center;gap:14px;text-align:left;padding:17px 18px;background:#fff;border:1px solid #e1e8e2;border-left:4px solid ${item.color};border-radius:13px;box-shadow:0 4px 14px rgba(18,50,31,.06);cursor:pointer;min-height:94px;transition:transform .15s,box-shadow .15s;">
-          <span aria-hidden="true" style="width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:12px;background:${item.color}15;color:${item.color};font-size:24px;font-weight:800;">${item.icon}</span>
           <span style="min-width:0;display:block;"><span style="display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#617067;">${item.label}</span><strong id="${item.countId}" style="display:block;font-size:27px;line-height:1.2;margin:4px 0;color:#172d22;">0</strong><span style="display:block;font-size:11px;color:#77847b;">${item.desc}</span></span>
         </button>`).join("");
         header.insertAdjacentElement("afterend", cards);

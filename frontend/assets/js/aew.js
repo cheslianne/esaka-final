@@ -120,6 +120,13 @@ const REPORTS_DATA_BY_TAB = {
     approved: []
 };
 
+const REPORTS_PAGE_SIZE = 3;
+const REPORTS_CURRENT_PAGE = {
+    pending: 1,
+    flagged: 1,
+    approved: 1
+};
+
 /* ============================================================
    INITIALIZATION
 ============================================================ */
@@ -512,6 +519,7 @@ function initViewNavigation() {
         }
     });
 }
+
 
 /* ============================================================
    SIGN OUT
@@ -4141,6 +4149,131 @@ function initReporting() {
     }
 }
 
+/* ============================================================
+   REPORTS PAGINATION — HELPERS
+============================================================ */
+
+function ensureReportsPaginationStyles() {
+    if (document.getElementById("reportsPaginationStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "reportsPaginationStyles";
+    style.textContent = `
+        .reports-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 14px 18px;
+            border-top: 1px solid var(--border-light, #e5e7eb);
+            color: var(--muted, #6b7280);
+            font-size: 12px;
+        }
+        .reports-pagination-controls,
+        .reports-pagination-pages {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .reports-page-btn {
+            min-width: 34px;
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid var(--border, #d1d5db);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--ink, #374151);
+            cursor: pointer;
+            font: inherit;
+        }
+        .reports-page-btn.active {
+            background: var(--green-dark, #445439);
+            border-color: var(--green-dark, #445439);
+            color: #fff;
+        }
+        .reports-page-btn:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+        @media (max-width: 600px) {
+            .reports-pagination { justify-content: center; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function removeReportsPagination(key) {
+    document.getElementById(`reportsPagination-${key}`)?.remove();
+}
+
+function renderReportsPagination(key, tbody, totalItems, renderFunction) {
+    removeReportsPagination(key);
+    if (!tbody || totalItems <= REPORTS_PAGE_SIZE) return;
+
+    ensureReportsPaginationStyles();
+
+    const totalPages = Math.ceil(totalItems / REPORTS_PAGE_SIZE);
+    REPORTS_CURRENT_PAGE[key] = Math.max(
+        1,
+        Math.min(REPORTS_CURRENT_PAGE[key], totalPages)
+    );
+    const currentPage = REPORTS_CURRENT_PAGE[key];
+    const firstItem = (currentPage - 1) * REPORTS_PAGE_SIZE + 1;
+    const lastItem = Math.min(currentPage * REPORTS_PAGE_SIZE, totalItems);
+
+    const pagination = document.createElement("div");
+    pagination.id = `reportsPagination-${key}`;
+    pagination.className = "reports-pagination";
+    pagination.innerHTML = `
+        <span>Showing ${firstItem}–${lastItem} of ${totalItems} reports</span>
+        <div class="reports-pagination-controls">
+            <button type="button" class="reports-page-btn" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>‹ Prev</button>
+            <div class="reports-pagination-pages"></div>
+            <button type="button" class="reports-page-btn" data-page-action="next" ${currentPage === totalPages ? "disabled" : ""}>Next ›</button>
+        </div>
+    `;
+
+    const pages = pagination.querySelector(".reports-pagination-pages");
+    for (let page = 1; page <= totalPages; page++) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `reports-page-btn${page === currentPage ? " active" : ""}`;
+        button.textContent = page;
+        button.setAttribute("aria-label", `Go to page ${page}`);
+        button.setAttribute("aria-current", page === currentPage ? "page" : "false");
+        button.addEventListener("click", () => {
+            REPORTS_CURRENT_PAGE[key] = page;
+            renderFunction();
+        });
+        pages.appendChild(button);
+    }
+
+    pagination.querySelector('[data-page-action="prev"]').addEventListener("click", () => {
+        if (REPORTS_CURRENT_PAGE[key] > 1) {
+            REPORTS_CURRENT_PAGE[key]--;
+            renderFunction();
+        }
+    });
+    pagination.querySelector('[data-page-action="next"]').addEventListener("click", () => {
+        if (REPORTS_CURRENT_PAGE[key] < totalPages) {
+            REPORTS_CURRENT_PAGE[key]++;
+            renderFunction();
+        }
+    });
+
+    // Insert after the table
+    const table = tbody.closest("table");
+    const tableContainer = table?.parentElement;
+    if (tableContainer?.parentElement) {
+        tableContainer.insertAdjacentElement("afterend", pagination);
+    } else if (table) {
+        table.insertAdjacentElement("afterend", pagination);
+    } else {
+        tbody.insertAdjacentElement("afterend", pagination);
+    }
+}
+
 
 function renderFinalizedIntents(intents) {
     const tbody = document.getElementById('individualReportsTableBody');
@@ -6327,6 +6460,10 @@ function initReportTabs() {
 function setActiveReportTab(tab) {
     currentReportTab = tab;
 
+    if (REPORTS_CURRENT_PAGE[tab] !== undefined) {
+        REPORTS_CURRENT_PAGE[tab] = 1;
+    }
+
     document.querySelectorAll("#reportSummaryCards [data-report-tab]").forEach(function (card) {
         card.setAttribute("aria-pressed", card.dataset.reportTab === tab ? "true" : "false");
     });
@@ -6386,6 +6523,7 @@ function initReportDateFilters() {
                 }
 
                 REPORT_TAB_FILTERS[tab] = period;
+                REPORTS_CURRENT_PAGE[tab] = 1;  
                 renderReportTabPanel(tab);
             });
         });
@@ -6405,6 +6543,7 @@ function initReportDateFilters() {
 
             REPORT_TAB_CUSTOM_RANGES[tab] = { from, to };
             REPORT_TAB_FILTERS[tab] = "custom";
+            REPORTS_CURRENT_PAGE[tab] = 1;  
             renderReportTabPanel(tab);
         });
 
@@ -6413,6 +6552,7 @@ function initReportDateFilters() {
             if (endInput) endInput.value = "";
             REPORT_TAB_CUSTOM_RANGES[tab] = { from: null, to: null };
             REPORT_TAB_FILTERS[tab] = "all";
+            REPORTS_CURRENT_PAGE[tab] = 1;   
 
             presets.forEach(function (p) {
                 p.classList.toggle("active", p.dataset.period === "all");
@@ -6432,6 +6572,11 @@ function renderSubmittedReports(reports) {
         const bucket = classifyReportStatus(r.status);
         if (bucket) REPORTS_DATA_BY_TAB[bucket].push(r);
     });
+
+    // ✅ IDAGDAG: Reset lahat ng pages sa bagong load
+    REPORTS_CURRENT_PAGE.pending = 1;
+    REPORTS_CURRENT_PAGE.flagged = 1;
+    REPORTS_CURRENT_PAGE.approved = 1;
 
     updateReportTabCounts();
     renderActiveReportTab();
@@ -6479,7 +6624,12 @@ function renderReportTabPanel(tab) {
     const tbody = document.getElementById(tbodyMap[tab]);
     if (!tbody) return;
 
-    if (filtered.length === 0) {
+    // Reset to page 1 whenever filters change (fresh render)
+    const totalItems = filtered.length;
+
+    if (totalItems === 0) {
+        removeReportsPagination(tab);
+        REPORTS_CURRENT_PAGE[tab] = 1;
         const friendly = {
             pending: "No pending reports in this period. Try changing the filter or submitting a new report.",
             flagged: "No flagged reports in this period. Great — no pending revisions.",
@@ -6495,11 +6645,21 @@ function renderReportTabPanel(tab) {
         return;
     }
 
-    tbody.innerHTML = "";
+    // Clamp current page
+    const totalPages = Math.max(1, Math.ceil(totalItems / REPORTS_PAGE_SIZE));
+    REPORTS_CURRENT_PAGE[tab] = Math.min(REPORTS_CURRENT_PAGE[tab], totalPages);
 
-    filtered.forEach(function (report) {
+    // Slice for current page
+    const start = (REPORTS_CURRENT_PAGE[tab] - 1) * REPORTS_PAGE_SIZE;
+    const pageItems = filtered.slice(start, start + REPORTS_PAGE_SIZE);
+
+    tbody.innerHTML = "";
+    pageItems.forEach(function (report) {
         tbody.appendChild(createReportTabRow(report, tab));
     });
+
+    // Render pagination controls
+    renderReportsPagination(tab, tbody, totalItems, () => renderReportTabPanel(tab));
 }
 
 function createReportTabRow(report, tab) {

@@ -22,6 +22,14 @@ let returnedToMunicipalReports = [];
 let selectedReportIds = new Set();
 let selectedReport = null;
 let currentSentToRegionalFilter = "all";
+
+// Pagination: show only 3 reports per page
+const REPORTS_PAGE_SIZE = 3;
+const REPORTS_CURRENT_PAGE = {
+    pending: 1,
+    returned: 1,
+    sent: 1
+};
 let currentSummaryPeriod = {
     start: null,
     end: null,
@@ -537,6 +545,127 @@ function getIntentVariances(intent) {
 
 
 /* ============================================================
+   REPORTS PAGINATION
+============================================================ */
+
+function ensureReportsPaginationStyles() {
+    if (document.getElementById("reportsPaginationStyles")) return;
+
+    const style = document.createElement("style");
+    style.id = "reportsPaginationStyles";
+    style.textContent = `
+        .reports-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 14px 18px;
+            border-top: 1px solid var(--border-light, #e5e7eb);
+            color: var(--muted, #6b7280);
+            font-size: 12px;
+        }
+        .reports-pagination-controls,
+        .reports-pagination-pages {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .reports-page-btn {
+            min-width: 34px;
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid var(--border, #d1d5db);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--ink, #374151);
+            cursor: pointer;
+            font: inherit;
+        }
+        .reports-page-btn.active {
+            background: var(--green-dark, #445439);
+            border-color: var(--green-dark, #445439);
+            color: #fff;
+        }
+        .reports-page-btn:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+        @media (max-width: 600px) {
+            .reports-pagination { justify-content: center; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function removeReportsPagination(key) {
+    document.getElementById(`reportsPagination-${key}`)?.remove();
+}
+
+function renderReportsPagination(key, tbody, totalItems, renderFunction) {
+    removeReportsPagination(key);
+    if (!tbody || totalItems <= REPORTS_PAGE_SIZE) return;
+
+    ensureReportsPaginationStyles();
+
+    const totalPages = Math.ceil(totalItems / REPORTS_PAGE_SIZE);
+    REPORTS_CURRENT_PAGE[key] = Math.max(1, Math.min(REPORTS_CURRENT_PAGE[key], totalPages));
+    const currentPage = REPORTS_CURRENT_PAGE[key];
+    const firstItem = (currentPage - 1) * REPORTS_PAGE_SIZE + 1;
+    const lastItem = Math.min(currentPage * REPORTS_PAGE_SIZE, totalItems);
+
+    const pagination = document.createElement("div");
+    pagination.id = `reportsPagination-${key}`;
+    pagination.className = "reports-pagination";
+    pagination.innerHTML = `
+        <span>Showing ${firstItem}–${lastItem} of ${totalItems} reports</span>
+        <div class="reports-pagination-controls">
+            <button type="button" class="reports-page-btn" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>‹ Prev</button>
+            <div class="reports-pagination-pages"></div>
+            <button type="button" class="reports-page-btn" data-page-action="next" ${currentPage === totalPages ? "disabled" : ""}>Next ›</button>
+        </div>
+    `;
+
+    const pages = pagination.querySelector(".reports-pagination-pages");
+    for (let page = 1; page <= totalPages; page++) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `reports-page-btn${page === currentPage ? " active" : ""}`;
+        button.textContent = page;
+        button.setAttribute("aria-label", `Go to page ${page}`);
+        button.setAttribute("aria-current", page === currentPage ? "page" : "false");
+        button.addEventListener("click", () => {
+            REPORTS_CURRENT_PAGE[key] = page;
+            renderFunction();
+        });
+        pages.appendChild(button);
+    }
+
+    pagination.querySelector('[data-page-action="prev"]').addEventListener("click", () => {
+        if (REPORTS_CURRENT_PAGE[key] > 1) {
+            REPORTS_CURRENT_PAGE[key]--;
+            renderFunction();
+        }
+    });
+    pagination.querySelector('[data-page-action="next"]').addEventListener("click", () => {
+        if (REPORTS_CURRENT_PAGE[key] < totalPages) {
+            REPORTS_CURRENT_PAGE[key]++;
+            renderFunction();
+        }
+    });
+
+    const table = tbody.closest("table");
+    const tableContainer = table?.parentElement;
+    if (tableContainer?.parentElement) {
+        tableContainer.insertAdjacentElement("afterend", pagination);
+    } else if (table) {
+        table.insertAdjacentElement("afterend", pagination);
+    } else {
+        tbody.insertAdjacentElement("afterend", pagination);
+    }
+}
+
+/* ============================================================
    LOAD PENDING REPORTS
 ============================================================ */
 
@@ -554,6 +683,7 @@ async function loadPendingReports() {
         );
 
         pendingReports = Array.isArray(data) ? data : [];
+        REPORTS_CURRENT_PAGE.pending = 1;
         selectedReportIds = new Set();
 
         renderPendingReports();
@@ -594,11 +724,18 @@ function renderPendingReports() {
     tbody.innerHTML = "";
 
     if (reports.length === 0) {
+        removeReportsPagination("pending");
+        REPORTS_CURRENT_PAGE.pending = 1;
         tbody.innerHTML = `<tr><td colspan="8" style="padding:30px; text-align:center; color:#999;">No pending reports.</td></tr>`;
         return;
     }
 
-    reports.forEach(report => {
+    const pendingTotalPages = Math.max(1, Math.ceil(reports.length / REPORTS_PAGE_SIZE));
+    REPORTS_CURRENT_PAGE.pending = Math.min(REPORTS_CURRENT_PAGE.pending, pendingTotalPages);
+    const pendingStart = (REPORTS_CURRENT_PAGE.pending - 1) * REPORTS_PAGE_SIZE;
+    const pageReports = reports.slice(pendingStart, pendingStart + REPORTS_PAGE_SIZE);
+
+    pageReports.forEach(report => {
         const tr = document.createElement("tr");
         tr.className = "clickable-row";
         tr.dataset.reportId = report.report_id;
@@ -650,6 +787,7 @@ function renderPendingReports() {
     });
 
     updateSelectAllCheckbox();
+    renderReportsPagination("pending", tbody, reports.length, renderPendingReports);
 }
 
 
@@ -671,6 +809,7 @@ async function loadReturnedToMunicipal() {
         );
 
         returnedToMunicipalReports = Array.isArray(data) ? data : [];
+        REPORTS_CURRENT_PAGE.returned = 1;
         renderReturnedToMunicipal();
         updateReportSummaryCards();
         renderOverview();
@@ -694,11 +833,18 @@ function renderReturnedToMunicipal() {
     tbody.innerHTML = "";
 
     if (returnedToMunicipalReports.length === 0) {
+        removeReportsPagination("returned");
+        REPORTS_CURRENT_PAGE.returned = 1;
         tbody.innerHTML = `<tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No reports returned to municipal.</td></tr>`;
         return;
     }
 
-    returnedToMunicipalReports.forEach(report => {
+    const returnedTotalPages = Math.max(1, Math.ceil(returnedToMunicipalReports.length / REPORTS_PAGE_SIZE));
+    REPORTS_CURRENT_PAGE.returned = Math.min(REPORTS_CURRENT_PAGE.returned, returnedTotalPages);
+    const returnedStart = (REPORTS_CURRENT_PAGE.returned - 1) * REPORTS_PAGE_SIZE;
+    const pageReports = returnedToMunicipalReports.slice(returnedStart, returnedStart + REPORTS_PAGE_SIZE);
+
+    pageReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
         const tr = document.createElement("tr");
         tr.className = "clickable-row";
@@ -718,6 +864,8 @@ function renderReturnedToMunicipal() {
         tr.addEventListener("click", () => openReportDetail(report));
         tbody.appendChild(tr);
     });
+
+    renderReportsPagination("returned", tbody, returnedToMunicipalReports.length, renderReturnedToMunicipal);
 }
 
 
@@ -739,6 +887,7 @@ async function loadSentToRegional() {
         );
 
         sentReports = Array.isArray(data) ? data : [];
+        REPORTS_CURRENT_PAGE.sent = 1;
         renderSentReports();
         updateReportSummaryCards();
         renderOverview();
@@ -787,6 +936,8 @@ function renderSentReports() {
     tbody.innerHTML = "";
 
     if (filteredReports.length === 0) {
+        removeReportsPagination("sent");
+        REPORTS_CURRENT_PAGE.sent = 1;
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" style="padding:30px; text-align:center; color:#999;">
@@ -801,7 +952,12 @@ function renderSentReports() {
         return;
     }
 
-    filteredReports.forEach(report => {
+    const sentTotalPages = Math.max(1, Math.ceil(filteredReports.length / REPORTS_PAGE_SIZE));
+    REPORTS_CURRENT_PAGE.sent = Math.min(REPORTS_CURRENT_PAGE.sent, sentTotalPages);
+    const sentStart = (REPORTS_CURRENT_PAGE.sent - 1) * REPORTS_PAGE_SIZE;
+    const pageReports = filteredReports.slice(sentStart, sentStart + REPORTS_PAGE_SIZE);
+
+    pageReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
         const isFlagged = sl.cls === "flagged";
 
@@ -832,6 +988,8 @@ function renderSentReports() {
         tr.addEventListener("click", () => openReportDetail(report));
         tbody.appendChild(tr);
     });
+
+    renderReportsPagination("sent", tbody, filteredReports.length, renderSentReports);
 }
 /* ============================================================
    REPORT SUMMARY CARDS
@@ -870,6 +1028,7 @@ function initSentToRegionalFilter() {
             pill.classList.add("active");
 
             currentSentToRegionalFilter = pill.dataset.filter || "all";
+            REPORTS_CURRENT_PAGE.sent = 1;
             renderSentReports();
         });
     });
