@@ -49,13 +49,13 @@
     html, body {
       width: 100%;
       min-height: 100vh;
-      overflow-y: auto;
       font-family: 'Plus Jakarta Sans', sans-serif;
       background: var(--cream);
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
+      overflow-x: clip;
     }
-
+    
     a { color: inherit; }
     button, input, select, textarea { font-family: inherit; }
 
@@ -365,13 +365,36 @@
     .aew-dashboard-head p { margin: 8px 0 0; color: var(--muted); position: relative; z-index: 1; }
     .aew-freshness { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; position: relative; z-index: 1; max-width: 520px; }
     .aew-chip { padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,.82); border: 1px solid rgba(15,61,46,.1); color: var(--green-dark); font-size: 11px; box-shadow: 0 3px 10px rgba(31,54,39,.05); }
-    .aew-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-    .aew-kpi { padding: 15px 16px; min-height: 106px; border-top: 4px solid var(--green); position: relative; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
-    .aew-kpi:hover, .aew-kpi:focus-visible { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(68,84,57,.14); border-color: var(--green); outline: none; }
-    .aew-kpi:nth-child(3), .aew-kpi:nth-child(6) { border-top-color: #f4a340; }
-    .aew-kpi:nth-child(5) { border-top-color: #d95b58; }
-    .aew-kpi strong { display: block; font-size: 27px; color: var(--green-dark); font-variant-numeric: tabular-nums; }
-    .aew-kpi span { display: block; color: var(--muted); font-size: 11px; margin-top: 8px; line-height: 1.35; }
+    .aew-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .aew-kpi { 
+      background: #FFFFFF; 
+      padding: 20px 22px; 
+      min-height: 110px; 
+      border: 1px solid #E3E8E5; 
+      border-top: 4px solid #0F3D2E; 
+      border-radius: 12px; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02); 
+      position: relative; 
+      cursor: pointer; 
+      transition: transform .2s ease, box-shadow .2s ease; 
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .aew-kpi:hover, .aew-kpi:focus-visible { 
+      transform: translateY(-2px); 
+      box-shadow: 0 6px 16px rgba(0,0,0,0.06); 
+      outline: none; 
+    }
+    
+    /* Colored top borders */
+    .aew-kpi:nth-child(1) { border-top-color: #0F3D2E; } /* Registered Farmers */
+    .aew-kpi:nth-child(2) { border-top-color: #0F3D2E; } /* Active Planting Intents */
+    .aew-kpi:nth-child(3) { border-top-color: #FFAB2E; } /* Expected Harvest */
+    .aew-kpi:nth-child(4) { border-top-color: #0F3D2E; } /* Reports Needing Revision */
+    
+    .aew-kpi strong { display: block; font-size: 32px; font-weight: 800; color: var(--green-dark); line-height: 1; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+    .aew-kpi span { display: block; color: #5F6B66; font-size: 13px; font-weight: 500; line-height: 1.35; }
     .aew-dashboard-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
     .aew-dashboard-panel { padding: 20px; }
     .aew-dashboard-panel h2 { margin: 0 0 15px; color: var(--green-dark); font-size: 17px; letter-spacing: -.01em; }
@@ -1349,8 +1372,8 @@
   background: var(--green-light);
 }
 
-.avatar-option:hover {
-  border-color: var(--green);
+.avatar-option:hover:not(.selected) {
+  border-color: #A0B0A6;
   transform: scale(1.05);
 }
 
@@ -1413,7 +1436,6 @@
   border-radius: var(--radius-md);
   background: var(--white);
   border: 1.5px solid var(--border);
-  border-left: 5px solid var(--border);
   box-shadow: 0 1px 4px rgba(46, 42, 34, 0.04);
   transition: transform 0.18s ease, box-shadow 0.18s ease;
   margin-bottom: 0;
@@ -1463,11 +1485,11 @@
 }
 
 /* Color coding per commodity */
-.summary-cards .summary-card.offtake-total       { border-left-color: #5B6B4F; }
-.summary-cards .summary-card.offtake-tomato      { border-left-color: #C0392B; }
-.summary-cards .summary-card.offtake-red-onion   { border-left-color: #8E44AD; }
-.summary-cards .summary-card.offtake-white-onion { border-left-color: #D97706; }
-.summary-cards .summary-card.offtake-squash      { border-left-color: #2E7D32; }
+.summary-cards .summary-card.offtake-total       { border-top: 4px solid #5B6B4F; }
+.summary-cards .summary-card.offtake-tomato      { border-top: 4px solid #C0392B; }
+.summary-cards .summary-card.offtake-red-onion   { border-top: 4px solid #8E44AD; }
+.summary-cards .summary-card.offtake-white-onion { border-top: 4px solid #D97706; }
+.summary-cards .summary-card.offtake-squash      { border-top: 4px solid #2E7D32; }
 
 .summary-cards .summary-card.offtake-total .summary-icon       { background: #E7EDDF; }
 .summary-cards .summary-card.offtake-tomato .summary-icon      { background: #FCE8E6; }
@@ -1540,20 +1562,12 @@
   letter-spacing: 0.05em;
 }
 
-/* Color coding per status */
-.summary-cards .summary-card.planting-draft       { border-left-color: #6c757d; }
-.summary-cards .summary-card.planting-finalized   { border-left-color: #5B6B4F; }
-.summary-cards .summary-card.planting-not-planted { border-left-color: #6c757d; }
-.summary-cards .summary-card.planting-planted     { border-left-color: #D97706; }
-.summary-cards .summary-card.planting-harvested   { border-left-color: #2E7D32; }
-.summary-cards .summary-card.planting-mediating   { border-left-color: #2980B9; }
-
-.summary-cards .summary-card.planting-draft .summary-icon       { background: #F0EDE4; }
-.summary-cards .summary-card.planting-finalized .summary-icon   { background: #E7EDDF; }
-.summary-cards .summary-card.planting-not-planted .summary-icon { background: #F0EDE4; }
-.summary-cards .summary-card.planting-planted .summary-icon     { background: #FDF3E0; }
-.summary-cards .summary-card.planting-harvested .summary-icon   { background: #E6F4EA; }
-.summary-cards .summary-card.planting-mediating .summary-icon   { background: #E3F2FD; }
+.profile-dropdown-item:hover {
+    background-color: var(--green-light) !important;
+}
+#menuSignOut:hover {
+    background-color: #FDE4E4 !important; /* Light red for signout */
+}
 
 /* eSaka AEW corporate theme */
 body {
@@ -1638,6 +1652,7 @@ body .summary-card,
 body .market-forecast-card {
   background: #fff;
   border: 1px solid var(--border);
+  border-left: 1px solid var(--border); /* Papantayin ang left border */
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   transition: transform .2s ease, box-shadow .2s ease;
@@ -1649,11 +1664,6 @@ body .summary-card.offtake-total .summary-info h3,
 body .summary-card.offtake-total .summary-count { color: #fff; }
 body .summary-card.offtake-total .summary-label { color: rgba(255,255,255,.78); }
 body .summary-card.offtake-total .summary-icon { background: rgba(255,255,255,.14); }
-body .summary-card.planting-draft { background: #F1F4F3; color: var(--ink); border-color: var(--border); border-left-color: #7A8580; }
-body .summary-card.planting-draft .summary-info h3,
-body .summary-card.planting-draft .summary-count { color: var(--ink); }
-body .summary-card.planting-draft .summary-label { color: var(--muted); }
-body .summary-card.planting-draft .summary-icon { background: #E1E7E4; }
 body .summary-label { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 body .summary-count { font-size: 36px; font-weight: 800; letter-spacing: 0; }
 body .summary-icon { border-radius: 14px; background: var(--green-light); }
@@ -1960,40 +1970,545 @@ body .view.active-view { animation: esakaFade .35s ease; }
 }
 @media (max-width: 400px) { .fair-price-toolbar { grid-template-columns: 1fr; } }
 
-/* Clickable offtake rows */
-#offtakeTableBody tr.clickable-row {
+html body .form-field-item input,
+html body .form-field-item select,
+html body .form-field-item textarea {
+    border-radius: 8px !important; 
+    border: 1.5px solid #DFD8C6 !important;
+    background-color: #FFFFFF !important;
+    padding: 10px 14px !important; 
+    font-size: 13.5px !important;
+    color: #2E2A22 !important; 
+    width: 100% !important;
+    outline: none !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important; 
+    transition: all 0.2s ease !important;
+    background-image: none !important; 
+}
+
+html body .form-field-item select,
+html body #registerFarmerForm select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    height: 42px !important; 
+    cursor: pointer !important;
+    
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23625E52' d='M6 8 0 0h12z'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 16px center !important;
+    padding-right: 40px !important; 
+}
+
+html body .form-field-item input:disabled,
+html body .form-field-item select:disabled,
+html body .form-field-item textarea:disabled {
+    background-color: #F3F4F6 !important; 
+    color: #9CA3AF !important; 
+    cursor: not-allowed !important; 
+    border-color: #E5E7EB !important;
+    box-shadow: none !important; 
+    background-image: none !important; 
+}
+
+html body .form-field-item input[type="date"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
-    transition: background 0.15s ease, transform 0.15s ease;
+    opacity: 0.6;
+    transition: 0.2s;
+}
+html body .form-field-item input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
 }
 
-#offtakeTableBody tr.clickable-row:hover {
-    background: #F3EEE4 !important;
+/* ============================================================
+   PLANTING INTENT CARDS (Matching Status Pill Colors)
+============================================================ */
+
+.summary-cards .summary-card.planting-draft,
+.summary-cards .summary-card.planting-finalized,
+.summary-cards .summary-card.planting-not-planted,
+.summary-cards .summary-card.planting-planted,
+.summary-cards .summary-card.planting-harvested,
+.summary-cards .summary-card.planting-mediating {
+    border: 1px solid #E2DFD8 !important; 
+    border-left: none !important; /* Siguradong walang green sa gilid */
+    border-top-width: 4px !important; 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
 }
 
-#offtakeTableBody tr.clickable-row:hover td:first-child .pill {
-    color: var(--green-dark);
-    font-weight: 700;
+/* Pumatay sa anumang lumang pseudo-elements na naglalagay ng green border */
+.summary-cards .summary-card.planting-draft::before,
+.summary-cards .summary-card.planting-finalized::before,
+.summary-cards .summary-card.planting-not-planted::before,
+.summary-cards .summary-card.planting-planted::before,
+.summary-cards .summary-card.planting-harvested::before,
+.summary-cards .summary-card.planting-mediating::before,
+.summary-cards .summary-card.planting-draft::after,
+.summary-cards .summary-card.planting-finalized::after,
+.summary-cards .summary-card.planting-not-planted::after,
+.summary-cards .summary-card.planting-planted::after,
+.summary-cards .summary-card.planting-harvested::after,
+.summary-cards .summary-card.planting-mediating::after {
+    display: none !important;
+    content: none !important;
 }
 
-/* Offtake details modal */
-#offtakeDetailsModal .modal-box {
-    border-radius: 16px;
+.summary-cards .summary-card:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.06) !important;
 }
 
-#offtakeDetailsModal .offtake-spec-table {
-    border-collapse: collapse;
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid var(--border-light);
+/* --- DRAFT (Slate) --- */
+.summary-cards .summary-card.planting-draft { background: #F8F9FA !important; border-top-color: #6c757d !important; }
+.summary-cards .summary-card.planting-draft .summary-count { color: #495057 !important; }
+.summary-cards .summary-card.planting-draft h3 { color: #6c757d !important; }
+
+/* --- FINALIZED (Dark Green) --- */
+.summary-cards .summary-card.planting-finalized { background: #F4F8F5 !important; border-top-color: #2E7D32 !important; }
+.summary-cards .summary-card.planting-finalized .summary-count { color: #2E7D32 !important; }
+.summary-cards .summary-card.planting-finalized h3 { color: #2E7D32 !important; }
+
+/* --- NOT PLANTED (Gray) --- */
+.summary-cards .summary-card.planting-not-planted { background: #F8F9FA !important; border-top-color: #6c757d !important; }
+.summary-cards .summary-card.planting-not-planted .summary-count { color: #6c757d !important; }
+.summary-cards .summary-card.planting-not-planted h3 { color: #6c757d !important; }
+
+/* --- PLANTED (Amber/Orange) --- */
+.summary-cards .summary-card.planting-planted { background: #FFF9F0 !important; border-top-color: #D97706 !important; }
+.summary-cards .summary-card.planting-planted .summary-count { color: #D97706 !important; }
+.summary-cards .summary-card.planting-planted h3 { color: #D97706 !important; }
+
+/* --- HARVESTED (Green) --- */
+.summary-cards .summary-card.planting-harvested { background: #F2FBF4 !important; border-top-color: #2E7D32 !important; }
+.summary-cards .summary-card.planting-harvested .summary-count { color: #2E7D32 !important; }
+.summary-cards .summary-card.planting-harvested h3 { color: #2E7D32 !important; }
+
+/* --- MEDIATING (Blue) --- */
+.summary-cards .summary-card.planting-mediating { background: #F0F7FC !important; border-top-color: #2980B9 !important; }
+.summary-cards .summary-card.planting-mediating .summary-count { color: #2980B9 !important; }
+.summary-cards .summary-card.planting-mediating h3 { color: #2980B9 !important; }
+
+
+/* ============================================================
+   FILTER PILLS (Matching Status Colors)
+============================================================ */
+
+body .filter-pill.active {
+    background: #0F3D2E !important; 
+    border-color: #0F3D2E !important;
+    color: #FFFFFF !important;
 }
 
-#offtakeDetailsModal .offtake-spec-table tr:last-child td {
-    border-bottom: none !important;
+body .filter-pill[data-filter="NOT PLANTED"].active {
+    background: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #FFFFFF !important;
 }
 
-#closeOfftakeDetailsX:hover {
-    background: #F0F0F0;
+body .filter-pill[data-filter="PLANTED"].active {
+    background: #D97706 !important;
+    border-color: #D97706 !important;
+    color: #FFFFFF !important;
 }
+
+body .filter-pill[data-filter="HARVESTED"].active {
+    background: #2E7D32 !important;
+    border-color: #2E7D32 !important;
+    color: #FFFFFF !important;
+}
+
+body .filter-pill[data-filter="MEDIATING"].active {
+    background: #2980B9 !important;
+    border-color: #2980B9 !important;
+    color: #FFFFFF !important;
+}
+
+/* ============================================================
+   REPORT TABS (Pending / Flagged / Approved)
+============================================================ */
+
+.report-summary {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.report-summary .summary-card {
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.06) !important;
+  border-left: 1px solid rgba(0,0,0,0.06) !important; /* Pilitin pantay ang kaliwa */
+  border-top-width: 4px !important;
+  border-radius: 12px !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03) !important;
+  position: relative;
+}
+
+.report-summary .summary-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06) !important;
+}
+
+/* Make SELECTED state super obvious */
+.report-summary .summary-card[aria-pressed="true"] {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+  border-width: 2px !important; /* thicker border */
+  border-top-width: 4px !important;
+  z-index: 2;
+}
+
+/* Add a subtle inner ring to the selected card */
+.report-summary .summary-card[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+/* --- PENDING (Amber) --- */
+.report-summary .report-pending {
+  background: #FFF9F0 !important;
+  border-top-color: #D97706 !important;
+}
+.report-summary .report-pending .summary-count,
+.report-summary .report-pending h3 {
+  color: #D97706 !important;
+}
+
+/* --- FLAGGED (Red) --- */
+.report-summary .report-flagged {
+  background: #FDF5F5 !important;
+  border-top-color: #C0392B !important;
+}
+.report-summary .report-flagged .summary-count,
+.report-summary .report-flagged h3 {
+  color: #C0392B !important;
+}
+
+/* --- APPROVED (Green) --- */
+.report-summary .report-approved {
+  background: #F2FBF4 !important;
+  border-top-color: #2E7D32 !important;
+}
+.report-summary .report-approved .summary-count,
+.report-summary .report-approved h3 {
+  color: #2E7D32 !important;
+}
+
+/* --- SELECTED STATE COLOR OVERRIDES (Clean & Premium) --- */
+
+.report-summary .summary-card[aria-pressed="true"] {
+  border-width: 1px !important; /* Manipis na border */
+  border-top-width: 4px !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.04) !important; /* Malalim na shadow, walang glow */
+}
+
+/* Pending Selected */
+.report-summary .report-pending[aria-pressed="true"] {
+  border-color: #D97706 !important;
+  border-left: 1px solid #D97706 !important; /* Kulay orange din ang kaliwa */
+  background: #FFF9F0 !important;
+}
+
+/* Flagged Selected */
+.report-summary .report-flagged[aria-pressed="true"] {
+  border-color: #C0392B !important;
+  border-left: 1px solid #C0392B !important; /* Kulay red din ang kaliwa */
+  background: #FDF5F5 !important;
+}
+
+/* Approved Selected */
+.report-summary .report-approved[aria-pressed="true"] {
+  border-color: #2E7D32 !important;
+  border-left: 1px solid #2E7D32 !important; /* Kulay green din ang kaliwa */
+  background: #F2FBF4 !important;
+}
+
+/* Tab panel visibility */
+.report-tab-panel.hidden-element {
+  display: none !important;
+}
+
+/* Header row inside each tab card */
+.report-tab-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.report-tab-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-date-filter-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Date filter — presets + custom range */
+.report-date-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.report-date-presets {
+  display: flex;
+  background: #F3F5F4;
+  padding: 4px;
+  border-radius: 10px;
+  gap: 2px;
+  flex-wrap: wrap; 
+}
+
+.report-date-presets .filter-pill {
+  background: transparent;
+  border: none;
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: 8px;
+  color: #5F6B66;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.report-date-presets .filter-pill:hover {
+  background: rgba(0,0,0,0.04);
+  color: var(--ink);
+}
+
+.report-date-presets .filter-pill.active {
+  background: #FFFFFF;
+  color: var(--green-dark);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  font-weight: 700;
+}
+
+.report-date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #FFF;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  flex-wrap: wrap;
+}
+
+.report-date-range.hidden-element {
+  display: none !important;
+}
+
+.report-date-range span {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.report-date-range input[type="date"] {
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-size: 12.5px;
+  background: #FFF;
+  color: var(--ink);
+  outline: none;
+  min-width: 140px;
+}
+
+.report-date-range input[type="date"]:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(15,61,46,0.1);
+}
+
+.report-date-filter .filter-pill[data-period="custom"].active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #FFF;
+}
+
+@media (max-width: 720px) {
+  .report-date-filter {
+    align-items: flex-start;
+    width: 100%;
+  }
+  .report-date-presets {
+    justify-content: flex-start;
+  }
+}
+
+/* Force remove green left border on all report summary cards */
+body .report-summary .summary-card,
+body .report-summary .summary-card:hover,
+body .report-summary .summary-card[aria-pressed="true"] {
+  border-left-width: 1px !important;
+  border-left-style: solid !important;
+}
+
+body .report-summary .summary-card:not([aria-pressed="true"]) {
+  border-left-color: rgba(0,0,0,0.06) !important;
+}
+
+
+
+/* ============================================================
+   REPORT SUMMARY CARDS — MATCH PLANTING INTENTS
+   Clean top accent, no colored left stripe, consistent spacing.
+============================================================ */
+#reportSummaryCards {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  margin: 0 0 22px !important;
+}
+
+#reportSummaryCards .summary-card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  min-height: 94px !important;
+  padding: 16px 16px 15px !important;
+  border: 1px solid #E2DFD8 !important;
+  border-left: none !important;
+  border-top: 4px solid #E2DFD8 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.035) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transform: none !important;
+  transition: transform .2s ease, box-shadow .2s ease !important;
+}
+
+#reportSummaryCards .summary-card::before,
+#reportSummaryCards .summary-card::after {
+  content: none !important;
+  display: none !important;
+}
+
+#reportSummaryCards .summary-card:hover,
+#reportSummaryCards .summary-card[aria-pressed="true"] {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.065) !important;
+}
+
+#reportSummaryCards .summary-card[aria-pressed="true"] {
+  border: 1px solid #E2DFD8 !important;
+  border-left: none !important;
+  border-top-width: 4px !important;
+}
+
+#reportSummaryCards .report-pending {
+  background: #FFF9F0 !important;
+  border-top-color: #D97706 !important;
+}
+#reportSummaryCards .report-pending h3,
+#reportSummaryCards .report-pending .summary-count {
+  color: #D97706 !important;
+}
+
+#reportSummaryCards .report-flagged {
+  background: #FDF5F5 !important;
+  border-top-color: #C0392B !important;
+}
+#reportSummaryCards .report-flagged h3,
+#reportSummaryCards .report-flagged .summary-count {
+  color: #C0392B !important;
+}
+
+#reportSummaryCards .report-approved {
+  background: #F2FBF4 !important;
+  border-top-color: #2E7D32 !important;
+}
+#reportSummaryCards .report-approved h3,
+#reportSummaryCards .report-approved .summary-count {
+  color: #2E7D32 !important;
+}
+
+#reportSummaryCards .summary-info h3 {
+  margin: 0 0 1px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  letter-spacing: .035em !important;
+  text-transform: uppercase !important;
+}
+#reportSummaryCards .summary-count {
+  margin: 0 !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+  line-height: 1.1 !important;
+}
+#reportSummaryCards .summary-label {
+  margin-top: 1px !important;
+  color: #5F6B66 !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .025em !important;
+}
+
+/* Clear, polished selected state for Reports category cards */
+#reportSummaryCards .summary-card[aria-pressed="true"] {
+  transform: translateY(-3px) !important;
+  border: 1px solid currentColor !important;
+  border-left: 1px solid currentColor !important;
+  border-top-width: 4px !important;
+  box-shadow: 0 0 0 3px rgba(46, 42, 34, 0.055),
+              0 10px 22px rgba(46, 42, 34, 0.10) !important;
+  z-index: 1;
+}
+
+#reportSummaryCards .report-pending[aria-pressed="true"] {
+  background: #FFF1D9 !important;
+  border-color: #D97706 !important;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12),
+              0 10px 22px rgba(217, 119, 6, 0.12) !important;
+}
+#reportSummaryCards .report-flagged[aria-pressed="true"] {
+  background: #FBE8E8 !important;
+  border-color: #C0392B !important;
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.11),
+              0 10px 22px rgba(192, 57, 43, 0.12) !important;
+}
+#reportSummaryCards .report-approved[aria-pressed="true"] {
+  background: #E6F5E9 !important;
+  border-color: #2E7D32 !important;
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.11),
+              0 10px 22px rgba(46, 125, 50, 0.12) !important;
+}
+#reportSummaryCards .summary-card:focus-visible {
+  outline: 3px solid rgba(46, 42, 34, 0.32) !important;
+  outline-offset: 3px !important;
+}
+
+@media (max-width: 720px) {
+  #reportSummaryCards { grid-template-columns: 1fr !important; }
+  #reportSummaryCards .summary-card { min-height: 86px !important; }
+}
+
   </style>
 </head>
 <body class="pc-modern">
@@ -2025,16 +2540,29 @@ body .view.active-view { animation: esakaFade .35s ease; }
           </div>
       </div>
 
-      <div class="user-info" id="openProfileBtn" title="Click to edit profile" style="cursor: pointer;">
-  <div class="avatar" id="userDisplayInitials">--</div>
-  <div class="user-text">
-    <div class="user-name" id="userDisplayName">Loading...</div>
-    <div class="user-role" id="userDisplayRole">Loading...</div>
-  </div>
-</div>
+      <div class="user-menu-wrapper" style="position: relative;">
+        <div class="user-info" id="openProfileBtn" title="Click for options" style="cursor: pointer;">
+          <div class="avatar" id="userDisplayInitials">--</div>
+          <div class="user-text">
+            <div class="user-name" id="userDisplayName">Loading...</div>
+            <div class="user-role" id="userDisplayRole">Loading...</div>
+          </div>
+        </div>
+
+        <!-- Profile Dropdown Menu -->
+        <div class="profile-dropdown-menu" id="profileDropdown" style="display: none; position: absolute; top: calc(100% + 8px); right: 0; width: 180px; background: var(--white); border: 1.5px solid var(--border); border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); z-index: 3000; overflow: hidden;">
+          <button class="profile-dropdown-item" id="menuEditProfile" type="button" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; background: transparent; border: none; font-size: 13.5px; font-weight: 600; color: var(--ink); cursor: pointer; text-align: left; transition: background 0.15s ease;">
+            <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            User Profile
+          </button>
+          <button class="profile-dropdown-item" id="menuSignOut" type="button" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; background: transparent; border: none; font-size: 13.5px; font-weight: 600; color: #C0392B; cursor: pointer; text-align: left; border-top: 1px solid var(--border-light); transition: background 0.15s ease;">
+            <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: currentColor;"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
     </div>
   </div>
-
   <div class="layout">
     <nav class="sidebar" id="sidebar">
       <div class="nav-list">
@@ -2075,10 +2603,6 @@ body .view.active-view { animation: esakaFade .35s ease; }
           Reports
         </button>
       </div>
-      <button class="signout" id="signoutBtn" type="button">
-        <svg viewBox="0 0 24 24"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
-        Sign Out
-      </button>
     </nav>
 
     <main class="main">
@@ -2147,25 +2671,79 @@ body .view.active-view { animation: esakaFade .35s ease; }
           <div id="registerFarmerSubview" class="hidden-element">
               <div class="main-header"><div class="header-left"><h1>Register a Farmer</h1><p>Create a verified entry linked to the Department of Agriculture database.</p></div></div>
               <div class="card">
-                  <form id="registerFarmerForm">
-                      <div class="form-grid-two">
-                          <div class="form-field-item"><label>Farmer ID (RSBSA ID) <span class="req">*</span></label><input type="text" id="regFarmerId" placeholder="e.g. 11-024-03-030-000013" required minlength="20" maxlength="20" inputmode="numeric" autocomplete="off" pattern="[0-9]{2}-[0-9]{3}-[0-9]{2}-[0-9]{3}-[0-9]{6}" title="Enter the 16-digit RSBSA ID in this format: 00-000-00-000-000000"></div>
-                          <div class="form-field-item"><label>Municipality <span class="req">*</span></label><select id="regMunicipality" required><option value="" disabled selected>Select Municipality</option></select></div>
-                          <div class="form-field-item"><label>First Name <span class="req">*</span></label><input type="text" id="regFirstName" placeholder="Enter your first name" required></div>
-                          <div class="form-field-item"><label>Barangay <span class="req">*</span></label><select id="regBarangay" required disabled><option value="" disabled selected>Select Municipality first</option></select></div>
-                          <div class="form-field-item"><label>Middle Name</label><input type="text" id="regMiddleName" placeholder="Enter your middle name"></div>
-                          <div class="form-field-item"><label>Last Name <span class="req">*</span></label><input type="text" id="regLastName" placeholder="Enter your last name" required></div>
-                          <div class="form-field-item"><label>Suffix</label><input type="text" id="regSuffix" placeholder="Jr."></div>
-                          <div class="form-field-item"><label>Sex <span class="req">*</span></label><select id="regSex" required><option value="" disabled selected>Select Sex</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
-                          <div class="form-field-item"><label>Birthdate <span class="req">*</span></label><input type="date" id="regBirthdate" required></div>
-                          <div class="form-field-item"><label>Phone Number <span class="req">*</span></label><input type="tel" id="regPhone" placeholder="09XXXXXXXXX" required pattern="^09[0-9]{9}$" maxlength="11" title="Please enter a valid PH mobile number (11 digits, starting with 09). Example: 0999654399" inputmode="numeric"></div>
-                          <div class="form-field-item"><label>Email <span class="req">*</span></label><input type="email" id="regEmail" placeholder="jackelyngomez212@gmail.com" required pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$" title="Please enter a valid Gmail address. Example: juan@gmail.com"></div>
-                      </div>
-                      <div class="actions-right-row"><button class="btn-outline-report" id="cancelRegisterFarmerBtn" type="button">Cancel</button><button class="btn-primary" type="submit">Submit</button></div>
+                  <form id="registerFarmerForm" novalidate>
+                    <div class="form-grid-two">
+                        <!-- 1. FARMER ID (Full width para kitang-kita) -->
+                        <div class="form-field-item form-field-full">
+                            <label>Farmer ID (RSBSA ID) <span class="req">*</span></label>
+                            <input type="text" id="regFarmerId" placeholder="e.g. 11-024-03-030-000013" required minlength="20" maxlength="20" inputmode="numeric" autocomplete="off" pattern="[0-9]{2}-[0-9]{3}-[0-9]{2}-[0-9]{3}-[0-9]{6}" title="Enter the 16-digit RSBSA ID in this format: 00-000-00-000-000000">
+                        </div>
+
+                        <!-- 2. NAME SECTION -->
+                        <div class="form-field-item">
+                            <label>First Name <span class="req">*</span></label>
+                            <input type="text" id="regFirstName" placeholder="Enter farmer first name" required>
+                        </div>
+                        <div class="form-field-item">
+                            <label>Middle Name</label>
+                            <input type="text" id="regMiddleName" placeholder="Enter farmer middle name">
+                        </div>
+
+                        <div class="form-field-item">
+                            <label>Last Name <span class="req">*</span></label>
+                            <input type="text" id="regLastName" placeholder="Enter farmer last name" required>
+                        </div>
+                        <div class="form-field-item">
+                            <label>Suffix</label>
+                            <input type="text" id="regSuffix" placeholder="Jr.">
+                        </div>
+
+                        <!-- 3. DEMOGRAPHICS -->
+                        <div class="form-field-item">
+                            <label>Sex <span class="req">*</span></label>
+                            <select id="regSex" required>
+                                <option value="" disabled selected>Select Sex</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div class="form-field-item">
+                            <label>Birthdate <span class="req">*</span></label>
+                            <input type="date" id="regBirthdate" required>
+                        </div>
+
+                        <!-- 4. LOCATION (Magkatabi) -->
+                        <div class="form-field-item">
+                            <label>Municipality <span class="req">*</span></label>
+                            <select id="regMunicipality" required>
+                                <option value="" disabled selected>Select Municipality</option>
+                            </select>
+                        </div>
+                        <div class="form-field-item">
+                            <label>Barangay <span class="req">*</span></label>
+                            <select id="regBarangay" required disabled>
+                                <option value="" disabled selected>Select Municipality first</option>
+                            </select>
+                        </div>
+
+                        <!-- 5. CONTACT INFO (Magkatabi) -->
+                        <div class="form-field-item">
+                            <label>Phone Number <span class="req">*</span></label>
+                            <input type="tel" id="regPhone" placeholder="09XXXXXXXXX" required pattern="^09[0-9]{9}$" maxlength="11" title="Please enter a valid PH mobile number (11 digits, starting with 09). Example: 0999654399" inputmode="numeric">
+                        </div>
+                        <div class="form-field-item">
+                            <label>Email <span class="req">*</span></label>
+                            <input type="email" id="regEmail" placeholder="farmername@gmail.com" required>
+                        </div>
+                    </div>
+
+                    <div class="actions-right-row">
+                        <button class="btn-outline-report" id="cancelRegisterFarmerBtn" type="button">Cancel</button>
+                        <button class="btn-primary" type="submit">Submit</button>
+                    </div>
                   </form>
               </div>
           </div>
-
           <div id="manageFarmerSubview" class="hidden-element">
               <div class="main-header">
                   <div class="header-left">
@@ -2349,7 +2927,7 @@ body .view.active-view { animation: esakaFade .35s ease; }
       <div class="modal-overlay" id="plantIntentSubmittedModal">
           <div class="modal-box">
               <h2>Draft Saved Successfully</h2>
-              <p>The planting intent has been saved as a <b>DRAFT</b>.<br>You can review and finalize it later from the Draft Intents tab.</p>
+              <p>The planting intent has been saved as a <b>draft</b>.<br>You can review and finalize it later from the Draft Intents tab.</p>
               <div class="modal-actions">
                   <button class="modal-btn-confirm" id="closePlantIntentSubmittedBtn" type="button">Done</button>
               </div>
@@ -2394,243 +2972,260 @@ body .view.active-view { animation: esakaFade .35s ease; }
           </div>
       </div>
 
-      <!-- ============================================================
-          VIEW 2: PLANTING INTENT
-      ============================================================ -->
-      <section class="view" id="view-planting-intent">
-          <div id="plantingIntentListSubview">
-              <div class="main-header">
-                  <div class="header-left">
-                      <h1>Planting Intents</h1>
-                      <p>Create and manage planting plans before submitting to reports.</p>
-                  </div>
-                  <div class="header-actions">
-                      <div class="search-box">
-                          <svg viewBox="0 0 24 24">
-                              <circle cx="11" cy="11" r="7"/>
-                              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                          </svg>
-                          <input type="text" id="searchPlantingIntentsInput" placeholder="Search planting intents...">
-                      </div>
-                      <button class="btn-primary" id="addPlantIntentBtn" type="button">+ Add Plant Intent</button>
-                  </div>
-              </div>
+        <!-- ============================================================
+            VIEW 2: PLANTING INTENT
+        ============================================================ -->
+        <section class="view" id="view-planting-intent">
+            <div id="plantingIntentListSubview">
+                <div class="main-header">
+                    <div class="header-left">
+                        <h1>Planting Intents</h1>
+                        <p>Create and manage planting plans before submitting to reports.</p>
+                    </div>
+                    <div class="header-actions">
+                        <div class="search-box">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="7"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <input type="text" id="searchPlantingIntentsInput" placeholder="Search planting intents...">
+                        </div>
+                        <button class="btn-primary" id="addPlantIntentBtn" type="button">+ Add Plant Intent</button>
+                    </div>
+                </div>
 
-              <!-- ===== PLANTING INTENTS SUMMARY CARDS ===== -->
-    <div class="summary-cards planting-summary" id="plantingSummaryCards">
-      <div class="summary-card planting-draft" data-intent-filter="draft" role="button" tabindex="0">
-        <div class="summary-info">
-          <h3>Draft Intents</h3>
-          <p class="summary-count" id="plantingCountDraft">0</p>
-          <span class="summary-label">Not Yet Submitted</span>
-        </div>
-      </div>
-
-      <div class="summary-card planting-finalized" data-intent-filter="all" role="button" tabindex="0">
-        <div class="summary-info">
-          <h3>Finalized Intents</h3>
-          <p class="summary-count" id="plantingCountFinalized">0</p>
-          <span class="summary-label">Submitted</span>
-        </div>
-      </div>
-
-      <div class="summary-card planting-not-planted" data-intent-filter="NOT PLANTED" role="button" tabindex="0">
-        <div class="summary-info">
-          <h3>Not Planted</h3>
-          <p class="summary-count" id="plantingCountNotPlanted">0</p>
-          <span class="summary-label">Awaiting</span>
-        </div>
-      </div>
-
-      <div class="summary-card planting-planted" data-intent-filter="PLANTED" role="button" tabindex="0">
-        <div class="summary-info">
-          <h3>Planted</h3>
-          <p class="summary-count" id="plantingCountPlanted">0</p>
-          <span class="summary-label">In Field</span>
-        </div>
-      </div>
-
-      <div class="summary-card planting-harvested" data-intent-filter="HARVESTED" role="button" tabindex="0">
-        <div class="summary-info">
-          <h3>Harvested</h3>
-          <p class="summary-count" id="plantingCountHarvested">0</p>
-          <span class="summary-label">Completed</span>
-        </div>
-      </div>
-
-      <div class="summary-card planting-mediating" data-intent-filter="MEDIATING" role="button" tabindex="0">
-        <div class="summary-info">
-          <h3>Mediating</h3>
-          <p class="summary-count" id="plantingCountMediating">0</p>
-          <span class="summary-label">Growing</span>
-        </div>
-      </div>
-    </div>
-
-              <div class="sub-tabs" style="display:flex; gap:8px; margin-bottom:16px; border-bottom:2px solid var(--border); padding-bottom:8px;">
-                  <button class="sub-tab-btn active" data-tab="draft" type="button" style="padding:8px 20px; border:none; background:transparent; font-weight:600; cursor:pointer; border-bottom:3px solid var(--green); color:var(--green);">
-                      Draft Intents
-                      <span id="draftCount" style="background:var(--green); color:#fff; border-radius:50%; padding:2px 8px; font-size:11px; margin-left:6px;">0</span>
-                  </button>
-                  <button class="sub-tab-btn" data-tab="submitted" type="button" style="padding:8px 20px; border:none; background:transparent; font-weight:600; cursor:pointer; color:var(--muted);">
-                      Finalized Intents
-                      <span id="submittedCount" style="background:var(--muted); color:#fff; border-radius:50%; padding:2px 8px; font-size:11px; margin-left:6px;">0</span>
-                  </button>
-              </div>
-
-              <div id="draftIntentsContainer" class="sub-tab-content">
-                  <div class="card">
-                      <div class="card-title" style="font-size:14px; font-weight:700; color:var(--ink); margin-bottom:12px;">
-                          Draft Planting Intents
-                          <span style="font-weight:400; color:var(--muted); font-size:12px; margin-left:8px;">
-                              (Click a row to view details)
-                          </span>
-                      </div>
-                      <div id="draftIntentsWrapper">
-                          <table>
-                              <thead>
-                                  <tr>
-                                      <th>Intent ID</th>
-                                      <th>Farmer Name</th>
-                                      <th>Commodity</th>
-                                      <th>Est. Volume</th>
-                                      <th>Location</th>
-                                      <th>Planting Date</th>
-                                      <th>Harvest Date</th>
-                                  </tr>
-                              </thead>
-                              <tbody id="draftIntentsTableBody">
-                                  <tr>
-                                      <td colspan="7" style="padding:30px; text-align:center; color:#999;">
-                                          Loading draft intents...
-                                      </td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                      </div>
-                  </div>
-              </div>
-
-              <div id="submittedIntentsContainer" class="sub-tab-content" style="display:none;">
-                  <div class="card">
-                      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
-                          <div class="card-title" style="font-size:14px; font-weight:700; color:var(--ink); margin-bottom:0;">
-                              Finalized Planting Intents
-                              <span style="font-weight:400; color:var(--muted); font-size:12px; margin-left:8px;">
-                                  (Click a row to view details)
-                              </span>
-                          </div>
-
-                          <div id="finalizedIntentsFilterPills" style="display:flex; gap:8px; flex-wrap:wrap;">
-                              <button class="filter-pill active" data-filter="all" type="button">All</button>
-                              <button class="filter-pill" data-filter="NOT PLANTED" type="button">Not Planted</button>
-                              <button class="filter-pill" data-filter="PLANTED" type="button">Planted</button>
-                              <button class="filter-pill" data-filter="HARVESTED" type="button">Harvested</button>
-                              <button class="filter-pill" data-filter="MEDIATING" type="button">Mediating</button>
-                          </div>
-                      </div>
-
-                      <div id="submittedIntentsWrapper">
-                          <table>
-                              <thead>
-                                  <tr>
-                                      <th>Intent ID</th>
-                                      <th>Farmer Name</th>
-                                      <th>Commodity</th>
-                                      <th>Est. Volume</th>
-                                      <th>Location</th>
-                                      <th>Planting Date</th>
-                                      <th>Actual Planted</th>
-                                      <th>Harvest Date</th>
-                                      <th>Actual Harvested</th>
-                                      <th class="center-col">Harvested Volume</th>
-                                      <th class="center-col">Status</th>
-                                  </tr>
-                              </thead>
-                              <tbody id="submittedIntentsTableBody">
-                                  <tr>
-                                      <td colspan="10" style="padding:30px; text-align:center; color:#999;">
-                                          Loading submitted intents...
-                                      </td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                      </div>
-                  </div>
-              </div>
+                <!-- ===== PLANTING INTENTS SUMMARY CARDS ===== -->
+      <div class="summary-cards planting-summary" id="plantingSummaryCards">
+        <div class="summary-card planting-draft" data-intent-filter="draft" role="button" tabindex="0">
+          <div class="summary-info">
+            <h3>Draft Intents</h3>
+            <p class="summary-count" id="plantingCountDraft">0</p>
+            <span class="summary-label">Not Yet Submitted</span>
           </div>
+        </div>
 
-          <div id="submitPlantIntentSubview" class="hidden-element">
-            <div class="main-header">
-                <div class="header-left">
-                    <h1>Add Planting Intent</h1>
-                    <p>Create a draft planting plan. You can finalize it later.</p>
+        <div class="summary-card planting-finalized" data-intent-filter="all" role="button" tabindex="0">
+          <div class="summary-info">
+            <h3>Finalized Intents</h3>
+            <p class="summary-count" id="plantingCountFinalized">0</p>
+            <span class="summary-label">Submitted</span>
+          </div>
+        </div>
+
+        <div class="summary-card planting-not-planted" data-intent-filter="NOT PLANTED" role="button" tabindex="0">
+          <div class="summary-info">
+            <h3>Not Planted</h3>
+            <p class="summary-count" id="plantingCountNotPlanted">0</p>
+            <span class="summary-label">Awaiting</span>
+          </div>
+        </div>
+
+        <div class="summary-card planting-planted" data-intent-filter="PLANTED" role="button" tabindex="0">
+          <div class="summary-info">
+            <h3>Planted</h3>
+            <p class="summary-count" id="plantingCountPlanted">0</p>
+            <span class="summary-label">In Field</span>
+          </div>
+        </div>
+
+        <div class="summary-card planting-harvested" data-intent-filter="HARVESTED" role="button" tabindex="0">
+          <div class="summary-info">
+            <h3>Harvested</h3>
+            <p class="summary-count" id="plantingCountHarvested">0</p>
+            <span class="summary-label">Completed</span>
+          </div>
+        </div>
+
+        <div class="summary-card planting-mediating" data-intent-filter="MEDIATING" role="button" tabindex="0">
+          <div class="summary-info">
+            <h3>Mediating</h3>
+            <p class="summary-count" id="plantingCountMediating">0</p>
+            <span class="summary-label">Growing</span>
+          </div>
+        </div>
+      </div>
+
+                <div class="sub-tabs" style="display:flex; gap:8px; margin-bottom:16px; border-bottom:2px solid var(--border); padding-bottom:8px;">
+                    <button class="sub-tab-btn active" data-tab="draft" type="button" style="padding:8px 20px; border:none; background:transparent; font-weight:600; cursor:pointer; border-bottom:3px solid var(--green); color:var(--green);">
+                        Draft Intents
+                        <span id="draftCount" style="background:var(--green); color:#fff; border-radius:50%; padding:2px 8px; font-size:11px; margin-left:6px;">0</span>
+                    </button>
+                    <button class="sub-tab-btn" data-tab="submitted" type="button" style="padding:8px 20px; border:none; background:transparent; font-weight:600; cursor:pointer; color:var(--muted);">
+                        Finalized Intents
+                        <span id="submittedCount" style="background:var(--muted); color:#fff; border-radius:50%; padding:2px 8px; font-size:11px; margin-left:6px;">0</span>
+                    </button>
+                </div>
+
+                <div id="draftIntentsContainer" class="sub-tab-content">
+                    <div class="card">
+                        <div class="card-title" style="font-size:14px; font-weight:700; color:var(--ink); margin-bottom:12px;">
+                            Draft Planting Intents
+                            <span style="font-weight:400; color:var(--muted); font-size:12px; margin-left:8px;">
+                                (Click a row to view details)
+                            </span>
+                        </div>
+                        <div id="draftIntentsWrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Intent ID</th>
+                                        <th>Farmer Name</th>
+                                        <th>Commodity</th>
+                                        <th>Est. Volume</th>
+                                        <th>Location</th>
+                                        <th>Planting Date</th>
+                                        <th>Harvest Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="draftIntentsTableBody">
+                                    <tr>
+                                        <td colspan="8" style="padding:30px; text-align:center; color:#999;">
+                                            Loading draft intents...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="submittedIntentsContainer" class="sub-tab-content" style="display:none;">
+                    <div class="card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                            <div class="card-title" style="font-size:14px; font-weight:700; color:var(--ink); margin-bottom:0;">
+                                Finalized Planting Intents
+                                <span style="font-weight:400; color:var(--muted); font-size:12px; margin-left:8px;">
+                                    (Click a row to view details)
+                                </span>
+                            </div>
+
+                            <div id="finalizedIntentsFilterPills" style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <button class="filter-pill active" data-filter="all" type="button">All</button>
+                                <button class="filter-pill" data-filter="NOT PLANTED" type="button">Not Planted</button>
+                                <button class="filter-pill" data-filter="PLANTED" type="button">Planted</button>
+                                <button class="filter-pill" data-filter="HARVESTED" type="button">Harvested</button>
+                                <button class="filter-pill" data-filter="MEDIATING" type="button">Mediating</button>
+                            </div>
+                        </div>
+
+                        <div id="submittedIntentsWrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Intent ID</th>
+                                        <th>Farmer Name</th>
+                                        <th>Commodity</th>
+                                        <th>Est. Volume</th>
+                                        <th>Location</th>
+                                        <th>Planting Date</th>
+                                        <th>Actual Planted</th>
+                                        <th>Harvest Date</th>
+                                        <th>Actual Harvested</th>
+                                        <th class="center-col">Harvested Volume</th>
+                                        <th class="center-col">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="submittedIntentsTableBody">
+                                    <tr>
+                                        <td colspan="10" style="padding:30px; text-align:center; color:#999;">
+                                            Loading submitted intents...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-              <div class="card">
-                  <form id="submitPlantIntentForm">
-                      <div class="form-grid-two">
-                          <div class="form-field-item">
-                              <label for="piFarmerSearch">Farmer Name <span class="req">*</span></label>
-                              <div class="searchable-select" data-searchable-select="piFarmerName">
-                                <input id="piFarmerSearch" class="searchable-select-input" type="search" role="combobox" aria-label="Search farmer" aria-autocomplete="list" aria-expanded="false" aria-controls="piFarmerOptionList" placeholder="Search farmers..." autocomplete="off">
-                                <div class="searchable-select-options" id="piFarmerOptions">
-                                  <div class="searchable-select-list" id="piFarmerOptionList" role="listbox"></div>
-                                  <div class="searchable-select-pagination"></div>
-                                </div>
-                              </div>
-                              <select id="piFarmerName" hidden aria-hidden="true" tabindex="-1">
-                                  <option value="">Select Farmer</option>
-                              </select>
-                          </div>
-                          <div class="form-field-item">
-                              <label>Planting Date <span class="req">*</span></label>
-                              <input type="date" id="piPlantDate" required>
-                          </div>
-                          <div class="form-field-item">
-                              <label>Farmer ID <span class="req">*</span></label>
-                              <input type="text" id="piFarmerId" class="input-readonly" readonly required>
-                          </div>
-                          <div class="form-field-item">
-                              <label>Harvest Date <span class="req">*</span></label>
-                              <input type="date" id="piHarvestDate" required>
-                          </div>
-                          <div class="form-field-item">
-                              <label for="piCommoditySearch">Commodity <span class="req">*</span></label>
-                              <div class="searchable-select" data-searchable-select="piCommodity">
-                                <input id="piCommoditySearch" class="searchable-select-input" type="search" role="combobox" aria-label="Search commodity" aria-autocomplete="list" aria-expanded="false" aria-controls="piCommodityOptionList" placeholder="Search commodities..." autocomplete="off">
-                                <div class="searchable-select-options" id="piCommodityOptions">
-                                  <div class="searchable-select-list" id="piCommodityOptionList" role="listbox"></div>
-                                  <div class="searchable-select-pagination"></div>
-                                </div>
-                              </div>
-                              <select id="piCommodity" hidden aria-hidden="true" tabindex="-1">
-                                  <option value="">Select Commodity</option>
-                                  <option value="Tomato">Tomato</option>
-                                  <option value="Red Onion">Red Onion</option>
-                                  <option value="White Onion">White Onion</option>
-                                  <option value="Squash">Squash</option>
-                              </select>
-                          </div>
-                          <div class="form-field-item">
-                              <label>Estimated Volume (kg) <span class="req">*</span></label>
-                              <input type="number" id="piVolume" placeholder="e.g. 15000" required>
-                          </div>
-                          <div class="form-field-item form-field-full">
-                              <label>Remarks</label>
-                              <textarea id="piRemarks"></textarea>
-                          </div>
-                      </div>
-
-                      <div class="actions-right-row">
-                          <button class="btn-outline-report" id="cancelPlantIntentBtn" type="button">Cancel</button>
-                          <button class="btn-primary" type="submit">Save as Draft</button>
-                      </div>
-                  </form>
+            <div id="submitPlantIntentSubview" class="hidden-element">
+              <div class="main-header">
+                  <div class="header-left">
+                      <h1>Add Planting Intent</h1>
+                      <p>Create a draft planting plan. You can finalize it later.</p>
+                  </div>
               </div>
-          </div>
 
+                <div class="card">
+                    <form id="submitPlantIntentForm" novalidate>
+                        <div class="form-grid-two">
+                            <div class="form-field-item">
+                                <label for="piFarmerSearch">Farmer Name <span class="req">*</span></label>
+                                <div class="searchable-select" data-searchable-select="piFarmerName">
+                                  <input id="piFarmerSearch" class="searchable-select-input" type="search" role="combobox" aria-label="Search farmer" aria-autocomplete="list" aria-expanded="false" aria-controls="piFarmerOptionList" placeholder="Search farmers..." autocomplete="off">
+                                  <div class="searchable-select-options" id="piFarmerOptions">
+                                    <div class="searchable-select-list" id="piFarmerOptionList" role="listbox"></div>
+                                    <div class="searchable-select-pagination"></div>
+                                  </div>
+                                </div>
+                                <select id="piFarmerName" hidden aria-hidden="true" tabindex="-1">
+                                    <option value="">Select Farmer</option>
+                                </select>
+                            </div>
+                            <div class="form-field-item">
+                                <label>Planting Date <span class="req">*</span></label>
+                                <input type="date" id="piPlantDate" required>
+                                <div id="plantDateSuggestion" style="font-size: 11px; color: #2563EB; margin-top: 4px; font-weight: 600; display: none;"></div>
+                            </div>
+                            <div class="form-field-item">
+                                <label>Farmer ID <span class="req">*</span></label>
+                                <input type="text" id="piFarmerId" class="input-readonly" readonly required>
+                            </div>
+                            <div class="form-field-item">
+                                <label>Harvest Date <span class="req">*</span></label>
+                                <input type="date" id="piHarvestDate" required>
+                                <div id="harvestDateSuggestion" style="font-size: 11px; color: #2563EB; margin-top: 4px; font-weight: 600; display: none;"></div>
+                            </div>
+                            <div class="form-field-item">
+                                <label for="piCommoditySearch">Commodity <span class="req">*</span></label>
+                                <div class="searchable-select" data-searchable-select="piCommodity">
+                                  <input id="piCommoditySearch" class="searchable-select-input" type="search" role="combobox" aria-label="Search commodity" aria-autocomplete="list" aria-expanded="false" aria-controls="piCommodityOptionList" placeholder="Search commodities..." autocomplete="off">
+                                  <div class="searchable-select-options" id="piCommodityOptions">
+                                    <div class="searchable-select-list" id="piCommodityOptionList" role="listbox"></div>
+                                    <div class="searchable-select-pagination"></div>
+                                  </div>
+                                </div>
+                                <select id="piCommodity" hidden aria-hidden="true" tabindex="-1">
+                                    <option value="">Select Commodity</option>
+                                    <option value="Tomato">Tomato</option>
+                                    <option value="Red Onion">Red Onion</option>
+                                    <option value="White Onion">White Onion</option>
+                                    <option value="Squash">Squash</option>
+                                </select>
+                            </div>
+                            <div class="form-field-item">
+                                <label>Estimated Volume (kg) <span class="req">*</span></label>
+                                <input type="number" id="piVolume" placeholder="e.g. 15000" required>
+                            </div>
+                              <div class="form-field-item form-field-full">
+                                  <label>Remarks</label>
+                                  <textarea id="newIntentRemarks" class="input-readonly"></textarea>
+                              </div>
+                            <!-- SMART SUGGESTION BOX -->
+                            <div class="form-field-item form-field-full" id="smartSuggestionBox" style="display: none; background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 12px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                                  <div style="display: flex; align-items: center; gap: 8px;">
+                                      <div style="width: 32px; height: 32px; background: #FEF3C7; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #D97706;">
+                                          <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: currentColor;"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6A4.997 4.997 0 017 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>
+                                      </div>
+                                      <div>
+                                          <h4 style="margin: 0; font-size: 14px; color: #92400E; font-weight: 800;">Smart Suggestion</h4>
+                                          <p style="margin: 2px 0 0; font-size: 12px; color: #A16207;">Batay sa napiling commodity</p>
+                                      </div>
+                                  </div>
+                                  <button type="button" id="applySuggestionBtn" class="btn-primary" style="padding: 6px 14px; font-size: 12px; border-radius: 6px; background: #D97706; box-shadow: 0 2px 4px rgba(217,119,6,0.25);">Auto-fill Dates</button>
+                              </div>
+                              <div id="suggestionGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;"></div>
+                            </div>
+                        </div>
+                        <!-- ^ closes #smartSuggestionBox, then .form-grid-two -->
+                        <div class="actions-right-row">
+                            <button class="btn-outline-report" id="cancelPlantIntentBtn" type="button">Cancel</button>
+                            <button class="btn-primary" type="button" id="savePlantIntentDraftBtn">Save as Draft</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
           <!-- ============================================================
                PLANTING INTENT DETAILS
           ============================================================ -->
@@ -2660,7 +3255,7 @@ body .view.active-view { animation: esakaFade .35s ease; }
                       <div class="form-field-item">
                           <label>Location</label>
                           <input type="text" id="detailLocation" readonly disabled
-                                title="Location cannot be changed. It comes from the farmer's registered address.">
+                                title="Location cannot be changed. It comes from the farmer's registered address." class="input-readonly">
                       </div>
 
                       <div class="form-field-item">
@@ -2692,7 +3287,7 @@ body .view.active-view { animation: esakaFade .35s ease; }
                       </div>
 
                       <div class="form-field-item">
-                          <label>Harvest Date</label>
+                          <label>Harvest Date <span class="req">*</span></label>
                           <input type="date" id="detailHarvestDate" disabled class="input-readonly">
                       </div>
 
@@ -2728,6 +3323,16 @@ body .view.active-view { animation: esakaFade .35s ease; }
                       <div class="form-field-item form-field-full">
                           <label>Remarks</label>
                           <textarea id="detailRemarks" readonly class="input-readonly"></textarea>
+                      </div>
+
+                      <div class="form-field-item form-field-full">
+                          <label>Date Variance Remarks</label>
+                          <textarea id="detailComment" readonly class="input-readonly"
+                              placeholder="No remarks yet."
+                              title="Set automatically when the actual planting or harvest date differs from the planned date. AEW-only."></textarea>
+                          <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+                              Read-only lamang. Ito ay populated kapag ang planting or harvest ay nag-iiba mula sa planned date.
+                          </div>
                       </div>
                   </div>
 
@@ -2776,7 +3381,7 @@ body .view.active-view { animation: esakaFade .35s ease; }
                   </div>
               </div>
           </div>
-      </section>
+        </section>
 
       <!-- ============================================================
           VIEW 3: OFFTAKE REQUEST
@@ -2903,106 +3508,55 @@ body .view.active-view { animation: esakaFade .35s ease; }
                               <label>Quantity (kg) <span class="req">*</span></label>
                               <input type="number" id="offtakeQty" required>
                           </div>
-                          
-                        <div class="form-field-item">
-    <label>Selling Price (₱ / kg) <span class="req">*</span></label>
-    <input type="number" id="offtakePrice" required>
-    <!-- ✅ HINT — lalabas kapag nag-click ang user at wala pang Harvest Date -->
-    <div id="offtakePriceHint" style="
-        display: none;
-        align-items: flex-start;
-        gap: 8px;
-        margin-top: 8px;
-        padding: 10px 14px;
-        background: #FFF9E9;
-        border-left: 3px solid #F4A340;
-        border-radius: 0 8px 8px 0;
-        font-size: 12px;
-        color: #805B1C;
-        line-height: 1.45;
-    ">
-        <span style="font-size: 14px; flex-shrink: 0; margin-top: 1px;">💡</span>
-        <span>Piliin muna ang <b>Harvest Date</b> para makita ang <b>suggested price base</b>.</span>
-    </div>
-</div>
-<div class="form-field-item">
-    <label>Harvest Date <span class="req">*</span></label>
-    <input type="date" id="offtakeHarvestDate" required>
-</div>
-<!-- ✅ SUGGESTED PRICE BASE — full width -->
-<div class="form-field-item form-field-full" id="offtakeSuggestionWrapper" style="display: none;">
-    <div id="offtakePriceSuggestion"></div>
-</div>
- 
-                       <div class="form-field-full">
-
-  <!-- ============================================================ -->
-  <!-- DELIVERY LOCATION — SECTION HEADER WITH DIVIDER              -->
-  <!-- ============================================================ -->
-  <div style="
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin: 32px 0 20px 0;
-  ">
-      <div style="
-          font-size: 16px;
-          font-weight: 800;
-          color: var(--green-dark);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          white-space: nowrap;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-      ">
-          Delivery Location <span style="color: #e92b16;">*</span>
-      </div>
-      <div style="
-    flex: 1;
-    height: 2.5px;
-    background: #000000;
-    border-radius: 2px;
-"></div>
-  </div>
-
-  <!-- Location Dropdowns -->
-  <div class="form-grid-two">
-      <div class="form-field-item">
-        <label for="offtakeRegion">Region <span class="req">*</span></label>
-        <select id="offtakeRegion" required>
-          <option value="" disabled selected>Select a region</option>
-        </select>
-      </div>
-      <div class="form-field-item">
-        <label for="offtakeProvince">Province <span class="req">*</span></label>
-        <select id="offtakeProvince" required disabled>
-          <option value="" disabled selected>Select a province</option>
-        </select>
-      </div>
-      <div class="form-field-item">
-        <label for="offtakeMunicipality">Municipality/City <span class="req">*</span></label>
-        <select id="offtakeMunicipality" required disabled>
-          <option value="" disabled selected>Select a municipality / city</option>
-        </select>
-      </div>
-      <div class="form-field-item">
-        <label for="offtakeBarangay">Barangay <span class="req">*</span></label>
-        <select id="offtakeBarangay" required disabled>
-          <option value="" disabled selected>Select a barangay</option>
-        </select>
-      </div>
-      <div class="form-field-item">
-        <label for="offtakeStreet">Street/Purok/Sitio <span class="req">*</span></label>
-        <input type="text" id="offtakeStreet" maxlength="150" autocomplete="street-address" required>
-      </div>
-        <div class="form-field-item">
-        <label for="offtakeLandmark">Landmark (optional)</label>
-        <input type="text" id="offtakeLandmark" maxlength="150">
-      </div>
-  </div>
-</div>
+                          <div class="form-field-item">
+                              <label>Selling Price (₱ / kg) <span class="req">*</span></label>
+                              <input type="number" id="offtakePrice" required>
+                          </div>
+                          <div class="form-field-item">
+                              <label>Harvest Date <span class="req">*</span></label>
+                              <input type="date" id="offtakeHarvestDate" required>
+                          </div>
+                          <div class="form-field-item form-field-full">
+                              <label>Delivery Location <span class="req">*</span></label>
+                              <div class="form-grid-two">
+                                <div class="form-field-item">
+                                  <label for="offtakeRegion">Region <span class="req">*</span></label>
+                                  <select id="offtakeRegion" required>
+                                    <option value="" disabled selected>Select Region</option>
+                                  </select>
+                                </div>
+                                <div class="form-field-item">
+                                  <label for="offtakeProvince">Province <span class="req">*</span></label>
+                                  <select id="offtakeProvince" required disabled>
+                                    <option value="" disabled selected>Select Region first</option>
+                                  </select>
+                                </div>
+                                <div class="form-field-item">
+                                  <label for="offtakeMunicipality">Municipality/City <span class="req">*</span></label>
+                                  <select id="offtakeMunicipality" required disabled>
+                                    <option value="" disabled selected>Select Province first</option>
+                                  </select>
+                                </div>
+                                <div class="form-field-item">
+                                  <label for="offtakeBarangay">Barangay <span class="req">*</span></label>
+                                  <select id="offtakeBarangay" required disabled>
+                                    <option value="" disabled selected>Select Municipality first</option>
+                                  </select>
+                                </div>
+                                <div class="form-field-item">
+                                  <label for="offtakeStreet">Street/Purok/Sitio <span class="req">*</span></label>
+                                  <input type="text" id="offtakeStreet" maxlength="150" autocomplete="street-address" required>
+                                </div>
+                                <div class="form-field-item">
+                                  <label for="offtakeLandmark">Landmark (optional)</label>
+                                  <input type="text" id="offtakeLandmark" maxlength="150">
+                                </div>
+                              </div>
+                          </div>
                       </div>
+                      <p class="delivery-location-hint" style="font-size:12px;color:var(--muted);margin-top:-6px;">
+                        Region → Province → Municipality → Barangay. Street and Landmark remain free text.
+                      </p>
                       <div class="actions-right-row">
                           <button class="btn-outline-report" id="returnFromSubmitOfftakeBtn" type="button">Return</button>
                           <button class="btn-primary" id="proceedOfftakeBtn" type="button">Proceed to Memo</button>
@@ -3184,10 +3738,6 @@ body .view.active-view { animation: esakaFade .35s ease; }
         <div style="display: flex; gap: 12px; font-size: 11.5px; font-weight: 600; align-items: center;">
             <span style="display: flex; align-items: center; gap: 4px;">
                 <span style="width: 10px; height: 10px; border-radius: 50%; background: #C0392B; display: inline-block;"></span>
-                Oversupply
-            </span>
-            <span style="display: flex; align-items: center; gap: 4px;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #1B4F72; display: inline-block;"></span>
                 Surplus
             </span>
             <span style="display: flex; align-items: center; gap: 4px;">
@@ -3195,7 +3745,7 @@ body .view.active-view { animation: esakaFade .35s ease; }
                 Balanced
             </span>
             <span style="display: flex; align-items: center; gap: 4px;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #c49102; display: inline-block;"></span>
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: #D97706; display: inline-block;"></span>
                 Deficit
             </span>
             <span style="display: flex; align-items: center; gap: 4px;">
@@ -3204,7 +3754,6 @@ body .view.active-view { animation: esakaFade .35s ease; }
             </span>
         </div>
     </div>
-
 
     <!-- FILTER DROPDOWN -->
     <div class="map-filters-container" style="display: flex; gap: 12px; margin-bottom: 14px;">
@@ -3227,88 +3776,190 @@ body .view.active-view { animation: esakaFade .35s ease; }
       ============================================================ -->
       <section class="view" id="view-reports">
           <div id="reportsMainSubview">
-              <div class="main-header">
-                  <div class="header-left">
-                      <h1>Submit Report</h1>
-                      <p>Submit weekly planting and harvest reports to Municipal Coordinator.</p>
-                  </div>
-                  <div class="header-actions">
-                      <button class="btn-primary" id="createReportBtn" type="button">+ Submit New Report</button>
-                  </div>
-              </div>
+            <div class="main-header">
+                <div class="header-left">
+                    <h1>Reports</h1>
+                    <p>Submit and track your weekly planting reports.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-primary" id="createReportBtn" type="button">+ Submit New Report</button>
+                </div>
+            </div>
 
-              <div class="card" style="margin-bottom:24px;">
-                  <div class="text-section-title" style="margin-bottom:12px;">
-                      Pending at Municipal
-                      <span class="count-badge" id="pendingReportsCountBadge">0</span>
-                  </div>
-                  <div style="overflow-x:auto;">
-                      <table>
-                          <thead>
-                              <tr>
-                                  <th class="center-col">Report ID</th>
-                                  <th>Title</th>
-                                  <th>Commodity</th>
-                                  <th>Municipality</th>
-                                  <th class="center-col">Approved At</th>
-                                  <th class="center-col">Status</th>
-                              </tr>
-                          </thead>
-                          <tbody id="pendingReportsTableBody">
-                              <tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No pending reports.</td></tr>
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
+            <!-- Summary cards -->
+            <div class="summary-cards report-summary" id="reportSummaryCards" role="tablist" aria-label="Report categories">
+                <div class="summary-card report-pending"
+                    data-report-tab="pending"
+                    role="button"
+                    tabindex="0"
+                    aria-pressed="true">
+                    <div class="summary-info">
+                        <h3>Pending at Municipal</h3>
+                        <p class="summary-count" id="pendingReportCount">0</p>
+                        <span class="summary-label">Awaiting Approval</span>
+                    </div>
+                </div>
 
-              <div class="card" style="margin-bottom:24px;">
-                  <div class="text-section-title" style="margin-bottom:12px;">
-                      Flagged Reports
-                      <span class="count-badge" id="flaggedReportsCountBadge" style="background: #C0392B;">0</span>
-                  </div>
-                  <div style="overflow-x:auto;">
-                      <table>
-                          <thead>
-                              <tr>
-                                  <th class="center-col">Report ID</th>
-                                  <th>Title</th>
-                                  <th>Commodity</th>
-                                  <th>Municipality</th>
-                                  <th class="center-col">Flagged At</th>
-                                  <th class="center-col">Status</th>
-                              </tr>
-                          </thead>
-                          <tbody id="flaggedReportsTableBody">
-                              <tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No flagged reports.</td></tr>
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
+                <div class="summary-card report-flagged"
+                    data-report-tab="flagged"
+                    role="button"
+                    tabindex="0"
+                    aria-pressed="false">
+                    <div class="summary-info">
+                        <h3>Flagged Reports</h3>
+                        <p class="summary-count" id="flaggedReportCount">0</p>
+                        <span class="summary-label">Returned for Revision</span>
+                    </div>
+                </div>
 
-              <div class="card">
-                  <div class="text-section-title" style="margin-bottom:12px;">
-                      Approved Reports
-                      <span class="count-badge" id="submittedReportsCountBadge" style="background: #2E7D32;">0</span>
-                  </div>
-                  <div style="overflow-x:auto;">
-                      <table>
-                          <thead>
-                              <tr>
-                                  <th class="center-col">Report ID</th>
-                                  <th>Title</th>
-                                  <th>Commodity</th>
-                                  <th>Municipality</th>
-                                  <th class="center-col">Approved At</th>
-                                  <th class="center-col">Status</th>
-                              </tr>
-                          </thead>
-                          <tbody id="submittedReportsTableBody">
-                              <tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No approved reports.</td></tr>
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
-          </div>
+                <div class="summary-card report-approved"
+                    data-report-tab="approved"
+                    role="button"
+                    tabindex="0"
+                    aria-pressed="false">
+                    <div class="summary-info">
+                        <h3>Approved Reports</h3>
+                        <p class="summary-count" id="approvedReportCount">0</p>
+                        <span class="summary-label">Validated</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab panel: PENDING -->
+            <div id="reportTabPanelPending" class="report-tab-panel" data-tab="pending">
+                <div class="card">
+                    <div class="report-tab-card-header">
+                        <div class="report-tab-card-title">
+                            Pending at Municipal
+                            <span class="count-badge" id="pendingTabBadge">0</span>
+                        </div>
+                                                <div class="report-date-filter" data-filter-tab="pending">
+                            <div class="report-date-presets">
+                                <button class="filter-pill active" type="button" data-period="week">This Week</button>
+                                <button class="filter-pill" type="button" data-period="month">This Month</button>
+                                <button class="filter-pill" type="button" data-period="year">This Year</button>
+                                <button class="filter-pill" type="button" data-period="all">All Time</button>
+                                <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                            </div>
+                            <div class="report-date-range hidden-element">
+                                <input type="date" class="report-date-start" aria-label="Start date">
+                                <span>to</span>
+                                <input type="date" class="report-date-end" aria-label="End date">
+                                <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                                <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto; border: 1px solid var(--border-light); border-radius: 10px;">
+                        <table style="margin:0;">
+                            <thead>
+                                <tr style="background: #F9FAF9;">
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Report ID</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Title</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Commodity</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Municipality</th>
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Submitted</th>
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingReportsTableBody">
+                                <tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab panel: FLAGGED -->
+            <div id="reportTabPanelFlagged" class="report-tab-panel hidden-element" data-tab="flagged">
+                <div class="card">
+                    <div class="report-tab-card-header">
+                        <div class="report-tab-card-title">
+                            Flagged Reports
+                            <span class="count-badge" id="flaggedTabBadge" style="background:#C0392B;">0</span>
+                        </div>
+                                                <div class="report-date-filter" data-filter-tab="flagged">
+                            <div class="report-date-presets">
+                                <button class="filter-pill active" type="button" data-period="all">All Time</button>
+                                <button class="filter-pill" type="button" data-period="week">This Week</button>
+                                <button class="filter-pill" type="button" data-period="month">This Month</button>
+                                <button class="filter-pill" type="button" data-period="year">This Year</button>
+                                <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                            </div>
+                            <div class="report-date-range hidden-element">
+                                <input type="date" class="report-date-start" aria-label="Start date">
+                                <span>to</span>
+                                <input type="date" class="report-date-end" aria-label="End date">
+                                <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                                <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto; border: 1px solid var(--border-light); border-radius: 10px;">
+                        <table style="margin:0;">
+                            <thead>
+                                <tr style="background: #F9FAF9;">
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Report ID</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Title</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Commodity</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Municipality</th>
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Submitted</th>
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="flaggedReportsTableBody">
+                                <tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab panel: APPROVED -->
+            <div id="reportTabPanelApproved" class="report-tab-panel hidden-element" data-tab="approved">
+                <div class="card">
+                    <div class="report-tab-card-header">
+                        <div class="report-tab-card-title">
+                            Approved Reports
+                            <span class="count-badge" id="approvedTabBadge" style="background:#2E7D32;">0</span>
+                        </div>
+                                                <div class="report-date-filter" data-filter-tab="approved">
+                            <div class="report-date-presets">
+                                <button class="filter-pill active" type="button" data-period="all">All Time</button>
+                                <button class="filter-pill" type="button" data-period="week">This Week</button>
+                                <button class="filter-pill" type="button" data-period="month">This Month</button>
+                                <button class="filter-pill" type="button" data-period="year">This Year</button>
+                                <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                            </div>
+                            <div class="report-date-range hidden-element">
+                                <input type="date" class="report-date-start" aria-label="Start date">
+                                <span>to</span>
+                                <input type="date" class="report-date-end" aria-label="End date">
+                                <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                                <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto; border: 1px solid var(--border-light); border-radius: 10px;">
+                        <table style="margin:0;">
+                            <thead>
+                                <tr style="background: #F9FAF9;">
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Report ID</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Title</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Commodity</th>
+                                    <th style="padding: 14px; font-weight: 700; color: #5F6B66;">Municipality</th>
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Submitted</th>
+                                    <th class="center-col" style="padding: 14px; font-weight: 700; color: #5F6B66;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="submittedReportsTableBody">
+                                <tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
 
           <!-- ============================================================
                CREATE NEW REPORT
@@ -3324,55 +3975,133 @@ body .view.active-view { animation: esakaFade .35s ease; }
 
               <div class="card">
                   <form id="submitReportForm">
-                      <div class="form-field-item" style="margin-bottom:20px;">
-                          <label style="display:block; font-size:12.5px; font-weight:700; margin-bottom:6px; color:var(--ink); text-transform:uppercase; letter-spacing:0.02em;">
-                              Report Title <span class="req">*</span>
-                          </label>
-                          <input type="text" id="reportTitleInput" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:13.5px; outline:none; background:#fff;" placeholder="e.g. Weekly Planting Report - Week 1" required>
-                      </div>
-
-                      <div style="margin-bottom: 20px;">
-                          <label style="display:block; font-size:12.5px; font-weight:700; margin-bottom:8px; color:var(--ink); text-transform:uppercase; letter-spacing:0.02em;">
-                              Planting Intents <span class="req">*</span>
-                          </label>
-                          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
-                              <div style="flex:1 1 320px; min-width:280px;">
-                                <div class="searchable-select" data-searchable-select="reportIntentSelect">
-                                  <input id="reportIntentSearch" class="searchable-select-input" type="search" role="combobox" aria-label="Search planting intent" aria-autocomplete="list" aria-expanded="false" aria-controls="reportIntentOptionList" placeholder="Search planting intents..." autocomplete="off" style="width:100%;">
-                                  <div class="searchable-select-options" id="reportIntentOptions">
-                                    <div class="searchable-select-list" id="reportIntentOptionList" role="listbox"></div>
-                                    <div class="searchable-select-pagination"></div>
-                                  </div>
-                                </div>
-                                <select id="reportIntentSelect" hidden aria-hidden="true" tabindex="-1">
-                                  <option value="">Select Planting Intent</option>
-                                </select>
-                              </div>
-                              <button type="button" class="btn-primary" id="addIntentToReportBtn" style="white-space:nowrap;">+ Add Row</button>
+                      <!-- REPORT CATEGORY & TITLE -->
+                      <div class="form-grid-two" style="margin-bottom: 20px;">
+                          <div class="form-field-item">
+                              <label style="display:block; font-size:12.5px; font-weight:700; margin-bottom:6px; color:var(--ink); text-transform:uppercase; letter-spacing:0.02em;">
+                                  Report Category <span class="req">*</span>
+                              </label>
+                              <select id="reportCategorySelect" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:13.5px; outline:none; background:#fff; cursor:pointer;" required>
+                                  <option value="Planting Report">Planting Report</option>
+                                  <option value="Harvest Report">Harvest Report</option>
+                                  <option value="General Disclosure">General Disclosure</option>
+                                  <option value="Incident Report">Incident Report</option>
+                                  <option value="Others">Others</option>
+                              </select>
                           </div>
-
-                          <table style="margin:0; width:100%; table-layout:fixed;">
-                              <thead>
-                                  <tr>
-                                      <th style="width:8%; text-align:center;">INTENT ID</th>
-                                      <th style="width:15%; text-align:center;">LOCATION</th>
-                                      <th style="width:12%; text-align:center;">FARMER</th>
-                                      <th style="width:10%; text-align:center;">COMMODITY</th>
-                                      <th style="width:8%; text-align:center;">QTY</th>
-                                      <th style="width:11%; text-align:center;">PLANTING DATE</th>
-                                      <th style="width:11%; text-align:center;">HARVEST DATE</th>
-                                      <th style="width:10%; text-align:center;">STATUS</th>
-                                      <th style="width:15%; text-align:center;">ACTION</th>
-                                  </tr>
-                              </thead>
-                              <tbody id="selectedIntentsTableBody">
-                                  <tr>
-                                      <td colspan="9" style="padding:20px; text-align:center; color:#999;">No planting intents selected. Click "Add Row" to add.</td>
-                                  </tr>
-                              </tbody>
-                          </table>
+                          <div class="form-field-item">
+                              <label style="display:block; font-size:12.5px; font-weight:700; margin-bottom:6px; color:var(--ink); text-transform:uppercase; letter-spacing:0.02em;">
+                                  Report Title <span class="req">*</span>
+                              </label>
+                              <input type="text" id="reportTitleInput" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:13.5px; outline:none; background:#fff;" placeholder="e.g. Week 1 Update" required>
+                          </div>
                       </div>
 
+                      <!-- PLANTING INTENTS -->
+                      <div style="margin-bottom: 24px;">
+                        <label style="display:block; font-size:12.5px; font-weight:700; margin-bottom:8px; color:var(--ink); text-transform:uppercase; letter-spacing:0.02em;">
+                            Planting Intents <span class="req">*</span>
+                        </label>
+
+                        <!-- FILTER BAR -->
+                        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; padding: 14px 16px; background: #F8F9F7; border: 1.5px solid var(--border); border-radius: var(--radius-sm);">
+                            
+                            <!-- STATUS FILTER PILLS -->
+                            <div>
+                                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 6px;">Filter by Status</div>
+                                <div id="intentStatusFilterPills" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                    <button type="button" class="filter-pill active" data-intent-status="all">All</button>
+                                    <button type="button" class="filter-pill" data-intent-status="NOT PLANTED">Not Planted</button>
+                                    <button type="button" class="filter-pill" data-intent-status="PLANTED">Planted</button>
+                                    <button type="button" class="filter-pill" data-intent-status="MEDIATING">Mediating</button>
+                                    <button type="button" class="filter-pill" data-intent-status="HARVESTED">Harvested</button>
+                                </div>
+                            </div>
+
+                            <hr style="border: 0; border-top: 1px dashed var(--border); margin: 4px 0;">
+
+                            <!-- DATE FILTER PILLS -->
+                            <div>
+                                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 6px;">Filter by Date</div>
+                                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                                    <button type="button" class="filter-pill active" data-intent-period="week">This Week</button>
+                                    <button type="button" class="filter-pill" data-intent-period="month">This Month</button>
+                                    <button type="button" class="filter-pill" data-intent-period="year">This Year</button>
+                                    <button type="button" class="filter-pill" data-intent-period="all">All Time</button>
+                                    <button type="button" class="filter-pill" data-intent-period="custom">Custom Date</button>
+                                </div>
+                                <!-- CUSTOM DATE RANGE -->
+                                <div id="intentCustomDateWrap" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; background: #FFF; border: 1.5px solid var(--border); border-radius: 8px; margin-top: 8px;">
+                                    <input type="date" id="intentDateFrom" style="padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12.5px; outline: none;">
+                                    <span style="font-size: 12px; color: var(--muted); font-weight: 600;">to</span>
+                                    <input type="date" id="intentDateTo" style="padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12.5px; outline: none;">
+                                    <button type="button" class="btn-primary" id="applyIntentDateRange" style="padding: 6px 14px; font-size: 12px; border-radius: 6px;">Apply</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- INTENT POOL (checkbox table) -->
+                        <div id="reportIntentPoolWrap" style="border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 16px; max-height: 340px; overflow-y: auto;">
+                            <table style="margin: 0; width: 100%; border-collapse: separate; border-spacing: 0;">
+                                <thead style="position: sticky; top: 0; z-index: 2; background: #F6F3EB;">
+                                    <tr>
+                                        <th style="width: 40px; text-align: center; padding: 10px;"><input type="checkbox" id="selectAllPoolIntents" title="Select all visible"></th>
+                                        <th style="width: 70px; text-align: center;">ID</th>
+                                        <th>Farmer</th>
+                                        <th>Commodity</th>
+                                        <th>Volume</th>
+                                        <th class="center-col">Planting<br><small style="font-weight:400;text-transform:none;">(Plan / Actual)</small></th>
+                                        <th class="center-col">Harvest<br><small style="font-weight:400;text-transform:none;">(Plan / Actual)</small></th>
+                                        <th class="center-col">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportIntentPoolBody">
+                                    <tr><td colspan="8" style="padding:30px; text-align:center; color:#999;">Loading available intents...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ACTION BAR FOR POOL -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                            <span id="intentPoolSummary" style="font-size: 13px; color: var(--muted); font-weight: 500;">0 intents visible</span>
+                            <button type="button" class="btn-primary" id="addSelectedIntentsBtn" disabled>
+                                Add 0 Selected to Report
+                            </button>
+                        </div>
+
+                        <!-- SELECTED INTENTS TABLE -->
+                        <div style="margin-bottom: 24px;">
+                            <div style="font-size: 12px; font-weight: 700; color: var(--ink); text-transform: uppercase; margin-bottom: 8px;">Intents in this Report</div>
+                            <!-- REPORT SUMMARY CARDS (filled by renderReportIntentSummary) -->
+                            <div id="reportIntentSummaryCards" style="display:none; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:12px;"></div>
+                            <div style="border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+                                <table style="margin:0; width:100%; table-layout:fixed;">
+                                    <thead>
+                                        <tr style="background: #F8F9F7;">
+                                            <th style="width:6%; text-align:center; padding: 10px 8px;">ID</th>
+                                            <th style="width:12%; text-align:center; padding: 10px 8px;">FARMER</th>
+                                            <th style="width:10%; text-align:center; padding: 10px 8px;">COMMODITY</th>
+                                            <th style="width:8%; text-align:center; padding: 10px 8px;">QTY</th>
+                                            <th style="width:12%; text-align:center; padding: 10px 8px;">PLANTING<br><small style="font-weight:400;text-transform:none;">(Plan / Actual)</small></th>
+                                            <th style="width:12%; text-align:center; padding: 10px 8px;">HARVEST<br><small style="font-weight:400;text-transform:none;">(Plan / Actual)</small></th>
+                                            <th style="width:10%; text-align:center; padding: 10px 8px;">STATUS</th>
+                                            <th style="width:22%; text-align:center; padding: 10px 8px;">EXCEPTION REMARK</th>
+                                            <th style="width:8%; text-align:center; padding: 10px 8px;">ACTION</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="selectedIntentsTableBody">
+                                        <tr>
+                                            <td colspan="9" style="padding:24px; text-align:center; color:#999;">
+                                                No planting intents selected. Use the table above to add.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                      </div>
+
+                      <!-- NOTES / REMARKS -->
                       <div class="form-field-item" style="margin-bottom:20px;">
                           <label style="display:block; font-size:12.5px; font-weight:700; margin-bottom:6px; color:var(--ink); text-transform:uppercase; letter-spacing:0.02em;">
                               Notes / Remarks <span class="req">*</span>
@@ -3380,6 +4109,7 @@ body .view.active-view { animation: esakaFade .35s ease; }
                           <textarea id="reportNotesInput" style="width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:var(--radius-sm); font-size:13.5px; outline:none; background:#fff; resize:vertical; height:90px;" placeholder="Add details or remarks regarding this report submission..." required></textarea>
                       </div>
 
+                      <!-- ATTACHMENTS -->
                       <div class="form-field-item" style="margin-bottom:20px;">
                           <label style="display:block; font-size:12.5px; font-weight:700; margin-bottom:6px; color:var(--ink); text-transform:uppercase; letter-spacing:0.02em;">
                               Supporting Documents / Attachments <span class="req">*</span>
@@ -3393,6 +4123,7 @@ body .view.active-view { animation: esakaFade .35s ease; }
                           <input type="file" id="reportReplaceInput" style="display:none;">
                       </div>
 
+                      <!-- ACTIONS -->
                       <div class="actions-right-row">
                           <button class="btn-outline-report" id="cancelReportBtn" type="button">Cancel</button>
                           <button class="btn-primary" id="submitReportFinalBtn" type="button">Submit to Municipal</button>
@@ -3405,287 +4136,315 @@ body .view.active-view { animation: esakaFade .35s ease; }
                REPORT DETAILS
           ============================================================ -->
           <div id="reportDetailsSubview" class="hidden-element">
-              <div class="main-header">
-                  <div class="header-left">
-                      <h1 id="reportDetailsTitle">Report Details</h1>
-                      <p id="detailReportTitle">—</p>
-                  </div>
-              </div>
+          <div class="main-header">
+            <div class="header-left">
+                <h1 id="reportDetailsTitle">Report Details</h1>
+                <p id="detailReportTitle">—</p>
+            </div>
+        </div>
 
-              <div class="card">
-                  <div style="
-                      display: grid;
-                      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-                      gap: 20px 28px;
-                      padding: 18px 20px;
-                      background: #F6F3EB;
-                      border-radius: 10px;
-                      margin-bottom: 24px;
-                  ">
-                      <div>
-                          <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Report ID</div>
-                          <div id="detailReportId" style="font-size: 14px; font-weight: 700; color: var(--ink);">—</div>
-                      </div>
-                      <div>
-                          <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Municipality</div>
-                          <div id="detailReportMunicipality" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
-                      </div>
-                      <div>
-                          <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Status</div>
-                          <div id="detailReportStatus" style="font-size: 14px; color: var(--ink);">—</div>
-                      </div>
-                      <div>
-                          <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Submitted Date</div>
-                          <div id="detailReportDate" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
-                      </div>
-                      <div style="grid-column: 1 / -1;">
-                          <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Notes / Remarks</div>
-                          <div id="detailReportNotes" style="font-size: 14px; color: var(--ink); line-height: 1.5;">—</div>
-                      </div>
-                  </div>
+    <div class="card">
 
-                  <div style="margin-bottom: 24px;">
-                      <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;">Attachments</div>
-                      <div id="detailReportAttachments" style="font-size: 14px; color: var(--muted);">No attachments</div>
-                  </div>
+        <!-- ═══════════════════════════════════════════════════════════
+             REPORT META (ID, Municipality, Status, Submitted, Notes)
+        ═══════════════════════════════════════════════════════════ -->
+        <div style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px 28px;
+            padding: 18px 20px;
+            background: #F6F3EB;
+            border-radius: 10px;
+            margin-bottom: 24px;
+        ">
+            <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Report ID</div>
+                <div id="detailReportId" style="font-size: 14px; font-weight: 700; color: var(--ink);">—</div>
+            </div>
+            <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Municipality</div>
+                <div id="detailReportMunicipality" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
+            </div>
+            <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Status</div>
+                <div id="detailReportStatus" style="font-size: 14px; color: var(--ink);">—</div>
+            </div>
+            <div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Submitted Date</div>
+                <div id="detailReportDate" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
+            </div>
+            <div style="grid-column: 1 / -1;">
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Notes / Remarks</div>
+                <div id="detailReportNotes" style="font-size: 14px; color: var(--ink); line-height: 1.5;">—</div>
+            </div>
+        </div>
 
-                  <!-- REPORT SUMMARY -->
-                  <div id="reportSummaryCard" style="
-                      margin-bottom: 24px;
-                      padding: 24px 28px;
-                      background: linear-gradient(135deg, #F6F3EB 0%, #FBF8F1 100%);
-                      border: 1.5px solid var(--border);
-                      border-left: 4px solid var(--green);
-                      border-radius: 10px;
-                  ">
-                      <div style="
-                          display: flex;
-                          justify-content: space-between;
-                          align-items: center;
-                          margin-bottom: 18px;
-                          padding-bottom: 14px;
-                          border-bottom: 1.5px solid var(--border-light);
-                      ">
-                          <div>
-                              <div style="
-                                  font-size: 14px;
-                                  font-weight: 800;
-                                  color: var(--green-dark);
-                                  text-transform: uppercase;
-                                  letter-spacing: 0.06em;
-                              ">📊 Report Summary</div>
-                              <div id="summaryCoveragePeriod" style="
-                                  font-size: 11px;
-                                  color: var(--muted);
-                                  margin-top: 3px;
-                              ">Coverage: —</div>
-                          </div>
-                          <div id="reportSummaryToggle" style="
-                              font-size: 11px;
-                              color: var(--muted);
-                              cursor: pointer;
-                              user-select: none;
-                              padding: 4px 10px;
-                              background: #FFFFFF;
-                              border-radius: 6px;
-                              border: 1px solid var(--border);
-                          ">Hide ▲</div>
-                      </div>
+        <!-- ═══════════════════════════════════════════════════════════
+             ATTACHMENTS
+        ═══════════════════════════════════════════════════════════ -->
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;">Attachments</div>
+            <div id="detailReportAttachments" style="font-size: 14px; color: var(--muted);">No attachments</div>
+        </div>
 
-                      <div id="reportSummaryBody">
-                          <div style="
-                              display: grid;
-                              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                              gap: 12px;
-                              margin-bottom: 12px;
-                          ">
-                              <div style="padding: 14px 16px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--border-light);">
-                                  <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">✓ Selected Intents</div>
-                                  <div id="summarySelectedCount" style="font-size: 22px; font-weight: 800; color: var(--green-dark); margin-top: 4px;">—</div>
-                                  <div id="summarySelectedSubtext" style="font-size: 10px; color: var(--muted); margin-top: 2px;">—</div>
-                              </div>
-                              <div style="padding: 14px 16px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--border-light);">
-                                  <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">📦 Total Volume</div>
-                                  <div id="summaryTotalVolume" style="font-size: 22px; font-weight: 800; color: var(--green-dark); margin-top: 4px;">—</div>
-                                  <div id="summaryTotalVolumeSubtext" style="font-size: 10px; color: var(--muted); margin-top: 2px;">—</div>
-                              </div>
-                              <div style="padding: 14px 16px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--border-light);">
-                                  <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">👥 Unique Farmers</div>
-                                  <div id="summaryUniqueFarmers" style="font-size: 22px; font-weight: 800; color: var(--green-dark); margin-top: 4px;">—</div>
-                                  <div id="summaryUniqueFarmersSubtext" style="font-size: 10px; color: var(--muted); margin-top: 2px;">—</div>
-                              </div>
-                          </div>
+        <!-- ═══════════════════════════════════════════════════════════
+             REPORT SUMMARY (7 cards + Hide/Show toggle)
+        ═══════════════════════════════════════════════════════════ -->
+        <div id="reportSummaryCard" style="
+            margin-bottom: 24px;
+            padding: 24px 28px;
+            background: linear-gradient(135deg, #F6F3EB 0%, #FBF8F1 100%);
+            border: 1.5px solid var(--border);
+            border-left: 4px solid var(--green);
+            border-radius: 10px;
+        ">
+            <!-- Header row with toggle -->
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 18px;
+                padding-bottom: 14px;
+                border-bottom: 1.5px solid var(--border-light);
+            ">
+                <div>
+                    <div style="
+                        font-size: 14px;
+                        font-weight: 800;
+                        color: var(--green-dark);
+                        text-transform: uppercase;
+                        letter-spacing: 0.06em;
+                    ">📊 Report Summary</div>
+                    <div id="summaryCoveragePeriod" style="
+                        font-size: 11px;
+                        color: var(--muted);
+                        margin-top: 3px;
+                    ">Coverage: —</div>
+                </div>
+                <div id="reportSummaryToggle" style="
+                    font-size: 11px;
+                    color: var(--muted);
+                    cursor: pointer;
+                    user-select: none;
+                    padding: 4px 10px;
+                    background: #FFFFFF;
+                    border-radius: 6px;
+                    border: 1px solid var(--border);
+                ">Hide ▲</div>
+            </div>
 
-                          <div style="
-                              display: grid;
-                              grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                              gap: 12px;
-                              margin-bottom: 12px;
-                          ">
-                              <div style="padding: 14px 16px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--border-light);">
-                                  <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">⏳ Pending Validation</div>
-                                  <div id="summaryPendingCount" style="font-size: 22px; font-weight: 800; color: #D97706; margin-top: 4px;">—</div>
-                                  <div id="summaryPendingSubtext" style="font-size: 10px; color: var(--muted); margin-top: 2px;">—</div>
-                              </div>
-                              <div style="padding: 14px 16px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--border-light);">
-                                  <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">🌾 Harvested Volume</div>
-                                  <div id="summaryHarvestedVolume" style="font-size: 22px; font-weight: 800; color: #2E7D32; margin-top: 4px;">—</div>
-                                  <div id="summaryHarvestedVolumeSubtext" style="font-size: 10px; color: var(--muted); margin-top: 2px;">—</div>
-                              </div>
-                              <div style="padding: 14px 16px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--border-light);">
-                                  <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">🌾 Harvest Rate</div>
-                                  <div id="summaryHarvestRate" style="font-size: 22px; font-weight: 800; color: #2E7D32; margin-top: 4px;">—</div>
-                                  <div id="summaryHarvestRateSubtext" style="font-size: 10px; color: var(--muted); margin-top: 2px;">—</div>
-                              </div>
-                          </div>
+            <div id="reportSummaryBody">
 
-                          <div style="
-                              display: grid;
-                              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                              gap: 12px;
-                              margin-bottom: 20px;
-                          ">
-                              <div style="padding: 14px 16px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--border-light);">
-                                  <div id="summaryMunicipalLabel" style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">🏛️ Municipal Total</div>
-                                  <div id="summaryMunicipalTotal" style="font-size: 22px; font-weight: 800; color: var(--brown); margin-top: 4px;">—</div>
-                                  <div id="summaryMunicipalSubtext" style="font-size: 10px; color: var(--muted); margin-top: 2px;">—</div>
-                              </div>
-                              <div style="padding: 14px 16px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--border-light);">
-                                  <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">📈 Coverage</div>
-                                  <div id="summaryCoverage" style="font-size: 22px; font-weight: 800; color: #2980B9; margin-top: 4px;">—</div>
-                                  <div id="summaryCoverageSubtext" style="font-size: 10px; color: var(--muted); margin-top: 2px;">—</div>
-                              </div>
-                          </div>
+                <!-- ROW 1: Key Metrics (3 cards) -->
+                <div style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 14px;
+                ">
+                    <!-- 1. Selected Intents -->
+                    <div style="padding: 16px 18px; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-light); border-top: 4px solid #5B6B4F; display: flex; flex-direction: column;">
+                        <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 6px;">
+                            <span>✓</span> Selected Intents
+                        </div>
+                        <div id="summarySelectedCount" style="font-size: 28px; font-weight: 800; color: var(--green-dark); margin-top: 8px; line-height: 1;">—</div>
+                        <div id="summarySelectedSubtext" style="font-size: 11px; color: var(--muted); margin-top: 6px;">—</div>
+                    </div>
 
-                          <div style="
-                              display: grid;
-                              grid-template-columns: 1fr 1fr 1fr;
-                              gap: 20px;
-                              margin-bottom: 16px;
-                          ">
-                              <div>
-                                  <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-light);">🌾 By Commodity</div>
-                                  <div id="summaryByCommodity" style="font-size: 13px; color: var(--ink); line-height: 1.7;">—</div>
-                              </div>
-                              <div>
-                                  <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-light);">📍 By Barangay</div>
-                                  <div id="summaryByBarangay" style="font-size: 13px; color: var(--ink); line-height: 1.7;">—</div>
-                              </div>
-                              <div>
-                                  <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-light);">📋 By Finalized Status</div>
-                                  <div id="summaryByStatus" style="font-size: 13px; color: var(--ink); line-height: 1.7;">—</div>
-                              </div>
-                          </div>
+                    <!-- 2. Total Volume (Planned) -->
+                    <div style="padding: 16px 18px; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-light); border-top: 4px solid #D97706; display: flex; flex-direction: column;">
+                        <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 6px;">
+                            <span>📦</span> Total Volume
+                        </div>
+                        <div id="summaryTotalVolume" style="font-size: 28px; font-weight: 800; color: #D97706; margin-top: 8px; line-height: 1;">—</div>
+                        <div id="summaryTotalVolumeSubtext" style="font-size: 11px; color: var(--muted); margin-top: 6px;">—</div>
+                    </div>
 
-                          <!-- ✅ Yield Performance + Planting Window -->
-                          <div style="
-                              display: grid;
-                              grid-template-columns: 1fr 1fr;
-                              gap: 16px;
-                              margin-top: 16px;
-                          ">
-                              <!-- Yield Performance Card -->
-                              <div id="summaryYieldPerformance" style="
-                                  padding: 16px 20px;
-                                  background: #F6F3EB;
-                                  border-radius: 8px;
-                                  border-left: 3px solid var(--green);
-                                  font-size: 13px;
-                                  color: var(--ink);
-                              "></div>
+                    <!-- 3. Unique Farmers -->
+                    <div style="padding: 16px 18px; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-light); border-top: 4px solid #2980B9; display: flex; flex-direction: column;">
+                        <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 6px;">
+                            <span>👥</span> Unique Farmers
+                        </div>
+                        <div id="summaryUniqueFarmers" style="font-size: 28px; font-weight: 800; color: #2980B9; margin-top: 8px; line-height: 1;">—</div>
+                        <div id="summaryUniqueFarmersSubtext" style="font-size: 11px; color: var(--muted); margin-top: 6px;">—</div>
+                    </div>
+                </div>
 
-                              <!-- Planting Window Card -->
-                              <div id="summaryPlantingWindow" style="
-                                  padding: 16px 20px;
-                                  background: #F6F3EB;
-                                  border-radius: 8px;
-                                  border-left: 3px solid #D97706;
-                                  font-size: 13px;
-                                  color: var(--ink);
-                              "></div>
-                          </div>
+                <!-- ROW 2: Breakdowns (Commodity / Barangay) -->
+                <div style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 14px;
+                ">
+                    <!-- 4. By Commodity -->
+                    <div style="padding: 16px 18px; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-light); border-top: 4px solid #2E7D32;">
+                        <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <span>🌾</span> By Commodity
+                        </div>
+                        <div id="summaryByCommodity" style="font-size: 13px; color: var(--ink); line-height: 1.7;">—</div>
+                    </div>
 
-                          <div style="
-                              margin-top: 18px;
-                              padding-top: 14px;
-                              border-top: 1px dashed var(--border-light);
-                              display: flex;
-                              justify-content: space-between;
-                              flex-wrap: wrap;
-                              gap: 12px;
-                              font-size: 11px;
-                              color: var(--muted);
-                          ">
-                              <div>
-                                  <b style="color: var(--ink);">Prepared by:</b> 
-                                  <span id="summaryPreparedBy">—</span>
-                              </div>
-                              <div>
-                                  <b style="color: var(--ink);">Generated:</b> 
-                                  <span id="summaryGeneratedAt">—</span>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
+                    <!-- 5. By Barangay -->
+                    <div style="padding: 16px 18px; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-light); border-top: 4px solid #8E44AD;">
+                        <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <span>📍</span> By Barangay
+                        </div>
+                        <div id="summaryByBarangay" style="font-size: 13px; color: var(--ink); line-height: 1.7;">—</div>
+                    </div>
+                </div>
 
-                  <div style="margin-top: 8px;">
-                      <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;">Included Planting Intents</div>
-                      <div style="overflow-x: auto;">
-                          <table>
-                              <thead>
-                                  <tr>
-                                      <th class="center-col">Intent ID</th>
-                                      <th>Farmer</th>
-                                      <th>Commodity</th>
-                                      <th class="center-col">Volume</th>
-                                      <th class="center-col" style="background: #F6F3EB;"> Planned Planting</th>
-                                      <th class="center-col" style="background: #FFF4E5;"> Actual Planting</th>
-                                      <th class="center-col" style="background: #F6F3EB;"> Planned Harvest</th>
-                                      <th class="center-col" style="background: #FFF4E5;"> Actual Harvest</th>
-                                      <th class="center-col">Harvest Status</th>
-                                  </tr>
-                              </thead>
-                              <tbody id="detailReportIntentsBody">
-                                  <tr>
-                                      <td colspan="9" style="padding: 20px; text-align: center; color: #999;">
-                                          No intents included.
-                                      </td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                      </div>
-                  </div>
+                <!-- ROW 3: Analytics (Yield Performance / Planting Window) -->
+                <div style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                    gap: 12px;
+                ">
+                    <!-- 6. Yield Performance -->
+                    <div style="padding: 16px 18px; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-light); border-top: 4px solid #C0392B;">
+                        <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <span>📊</span> Yield Performance
+                        </div>
+                        <div id="summaryYieldPerformance" style="font-size: 13px; color: var(--ink);"></div>
+                    </div>
 
-                  <div id="reportValidationHistoryWrapper" style="
-                      margin: 24px 0 16px 0;
-                      display: none;
-                  ">
-                      <div style="
-                          font-size: 11px;
-                          font-weight: 700;
-                          color: var(--muted);
-                          text-transform: uppercase;
-                          letter-spacing: 0.06em;
-                          margin-bottom: 14px;
-                          padding-bottom: 8px;
-                          border-bottom: 1.5px solid var(--border-light);
-                      ">
-                          📜 Validation Timeline (Audit Trail)
-                      </div>
-                      <div id="reportValidationTimelineContainer">
-                          <div style="color: var(--muted); font-style: italic; font-size: 13px;">
-                              Loading history...
-                          </div>
-                      </div>
-                  </div>
+                    <!-- 7. Planting Window -->
+                    <div style="padding: 16px 18px; background: #FFFFFF; border-radius: 10px; border: 1px solid var(--border-light); border-top: 4px solid #D97706;">
+                        <div style="font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                            <span>📅</span> Planting Window
+                        </div>
+                        <div id="summaryPlantingWindow" style="font-size: 13px; color: var(--ink);"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                  <div class="actions-right-row" style="margin-top: 20px; padding-top: 16px; border-top: 1.5px solid var(--border);">
-                      <button class="btn-outline-report" id="backFromReportDetailsBtn" type="button">Back</button>
-                      <button class="btn-primary" id="editReportBtn" type="button" style="background: #D97706; display: none;">Edit</button>
-                      <button class="btn-primary" id="resubmitReportBtn" type="button" style="background: #2E7D32; display: none;">Resubmit</button>
-                  </div>
-              </div>
-          </div>
+        <!-- ═══════════════════════════════════════════════════════════
+             INCLUDED PLANTING INTENTS + SEPARATE VARIANCE REMARKS PANEL
+        ═══════════════════════════════════════════════════════════ -->
+        <div style="margin-top: 8px;">
+
+            <!-- Section header -->
+            <div style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+            ">
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">
+                    📋 Included Planting Intents
+                </div>
+                <div id="intentVarianceCountBadge" style="
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: #92400E;
+                    background: #FFFBEB;
+                    border: 1px solid #FCD34D;
+                    padding: 4px 10px;
+                    border-radius: 999px;
+                    display: none;
+                ">
+                    0 date variance remarks
+                </div>
+            </div>
+
+            <!-- Intents table -->
+            <div style="overflow-x: auto; border: 1px solid var(--border-light); border-radius: 10px;">
+                <table style="margin: 0;">
+                    <thead>
+                        <tr style="background: #F9FAF9;">
+                            <th class="center-col" style="padding: 12px 10px;">Intent ID</th>
+                            <th style="padding: 12px 10px;">Farmer</th>
+                            <th style="padding: 12px 10px;">Commodity</th>
+                            <th class="center-col" style="padding: 12px 10px;">Volume</th>
+                            <th class="center-col" style="padding: 12px 10px; background: #F6F3EB;">Planned Planting</th>
+                            <th class="center-col" style="padding: 12px 10px; background: #FFF4E5;">Actual Planting</th>
+                            <th class="center-col" style="padding: 12px 10px; background: #F6F3EB;">Planned Harvest</th>
+                            <th class="center-col" style="padding: 12px 10px; background: #FFF4E5;">Actual Harvest</th>
+                            <th class="center-col" style="padding: 12px 10px;">Variance</th>
+                            <th class="center-col" style="padding: 12px 10px;">Harvest Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailReportIntentsBody">
+                        <tr>
+                            <td colspan="10" style="padding: 20px; text-align: center; color: #999;">
+                                No intents included.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════
+                 SEPARATE VARIANCE REMARKS PANEL
+                 One card per intent with a variance remark
+            ═══════════════════════════════════════════════════════════ -->
+            <div id="varianceRemarksPanel" style="display: none; margin-top: 20px;">
+                <div style="
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: var(--muted);
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                    margin-bottom: 12px;
+                    padding-bottom: 8px;
+                    border-bottom: 1.5px solid var(--border-light);
+                ">
+                    <span style="color: #92400E;">⚠️</span>
+                    Date Variance Remarks
+                    <span id="varianceRemarksCount" style="
+                        background: #FFFBEB;
+                        color: #92400E;
+                        border: 1px solid #FCD34D;
+                        padding: 1px 8px;
+                        border-radius: 999px;
+                        font-size: 10px;
+                        margin-left: 4px;
+                    ">0</span>
+                </div>
+                <div id="varianceRemarksBody" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             VALIDATION TIMELINE
+        ═══════════════════════════════════════════════════════════ -->
+        <div id="reportValidationHistoryWrapper" style="
+            margin: 24px 0 16px 0;
+            display: none;
+        ">
+            <div style="
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 14px;
+                padding-bottom: 8px;
+                border-bottom: 1.5px solid var(--border-light);
+            ">
+                📜 Validation Timeline (Audit Trail)
+            </div>
+            <div id="reportValidationTimelineContainer">
+                <div style="color: var(--muted); font-style: italic; font-size: 13px;">
+                    Loading history...
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             ACTIONS
+        ═══════════════════════════════════════════════════════════ -->
+        <div class="actions-right-row" style="margin-top: 20px; padding-top: 16px; border-top: 1.5px solid var(--border);">
+            <button class="btn-outline-report" id="backFromReportDetailsBtn" type="button">Back</button>
+            <button class="btn-primary" id="editReportBtn" type="button" style="background: #D97706; display: none;">Edit</button>
+            <button class="btn-primary" id="resubmitReportBtn" type="button" style="background: #2E7D32; display: none;">Resubmit</button>
+        </div>
+    </div>
+</div>
       </section>
 
     </main>

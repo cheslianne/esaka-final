@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DA-RFO Officer — eSaka</title>
@@ -1197,7 +1199,97 @@ input[type="checkbox"]{ accent-color:var(--primary); }
     .summary-details{ margin-top:8px; }
     .summary-details > summary{ cursor:pointer; font-weight:700; font-size:13px; color:var(--muted); padding:8px 0; }
 
-    @media print{
+    /* AEW visual alignment: consistent dashboard header and summary export panel */
+.aew-style-header {
+  min-height: 150px;
+  padding: 26px 30px;
+  border: 1px solid rgba(15,61,46,.10);
+  border-radius: 18px;
+  background: linear-gradient(120deg,#fbfaf5 0%,#f4f8ef 58%,#e3f0e2 100%);
+  box-shadow: 0 8px 28px rgba(31,54,39,.07);
+  position: relative;
+  overflow: hidden;
+}
+.aew-style-header h1 { color: var(--primary); font-size: 30px; letter-spacing: -.035em; }
+.aew-style-header p { color: var(--muted); line-height: 1.55; max-width: 720px; }
+.aew-summary-export-panel {
+  display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;
+  padding:18px 20px; margin:0 0 18px; background:#fff;
+  border:1px solid rgba(15,61,46,.12); border-radius:16px;
+  box-shadow:0 4px 16px rgba(31,54,39,.05);
+}
+.aew-summary-export-copy { display:flex; flex-direction:column; gap:5px; min-width:220px; }
+.aew-summary-export-copy strong { color:var(--primary); font-size:15px; }
+.aew-summary-export-copy span { color:var(--muted); font-size:11px; line-height:1.5; max-width:420px; }
+.aew-summary-export-panel .report-export-tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.finalized-export-option { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted); font-weight:700; margin-right:4px; }
+.finalized-export-option input { accent-color:var(--primary); }
+.report-pagination button,.export-btn {
+  border:1px solid var(--border); background:#fff; color:var(--primary);
+  border-radius:9px; padding:9px 13px; font-size:12px; font-weight:700;
+  cursor:pointer; transition:background .16s ease, transform .16s ease, box-shadow .16s ease;
+  text-decoration:none; line-height:1.25; white-space:nowrap;
+}
+.export-btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(11,56,42,.12); }
+.export-btn:focus-visible { outline:3px solid rgba(217,164,0,.45); outline-offset:2px; }
+.export-btn.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+.export-btn.primary:hover { background:#0b382a; }
+.export-btn.gold { background:var(--tertiary); color:#211b04; border-color:var(--tertiary); }
+.export-btn.gold:hover { filter:brightness(.96); }
+.summary-scope-toolbar {
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  padding:14px 18px; margin:0 0 14px; background:#fff;
+  border:1px solid rgba(15,61,46,.12); border-radius:4px;
+  box-shadow:0 4px 16px rgba(31,54,39,.04);
+}
+.summary-scope-copy { display:flex; flex-direction:column; gap:4px; }
+.summary-scope-copy strong { color:var(--primary); font-size:14px; }
+.summary-scope-copy span { color:var(--muted); font-size:11px; }
+.summary-scope-control { display:flex; align-items:center; gap:10px; color:var(--primary); font-size:11px; font-weight:800; }
+.summary-scope-control select {
+  min-width:230px; max-width:100%; padding:10px 36px 10px 12px; border:1px solid #d4e1d7;
+  border-radius:4px; background:#fff; color:var(--primary); font:inherit; font-size:12px; cursor:pointer;
+}
+.summary-scope-control select:focus { outline:3px solid rgba(217,164,0,.28); border-color:var(--primary); }
+.summary-scope-control select[multiple] { min-width:220px; min-height:88px; padding:8px 10px; }
+.summary-scope-control .scope-hint { font-weight:500; color:var(--muted); font-size:10px; }
+.summary-scope-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.summary-scope-actions button { border:1px solid #cbdcd0; border-radius:8px; padding:8px 11px; background:#e4efe7; color:var(--primary); font-weight:800; font-size:11px; cursor:pointer; }
+.summary-scope-actions button:hover { background:#d4e6d9; }
+ .summary-scope-fields { display:grid; grid-template-columns:repeat(3,minmax(190px,1fr)); gap:12px; align-items:end; flex:1 1 100%; }
+.summary-scope-toolbar { flex-direction:column; align-items:stretch; }
+.summary-scope-control { min-width:0; display:flex; flex-direction:column; align-items:stretch; gap:6px; }
+.summary-scope-control select:not([multiple]) { width:100%; min-width:0; }
+.custom-multi { position:relative; }
+.multi-select-trigger { width:100%; min-height:39px; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px; border:1px solid #d4e1d7; border-radius:4px; background:#fff; color:var(--primary); font:inherit; font-size:12px; text-align:left; cursor:pointer; }
+.multi-select-trigger:hover,.multi-select-trigger[aria-expanded="true"] { border-color:var(--primary); box-shadow:0 0 0 2px rgba(11,56,42,.07); }
+.multi-chevron { font-size:14px; color:var(--muted); }
+.multi-select-menu { position:absolute; z-index:100; top:100%; left:0; right:0; margin-top:5px; background:#fff; border:1px solid #d4e1d7; border-radius:4px; box-shadow:0 12px 28px rgba(20,45,32,.16); padding:8px; max-height:270px; overflow:auto; }
+.multi-select-menu[hidden] { display:none !important; }
+.multi-menu-actions { display:flex; justify-content:space-between; gap:8px; padding:2px 2px 8px; margin-bottom:4px; border-bottom:1px solid #edf1ed; }
+.multi-menu-actions button { border:0; background:#e4efe7; color:var(--primary); border-radius:6px; padding:6px 9px; font-size:11px; font-weight:800; cursor:pointer; }
+.multi-menu-options { display:flex; flex-direction:column; gap:2px; }
+.multi-menu-option { display:flex; align-items:center; gap:8px; padding:7px 6px; border-radius:6px; font-size:12px; font-weight:500; color:#24382e; cursor:pointer; }
+.multi-menu-option:hover { background:#f2f7f2; }
+.multi-menu-option input { accent-color:var(--primary); }
+@media(max-width:900px) { .summary-scope-fields { grid-template-columns:repeat(2,minmax(180px,1fr)); } }
+@media(max-width:650px) {
+  .summary-scope-toolbar { align-items:stretch; }
+  .summary-scope-fields { grid-template-columns:1fr; }
+  .summary-scope-control select { width:100%; min-width:0; }
+  .aew-summary-export-panel .report-export-tools { display:grid; grid-template-columns:1fr 1fr; }
+  .aew-summary-export-panel .export-btn { width:100%; white-space:normal; }
+  .finalized-export-option { grid-column:1/-1; }
+}
+.export-btn.secondary { background:#f3f7f2; color:var(--primary); border-color:#d9e5db; }
+.export-btn.secondary:hover { background:#e3eee7; }
+.reports-summary .summary-card { border-radius:12px; border:1px solid #E3E8E5; box-shadow:0 2px 8px rgba(0,0,0,.025); }
+.reports-summary .summary-card:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,.06); }
+@media(max-width:900px) { .aew-summary-export-panel { align-items:flex-start; } .aew-summary-export-panel .report-export-tools { width:100%; } }
+@media(max-width:650px) { .aew-style-header { padding:22px 20px; } .aew-style-header h1 { font-size:25px; } .aew-summary-export-panel .report-export-tools { display:grid; grid-template-columns:1fr 1fr; } .finalized-export-option { grid-column:1/-1; } .aew-summary-export-panel .export-btn { width:100%; } }
+
+
+@media print{
       @page{ size:A4 landscape; margin:12mm; }
       .topbar, .sidebar, .main-header, .summary-quick-pills, .no-print, .modal-overlay{ display:none !important; }
       body, .main, .card{ background:#fff !important; color:#000 !important; box-shadow:none !important; border:0 !important; }
@@ -1209,6 +1301,12 @@ input[type="checkbox"]{ accent-color:var(--primary); }
       .summary-table thead{ display:table-header-group; }
       .summary-kpi-card{ border:1px solid #999 !important; background:#fff !important; }
     }
+
+.multi-menu-options {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
   </style>
 
 </head>
@@ -1479,14 +1577,12 @@ input[type="checkbox"]{ accent-color:var(--primary); }
             <span class="map-card-title">Field Monitoring &amp; Geographic Clusters</span>
 
             <div class="map-legend">
-    <span><i style="background:#C0392B;"></i> Oversupply</span>
-    <span><i style="background:#1B4F72;"></i> Surplus</span>
-    <span><i style="background:#2E7D32;"></i> Balanced</span>
-    <span><i style="background:#c49102;"></i> Deficit</span>
-    <span><i style="background:#6c757d;"></i> No Data</span>
-</div>
-</div>
-
+              <span><i style="background:#C0392B;"></i> Surplus</span>
+              <span><i style="background:#2E7D32;"></i> Balanced</span>
+              <span><i style="background:#D97706;"></i> Deficit</span>
+              <span><i style="background:#6c757d;"></i> No Data</span>
+            </div>
+          </div>
 
           <div class="map-filters-container">
             <select id="filterCommodity">
@@ -1616,11 +1712,11 @@ input[type="checkbox"]{ accent-color:var(--primary); }
 
       <!-- SUMMARY VIEW -->
       <section class="view" id="view-summary">
-        <div class="main-header">
+        <div class="main-header aew-style-header">
           <div class="header-left">
-            <span class="eyebrow">Field Console</span>
+            <span class="eyebrow">Regional Operations</span>
             <h1>Regional Summary Report</h1>
-            <p>Aggregated view of all reports across Pampanga for a selected period.</p>
+            <p>Aggregated view of reports across the region for a selected reporting period.</p>
           </div>
 
           <div class="header-actions">
@@ -1633,9 +1729,6 @@ input[type="checkbox"]{ accent-color:var(--primary); }
             <button class="btn-primary" id="applySummaryPeriodBtn" type="button">
               Apply Period
             </button>
-            <button class="btn-outline-report" id="printSummaryBtn" type="button">
-              Print
-            </button>
           </div>
         </div>
 
@@ -1646,6 +1739,63 @@ input[type="checkbox"]{ accent-color:var(--primary); }
           <button class="filter-pill" data-period="last-30" type="button">Last 30 Days</button>
           <button class="filter-pill" data-period="this-quarter" type="button">This Quarter</button>
           <button class="filter-pill" data-period="all-time" type="button">All Time</button>
+        </div>
+
+                <div class="summary-scope-toolbar no-print" aria-label="Summary scope filters">
+          <div class="summary-scope-copy">
+            <strong>Summary View</strong>
+            <span>Filter this summary by municipality. These filters affect Summary and its exports only.</span>
+          </div>
+          <div class="summary-scope-fields">
+            <!-- REGION (LOCKED) -->
+            <div class="summary-scope-control custom-multi" data-multi="region">
+              <span>Region</span>
+              <div class="multi-select-trigger" style="pointer-events: none; background: #f4f6f5; color: #666; border-color: #dce4df;">
+                  <span>Region III (Central Luzon)</span>
+              </div>
+              <select id="summaryRegionSelect" hidden>
+                <option value="region-iii" selected>Region III (Central Luzon)</option>
+              </select>
+            </div>
+
+            <!-- PROVINCE (LOCKED) -->
+            <div class="summary-scope-control custom-multi" data-multi="province">
+              <span>Province</span>
+              <div class="multi-select-trigger" style="pointer-events: none; background: #f4f6f5; color: #666; border-color: #dce4df;">
+                  <span>Pampanga</span>
+              </div>
+              <select id="summaryProvinceSelect" multiple aria-label="Select one or more provinces" hidden></select>
+            </div>
+
+            <!-- MUNICIPALITY (CLICKABLE) -->
+            <div class="summary-scope-control custom-multi" data-multi="municipality">
+              <span>Municipality / City</span>
+              <button class="multi-select-trigger" id="summaryMunicipalityTrigger" type="button" aria-expanded="false" aria-controls="summaryMunicipalityMenu">
+                  <span id="summaryMunicipalityLabel">All municipalities</span>
+                  <span class="multi-chevron">▾</span>
+              </button>
+              <div class="multi-select-menu" id="summaryMunicipalityMenu" hidden>
+                <div class="multi-menu-actions">
+                    <button type="button" data-multi-action="all" data-target="municipality">Select all</button>
+                    <button type="button" data-multi-action="clear" data-target="municipality">Clear</button>
+                </div>
+                <div class="multi-menu-options" id="summaryMunicipalityOptions"></div>
+              </div>
+              <select id="summaryMunicipalitySelect" multiple aria-label="Select one or more municipalities" hidden></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="aew-summary-export-panel no-print" aria-label="Summary export options">
+          <div class="aew-summary-export-copy">
+            <strong>Export Summary</strong>
+            <span>Download the regional summary for the selected period, or export reports selected in the Reports tab.</span>
+          </div>
+          <div class="report-export-tools">
+            <label class="finalized-export-option"><input type="checkbox" id="reportExportFinalizedOnly"> Finalized intents only</label>
+            <button class="export-btn primary" id="exportSummaryPdfBtn" type="button">Download Summary PDF</button>
+            <button class="export-btn gold" id="exportSummaryXlsxBtn" type="button">Export Summary Excel</button>
+          </div>
         </div>
 
         <div class="card" id="summaryLoadingCard">
