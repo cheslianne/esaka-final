@@ -2167,7 +2167,7 @@ async function pullPlantingIntent(intent) {
 
         openPlantingIntentDetails(intent);
 
-        alert("Planting intent reverted to DRAFT successfully.");
+        alert("Planting intent reverted to draft successfully.");
 
     } catch (error) {
         console.error("Pull planting intent error:", error);

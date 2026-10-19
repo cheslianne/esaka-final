@@ -114,6 +114,8 @@ let selectedReport = null;
 
 let currentSummaryPeriod = { start: null, end: null, preset: "this-week" };
 let currentSummaryData = null;
+let selectedSummaryProvinces = [];
+let selectedSummaryMunicipalities = [];
 let daDashboardData = null;
 
 /* ---------- PAGINATION STATE (7 items per page) ---------- */
@@ -318,6 +320,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     initSignout();
     initModalListeners();
     initSummaryPeriodPicker();
+    initDaSummaryExports();
     loadUserInformation();
     initProfileModal();
      initMarketUploadSection();
@@ -3382,11 +3385,104 @@ function applyPeriodToInputs(period) {
     if (endInput) endInput.value = period.end ? toDateInputValue(period.end) : "";
 }
 
+function refreshSummaryMultiSelect(kind) {
+    const isProvince = kind === "province";
+    const select = document.getElementById(isProvince ? "summaryProvinceSelect" : "summaryMunicipalitySelect");
+    const optionsBox = document.getElementById(isProvince ? "summaryProvinceOptions" : "summaryMunicipalityOptions");
+    const label = document.getElementById(isProvince ? "summaryProvinceLabel" : "summaryMunicipalityLabel");
+    if (!select || !optionsBox || !label) return;
+    const selected = Array.from(select.selectedOptions).map(o => o.value);
+    const all = Array.from(select.options).map(o => o.value);
+    optionsBox.innerHTML = Array.from(select.options).map(o => `<label class="multi-menu-option"><input type="checkbox" value="${escapeHtml(o.value)}" ${o.selected ? "checked" : ""}><span>${escapeHtml(o.textContent)}</span></label>`).join("");
+    const defaultText = isProvince ? "All provinces" : "All municipalities";
+    label.textContent = selected.length === 0 ? defaultText : selected.length === all.length ? `All selected (${selected.length})` : `${selected.length} selected`;
+}
+
+function initSummaryMultiSelectMenus() {
+    if (window.__summaryMultiSelectInitialized) return;
+    window.__summaryMultiSelectInitialized = true;
+    const configs = [
+        { kind: "municipality", trigger: "summaryMunicipalityTrigger", menu: "summaryMunicipalityMenu", select: "summaryMunicipalitySelect" }
+    ];
+    configs.forEach(cfg => {
+        const trigger = document.getElementById(cfg.trigger);
+        const menu = document.getElementById(cfg.menu);
+        const select = document.getElementById(cfg.select);
+        if (!trigger || !menu || !select) return;
+        trigger.addEventListener("click", () => {
+            const opening = menu.hidden;
+            configs.forEach(other => {
+                const m = document.getElementById(other.menu), t = document.getElementById(other.trigger);
+                if (m) m.hidden = true;
+                if (t) t.setAttribute("aria-expanded", "false");
+            });
+            menu.hidden = !opening;
+            trigger.setAttribute("aria-expanded", opening ? "true" : "false");
+        });
+        menu.addEventListener("change", event => {
+            const box = event.target;
+            if (!box || box.type !== "checkbox") return;
+            const option = Array.from(select.options).find(o => o.value === box.value);
+            if (option) option.selected = box.checked;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            refreshSummaryMultiSelect(cfg.kind);
+        });
+    });
+    document.addEventListener("click", event => {
+        if (event.target.closest(".custom-multi")) return;
+        configs.forEach(cfg => {
+            const menu = document.getElementById(cfg.menu), trigger = document.getElementById(cfg.trigger);
+            if (menu) menu.hidden = true;
+            if (trigger) trigger.setAttribute("aria-expanded", "false");
+        });
+    });
+    document.querySelectorAll("[data-multi-action]").forEach(button => button.addEventListener("click", () => {
+        const kind = button.dataset.target;
+        const select = document.getElementById(kind === "province" ? "summaryProvinceSelect" : "summaryMunicipalitySelect");
+        if (!select) return;
+        const selectAll = button.dataset.multiAction === "all";
+        Array.from(select.options).forEach(o => o.selected = selectAll);
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        refreshSummaryMultiSelect(kind);
+    }));
+}
+
 function initSummaryPeriodPicker() {
     const pills = document.querySelectorAll(".summary-quick-pills .filter-pill");
     const applyBtn = document.getElementById("applySummaryPeriodBtn");
     const printBtn = document.getElementById("printSummaryBtn");
+    const provinceSelect = document.getElementById("summaryProvinceSelect");
+    const municipalitySelect = document.getElementById("summaryMunicipalitySelect");
+    
+    initSummaryMultiSelectMenus();
 
+    // 1. HARDCODE ANG PAMPANGA
+    if (provinceSelect) {
+        provinceSelect.innerHTML = `<option value="Pampanga" selected>Pampanga</option>`;
+        selectedSummaryProvinces = ["Pampanga"];
+        document.getElementById("summaryProvinceLabel").textContent = "Pampanga";
+    }
+
+    // 2. I-LOAD ANG MUNICIPALITIES NG PAMPANGA
+    if (municipalitySelect) {
+        const pampangaMunis = [
+            "Angeles City", "Apalit", "Arayat", "Bacolor", "Candaba", "Floridablanca", "Guagua", "Lubao", 
+            "Mabalacat", "Macabebe", "Magalang", "Masantol", "Mexico", "Minalin", "Porac", "San Fernando", 
+            "San Luis", "San Simon", "Santa Ana", "Santa Rita", "Santo Tomas"
+        ];
+        municipalitySelect.innerHTML = pampangaMunis.map(name => `<option value="${name}">${name}</option>`).join("");
+        selectedSummaryMunicipalities = []; // Default: All municipalities ng Pampanga
+        refreshSummaryMultiSelect("municipality");
+        
+        // Ito lang ang may event listener na (para mag-filter pag pumili ng municipality)
+        municipalitySelect.addEventListener("change", () => {
+            selectedSummaryMunicipalities = Array.from(municipalitySelect.selectedOptions).map(o => o.value).filter(Boolean);
+            refreshSummaryMultiSelect("municipality");
+            if (currentSummaryData) renderRegionalSummary(currentSummaryData);
+        });
+    }
+
+    // 3. DATE PICKER LOGIC (Walang binago)
     const initial = getPeriodPreset("this-week");
     currentSummaryPeriod.start = initial.start;
     currentSummaryPeriod.end = initial.end;
@@ -3401,11 +3497,20 @@ function initSummaryPeriodPicker() {
             const preset = pill.dataset.period;
             const period = getPeriodPreset(preset);
 
-            currentSummaryPeriod.start = period.start;
-            currentSummaryPeriod.end = period.end;
+            if (preset === "all-time") {
+                currentSummaryPeriod.start = null;
+                currentSummaryPeriod.end = null;
+                const sInput = document.getElementById("summaryPeriodStart");
+                const eInput = document.getElementById("summaryPeriodEnd");
+                if(sInput) sInput.value = "";
+                if(eInput) eInput.value = "";
+            } else {
+                currentSummaryPeriod.start = period.start;
+                currentSummaryPeriod.end = period.end;
+                applyPeriodToInputs(period);
+            }
+            
             currentSummaryPeriod.preset = preset;
-
-            applyPeriodToInputs(period);
             loadRegionalSummary();
         });
     });
@@ -3523,9 +3628,64 @@ function renderRegionalSummary(data) {
     const container = document.getElementById("regionalSummaryContent");
     if (!container) return;
 
-    const intents = Array.isArray(data.intents) ? data.intents : [];
-    const reportCount = data.report_count || 0;
-    const municipalityCount = data.municipality_count || 0;
+    // 1. Setup static lists
+    const REGION_MUNICIPALITIES = {
+        "Aurora": ["Baler", "Casiguran", "Dilasag", "Dinalungan", "Dingalan", "Dipaculao", "Maria Aurora", "San Luis"],
+        "Bataan": ["Abucay", "Bagac", "Balanga", "Dinalupihan", "Hermosa", "Limay", "Mariveles", "Morong", "Orani", "Orion", "Pilar", "Samal"],
+        "Bulacan": ["Angat", "Balagtas", "Baliuag", "Bocaue", "Bulakan", "Bustos", "Calumpit", "Doña Remedios Trinidad", "Guiguinto", "Hagonoy", "Malolos", "Marilao", "Meycauayan", "Norzagaray", "Obando", "Pandi", "Paombong", "Plaridel", "Pulilan", "San Ildefonso", "San Jose del Monte", "San Miguel", "San Rafael", "Santa Maria"],
+        "Nueva Ecija": ["Aliaga", "Bongabon", "Cabanatuan", "Cabiao", "Carranglan", "Cuyapo", "Gabaldon", "Gapan", "General Mamerto Natividad", "General Tinio", "Guimba", "Jaen", "Laur", "Licab", "Llanera", "Lupao", "Muñoz", "Nampicuan", "Palayan", "Pantabangan", "Peñaranda", "Quezon", "Rizal", "San Antonio", "San Isidro", "San Jose", "San Leonardo", "Santa Rosa", "Santo Domingo", "Talavera", "Talugtug", "Zaragoza"],
+        "Pampanga": ["Angeles City", "Apalit", "Arayat", "Bacolor", "Candaba", "Floridablanca", "Guagua", "Lubao", "Mabalacat", "Macabebe", "Magalang", "Masantol", "Mexico", "Minalin", "Porac", "San Fernando", "San Luis", "San Simon", "Santa Ana", "Santa Rita", "Santo Tomas"],
+        "Tarlac": ["Anao", "Bamban", "Camiling", "Capas", "Concepcion", "Gerona", "La Paz", "Mayantoc", "Moncada", "Paniqui", "Pura", "Ramos", "San Clemente", "San Jose", "San Manuel", "Santa Ignacia", "Tarlac City", "Victoria"],
+        "Zambales": ["Botolan", "Cabangan", "Candelaria", "Castillejos", "Iba", "Masinloc", "Olongapo", "Palauig", "San Antonio", "San Felipe", "San Marcelino", "San Narciso", "Santa Cruz", "Subic"]
+    };
+    const REGION_III_PROVINCES = Object.keys(REGION_MUNICIPALITIES).sort((a,b)=>a.localeCompare(b));
+
+    // 2. Helper functions
+    const allIntents = Array.isArray(data.intents) ? data.intents : [];
+    const provinceOf = i => String(
+        i.province || i.province_name || i.provinceName || i.province_name_en || i.provincial_name ||
+        i.province?.name || i.municipality?.province || i.municipality?.province_name ||
+        i.barangay?.municipality?.province || i.report?.province || i.report?.province_name ||
+        i.aew?.province || i.farmer?.province || i.location?.province || ""
+    ).trim();
+    const municipalityOf = i => String(
+        (typeof i.municipality === "string" ? i.municipality : i.municipality?.name) ||
+        i.municipality_name || i.municipalityName || i.city || i.city_name || i.cityName ||
+        i.report?.municipality || i.report?.municipality_name || i.location?.municipality || ""
+    ).trim();
+
+    // 3. SIGURADUHIN NA PAMPANGA LANG ANG NAKA-SELECT
+    selectedSummaryProvinces = ["Pampanga"];
+
+    // 4. Render Municipalities Dropdown (Pampanga only)
+    const municipalitySelect = document.getElementById("summaryMunicipalitySelect");
+    if (municipalitySelect) {
+        const pampangaMunis = REGION_MUNICIPALITIES["Pampanga"];
+        const previousSelectedMunis = new Set(selectedSummaryMunicipalities);
+        
+        municipalitySelect.innerHTML = pampangaMunis.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+        
+        selectedSummaryMunicipalities = pampangaMunis.filter(name => previousSelectedMunis.has(name));
+        Array.from(municipalitySelect.options).forEach(o => o.selected = selectedSummaryMunicipalities.includes(o.value));
+        refreshSummaryMultiSelect("municipality");
+    }
+
+    // 5. I-filter ang intents (Pampanga lang palagi)
+    let intents = allIntents.filter(i => {
+        const prov = provinceOf(i);
+        // Kung walang province na naka-tag sa data, i-assume na Pampanga (para sa testing) o i-check kung Pampanga
+        return prov === "Pampanga" || prov === ""; 
+    });
+    
+    if (selectedSummaryMunicipalities.length > 0) {
+        intents = intents.filter(i => selectedSummaryMunicipalities.includes(municipalityOf(i)));
+    }
+    
+    // 6. Compute Stats
+    const reportIds = [...new Set(intents.map(i => i.report_id ?? i.reportId ?? i.report?.report_id).filter(v => v !== undefined && v !== null && v !== ""))];
+    const isOverall = selectedSummaryProvinces.length === 0 && selectedSummaryMunicipalities.length === 0;
+    const reportCount = isOverall ? Number(data.report_count || 0) : (reportIds.length ? reportIds.length : Number(data.report_count || 0));
+    const municipalityCount = new Set(intents.map(municipalityOf).filter(Boolean)).size;
 
     const periodStart = data.period_start ? new Date(data.period_start) : null;
     const periodEnd = data.period_end ? new Date(data.period_end) : null;
@@ -3537,7 +3697,7 @@ function renderRegionalSummary(data) {
                     No reports found for this period
                 </div>
                 <div style="font-size: 13px; line-height: 1.5;">
-                    No Pampanga municipality has submissions between
+                    ${selectedSummaryMunicipalities.length ? `No submissions for ${escapeHtml(selectedSummaryMunicipalities.join(", "))} between` : selectedSummaryProvinces.length ? `No submissions for ${escapeHtml(selectedSummaryProvinces.join(", "))} between` : "No regional submissions between"}
                     <b>${periodStart ? formatDateLong(periodStart) : "the beginning"}</b>
                     and
                     <b>${periodEnd ? formatDateLong(periodEnd) : "now"}</b>.
@@ -3552,8 +3712,6 @@ function renderRegionalSummary(data) {
     const uniqueFarmers = new Set(intents.map(i => i.farmer_id || i.farmer_name).filter(Boolean));
     const uniqueFarmerCount = uniqueFarmers.size;
 
-    // Use backend-provided pending_report_count (source of truth)
-    // Backend counts REPORTS awaiting DA-RFO validation, not intents.
     const pendingCount = Number(data.pending_report_count) || 0;
 
     const harvestedIntents = intents.filter(i =>
@@ -3642,10 +3800,11 @@ function renderRegionalSummary(data) {
 
     let html = "";
 
+    // 7. Render HTML
     html += `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1.5px solid var(--border-light); flex-wrap: wrap; gap: 12px;">
             <div>
-                <div style="font-size: 14px; font-weight: 800; color: var(--green-dark); text-transform: uppercase; letter-spacing: 0.06em;">Regional Summary</div>
+                <div style="font-size: 14px; font-weight: 800; color: var(--green-dark); text-transform: uppercase; letter-spacing: 0.06em;">${selectedSummaryMunicipalities.length ? escapeHtml(selectedSummaryMunicipalities.join(", ") + " Summary") : selectedSummaryProvinces.length ? escapeHtml(selectedSummaryProvinces.join(", ") + " Summary") : "Regional Summary"}</div>
                 <div style="font-size: 11px; color: var(--muted); margin-top: 3px;">Pampanga • Coverage: ${escapeHtml(periodLabel)}</div>
             </div>
             <div style="font-size: 11px; font-weight: 700; color: var(--green-dark); background: var(--green-light); padding: 5px 12px; border-radius: 999px;">
@@ -3810,7 +3969,6 @@ function renderRegionalSummary(data) {
 
     container.innerHTML = html;
 }
-
 
 /* ============================================================
    ETL RUN LOGS (with pagination — 7 per page)
@@ -4562,3 +4720,115 @@ async function uploadMarketFile() {
 /* ============================================================
    END OF da.js
 ============================================================ */
+
+
+/* ============================================================
+   DA-RFO SUMMARY + SELECTED REPORT EXPORTS (AEW-STYLE)
+============================================================ */
+function initDaSummaryExports() {
+    document.getElementById("exportSummaryPdfBtn")?.addEventListener("click", exportDaSummaryPdf);
+    document.getElementById("exportSummaryXlsxBtn")?.addEventListener("click", exportDaSummaryXlsx);
+    document.getElementById("exportSelectedPdfBtn")?.addEventListener("click", () => exportDaSelectedReports("pdf"));
+    document.getElementById("exportSelectedXlsxBtn")?.addEventListener("click", () => exportDaSelectedReports("xlsx"));
+}
+
+function daExportDate(value) {
+    if (!value) return "All dates";
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"});
+}
+function daExportFileDate() { return new Date().toISOString().slice(0,10); }
+function daExportPeriodLabel() {
+    const s = document.getElementById("summaryPeriodStart")?.value;
+    const e = document.getElementById("summaryPeriodEnd")?.value;
+    if (!s && !e) return "All Time"; // If both are empty
+    return `${s ? daExportDate(s) : "Beginning"} – ${e ? daExportDate(e) : "Present"}`;
+}
+function daExportSummaryClone() {
+    const source = document.getElementById("regionalSummaryContent");
+    if (!source || !source.innerHTML.trim()) throw new Error("Summary is not loaded yet. Please wait for it to finish loading.");
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "background:#fff;color:#17251d;padding:28px;font-family:Arial,sans-serif;width:100%;box-sizing:border-box;";
+    wrap.innerHTML = `<div style="text-align:center;border-bottom:3px solid #0b382a;padding:0 0 16px;margin-bottom:20px"><div style="font-size:11px;letter-spacing:2px;color:#537363;font-weight:bold">DEPARTMENT OF AGRICULTURE · REGIONAL FIELD OFFICE</div><h1 style="font-size:24px;color:#0b382a;margin:8px 0">Regional Summary Report</h1><p style="margin:0;color:#637168;font-size:12px">Scope: ${escapeHtml(selectedSummaryProvinces.length ? selectedSummaryProvinces.join(", ") : "All Provinces")}${selectedSummaryMunicipalities.length ? " · Municipalities: " + escapeHtml(selectedSummaryMunicipalities.join(", ")) : ""}</p><p style="margin:0;color:#637168;font-size:12px">Reporting period: ${daExportPeriodLabel()}</p></div>`;
+    const clone = source.cloneNode(true);
+    clone.querySelectorAll(".no-print,button,input,select").forEach(el => el.remove());
+    clone.style.cssText = "display:block;background:#fff;color:#17251d;";
+    wrap.appendChild(clone);
+    wrap.querySelectorAll("* ").forEach(el => { if (el.style) { el.style.maxWidth = "100%"; } });
+    return wrap;
+}
+async function exportDaSummaryPdf() {
+    try {
+        if (typeof html2pdf === "undefined") throw new Error("PDF export library is unavailable. Check the internet connection or script include.");
+        const content = daExportSummaryClone();
+        await html2pdf().set({margin:[8,8,10,8], filename:`DA-RFO_Regional_Summary_${daExportFileDate()}.pdf`, image:{type:"jpeg",quality:0.98}, html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff"}, jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}, pagebreak:{mode:["css","legacy"]}}).from(content).save();
+    } catch (e) { alert(e.message || "Unable to export summary PDF."); }
+}
+function daSummaryTablesToWorkbook() {
+    if (typeof XLSX === "undefined") throw new Error("Excel export library is unavailable. Check the internet connection or script include.");
+    const wb = XLSX.utils.book_new();
+    const source = document.getElementById("regionalSummaryContent");
+    if (!source || !source.innerHTML.trim()) throw new Error("Summary is not loaded yet. Please wait for it to finish loading.");
+    const summary = [["DA-RFO REGIONAL SUMMARY"],["Province scope", selectedSummaryProvinces.length ? selectedSummaryProvinces.join(", ") : "All Provinces"],["Municipality scope", selectedSummaryMunicipalities.length ? selectedSummaryMunicipalities.join(", ") : "All municipalities in selected provinces"],["Reporting period", daExportPeriodLabel()],["Generated", new Date().toLocaleString()],[]];
+    source.querySelectorAll(".summary-kpi-card").forEach(card => {
+      const label = card.querySelector(".summary-kpi-label")?.innerText?.trim() || "Metric";
+      const value = card.querySelector(".summary-kpi-value")?.innerText?.trim() || "";
+      const sub = card.querySelector(".summary-kpi-subtext")?.innerText?.trim() || "";
+      summary.push([label, value, sub]);
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), "Regional Summary");
+    let tableIndex=0;
+    source.querySelectorAll("table").forEach(table => {
+      tableIndex++;
+      const rows = XLSX.utils.table_to_sheet(table);
+      XLSX.utils.book_append_sheet(wb, rows, `Details ${tableIndex}`.slice(0,31));
+    });
+    if (tableIndex===0) {
+      const rows=[];
+      source.querySelectorAll(".summary-breakdown-grid > div").forEach(section=>{
+        rows.push([section.querySelector(".summary-breakdown-title")?.innerText?.trim() || "Breakdown"]);
+        section.querySelectorAll(".summary-breakdown-row").forEach(r=>rows.push([r.children[0]?.innerText?.trim()||"",r.children[1]?.innerText?.trim()||""]));
+        rows.push([]);
+      });
+      if(rows.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Breakdowns");
+    }
+    return wb;
+}
+function exportDaSummaryXlsx() {
+    try { XLSX.writeFile(daSummaryTablesToWorkbook(), `DA-RFO_Regional_Summary_${daExportFileDate()}.xlsx`); }
+    catch(e) { alert(e.message || "Unable to export summary Excel."); }
+}
+function daSelectedReportRows() {
+    const view=document.getElementById("view-reports");
+    if(!view) return [];
+    return [...view.querySelectorAll("tbody tr")].filter(tr=>{
+      const cb=tr.querySelector('input[type="checkbox"]');
+      return cb && cb.checked && cb.id !== "selectAllCheckbox";
+    });
+}
+async function exportDaSelectedReports(type) {
+    const rows=daSelectedReportRows();
+    if(!rows.length) { alert("Select one or more reports in the Reports tab first."); return; }
+    const tableHead = rows[0].closest("table")?.querySelector("thead tr");
+    const headers = tableHead ? [...tableHead.querySelectorAll("th,td")].map(c=>c.innerText.trim()) : [...rows[0].querySelectorAll("th,td")].map(c=>c.innerText.trim());
+    const wb=typeof XLSX!=="undefined" ? XLSX.utils.book_new() : null;
+    if(type==="xlsx") {
+      try {
+        if(!wb) throw new Error("Excel export library is unavailable.");
+        const aoa=[headers, ...rows.map(r=>[...r.querySelectorAll("th,td")].map(c=>c.innerText.trim()))];
+        XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),"Selected Reports");
+        XLSX.writeFile(wb,`DA-RFO_Selected_Reports_${daExportFileDate()}.xlsx`);
+      } catch(e) { alert(e.message || "Unable to export selected reports."); }
+      return;
+    }
+    try {
+      if(typeof html2pdf==="undefined") throw new Error("PDF export library is unavailable.");
+      const wrapper=document.createElement("div");
+      wrapper.style.cssText="padding:24px;font-family:Arial,sans-serif;color:#17251d;background:white";
+      wrapper.innerHTML=`<div style="text-align:center;border-bottom:3px solid #0b382a;padding-bottom:12px;margin-bottom:16px"><h2 style="color:#0b382a;margin:0">DA-RFO Selected Reports</h2><p style="font-size:12px">Generated ${new Date().toLocaleString()}</p></div>`;
+      const table=document.createElement("table"); table.style.cssText="width:100%;border-collapse:collapse;font-size:10px";
+      rows.forEach((r,i)=>{const tr=document.createElement("tr");[...r.querySelectorAll("th,td")].forEach(c=>{const cell=document.createElement(i===0?"th":"td");cell.textContent=c.innerText.trim();cell.style.cssText="border:1px solid #cfd8d3;padding:6px;text-align:left";if(i===0)cell.style.background="#e3eee7";tr.appendChild(cell)});table.appendChild(tr)});
+      wrapper.appendChild(table);
+      await html2pdf().set({margin:8,filename:`DA-RFO_Selected_Reports_${daExportFileDate()}.pdf`,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,backgroundColor:"#fff"},jsPDF:{unit:"mm",format:"a4",orientation:"landscape"}}).from(wrapper).save();
+    } catch(e) { alert(e.message || "Unable to export selected reports."); }
+}

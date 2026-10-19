@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Municipal Coordinator — eSaka</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/ui-feedback.js"></script>
 <script src="../assets/js/app-enhancements.js" defer></script>
@@ -1020,6 +1022,96 @@ input[type="checkbox"]#selectAllCheckbox {
   }
 }
 
+/* ===== 7-CARD REPORT SUMMARY + VARIANCE (aligned with AEW) ===== */
+.summary-seven-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:12px;
+  align-items:start
+}
+.summary-seven-card {
+  padding:14px 16px;
+  background:#FFF;
+  border-radius:10px;
+  border:1px solid var(--border-light);
+  border-top:3px solid var(--secondary);
+  font-size:13px;
+  color:var(--ink)
+}
+.summary-seven-card.warn { border-top-color:#D97706 }
+.summary-seven-title {
+  font-size:10px;
+  font-weight:700;
+  color:var(--secondary);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  margin-bottom:8px
+}
+.summary-seven-value {
+  font-size:22px;
+  font-weight:800;
+  color:var(--secondary);
+  line-height:1.2
+}
+.summary-seven-sub { font-size:10px; color:var(--muted); margin-top:2px }
+.summary-seven-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  padding:5px 0;
+  border-bottom:1px dashed var(--border-light);
+  font-size:12px
+}
+.summary-seven-row:last-child { border-bottom:none }
+.variance-badge {
+  display:inline-block;
+  padding:3px 10px;
+  background:#FFFBEB;
+  border:1px solid #FCD34D;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  color:#92400E;
+  white-space:nowrap
+}
+.variance-count-badge {
+  display:inline-block;
+  min-width:22px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#D97706;
+  color:#FFF;
+  font-size:11px;
+  font-weight:700;
+  text-align:center
+}
+.variance-card {
+  padding:14px 18px;
+  background:#FFFBEB;
+  border:1.5px solid #FCD34D;
+  border-left:4px solid #D97706;
+  border-radius:10px
+}
+.variance-date-box {
+  background:#FFF;
+  border:1px solid #FCD34D;
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:12px
+}
+.variance-remark-box {
+  background:#FFF;
+  border-left:3px solid #D97706;
+  padding:10px 14px;
+  border-radius:0 6px 6px 0;
+  font-size:13px;
+  color:var(--ink);
+  line-height:1.55;
+  white-space:pre-wrap;
+  word-break:break-word
+}
+
 /* ===== VALIDATION TIMELINE ===== */
 .validation-timeline {
   position:relative;
@@ -1426,6 +1518,187 @@ input[type="checkbox"] {
   background:var(--tint-green) !important;
   color:var(--secondary) !important;
 }
+
+/* AEW visual alignment: consistent dashboard header and summary export panel */
+.aew-style-header {
+  min-height: 150px;
+  padding: 26px 30px;
+  border: 1px solid rgba(15,61,46,.10);
+  border-radius: 18px;
+  background: linear-gradient(120deg,#fbfaf5 0%,#f4f8ef 58%,#e3f0e2 100%);
+  box-shadow: 0 8px 28px rgba(31,54,39,.07);
+  position: relative;
+  overflow: hidden;
+}
+.aew-style-header h1 { color: var(--primary); font-size: 30px; letter-spacing: -.035em; }
+.aew-style-header p { color: var(--muted); line-height: 1.55; max-width: 720px; }
+.aew-summary-export-panel {
+  display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;
+  padding:18px 20px; margin:0 0 18px; background:#fff;
+  border:1px solid rgba(15,61,46,.12); border-radius:16px;
+  box-shadow:0 4px 16px rgba(31,54,39,.05);
+}
+.aew-summary-export-copy { display:flex; flex-direction:column; gap:5px; min-width:220px; }
+.aew-summary-export-copy strong { color:var(--primary); font-size:15px; }
+.aew-summary-export-copy span { color:var(--muted); font-size:11px; line-height:1.5; max-width:420px; }
+.aew-summary-export-panel .report-export-tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.finalized-export-option { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted); font-weight:700; margin-right:4px; }
+.finalized-export-option input { accent-color:var(--primary); }
+.export-btn.secondary { background:#f3f7f2; color:var(--primary); border-color:#d9e5db; }
+.export-btn.secondary:hover { background:#e3eee7; }
+.reports-summary .summary-card { border-radius:12px; border:1px solid #E3E8E5; box-shadow:0 2px 8px rgba(0,0,0,.025); }
+.reports-summary .summary-card:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,.06); }
+@media(max-width:900px) { .aew-summary-export-panel { align-items:flex-start; } .aew-summary-export-panel .report-export-tools { width:100%; } }
+@media(max-width:650px) { .aew-style-header { padding:22px 20px; } .aew-style-header h1 { font-size:25px; } .aew-summary-export-panel .report-export-tools { display:grid; grid-template-columns:1fr 1fr; } .finalized-export-option { grid-column:1/-1; } .aew-summary-export-panel .export-btn { width:100%; } }
+
+/* Reporting alignment and export additions */
+.reports-summary .summary-card { cursor:pointer; transition:transform .18s ease, box-shadow .18s ease; }
+.reports-summary .summary-card:focus-visible,.reports-summary .summary-card:hover { outline:2px solid var(--tertiary); outline-offset:2px; transform:translateY(-2px); box-shadow:0 8px 20px rgba(11,56,42,.12); }
+.reports-summary .summary-card[aria-pressed="true"] { box-shadow:0 0 0 2px var(--tertiary),0 8px 20px rgba(11,56,42,.12); }
+.report-table-tools { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin:0 0 14px; }
+.report-pagination { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:14px; color:var(--muted); font-size:12px; flex-wrap:wrap; }
+.report-pagination button,.export-btn { border:1px solid var(--border); background:#fff; color:var(--primary); border-radius:8px; padding:8px 12px; font-weight:700; cursor:pointer; }
+.report-pagination button:disabled { opacity:.4; cursor:not-allowed; }
+.report-export-tools { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.export-btn.primary { background:var(--primary); color:white; border-color:var(--primary); }
+.export-btn.gold { background:var(--tertiary); color:#211b04; border-color:var(--tertiary); }
+#reportExportFinalizedOnly { accent-color:var(--primary); }
+.report-detail-export { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px; }
+.report-letterhead { text-align:center; border-bottom:2px solid #0B382A; padding-bottom:12px; margin-bottom:18px; }
+.report-letterhead h2 { color:#0B382A; margin:0 0 4px; font-size:20px; }
+.report-letterhead p { margin:2px 0; font-size:11px; color:#47534c; }
+.export-signatures { display:grid; grid-template-columns:1fr 1fr; gap:36px; margin-top:44px; }
+.export-signatures div { border-top:1px solid #444; padding-top:8px; text-align:center; font-size:11px; }
+.export-note { background:#FEF3C7; border:1px solid #FCD34D; padding:12px; border-radius:8px; color:#78350F; margin:12px 0; }
+@media(max-width:700px) { .export-signatures { grid-template-columns:1fr; gap:28px; } }
+
+/* ===== DETAIL VIEW (Field Console Style) ===== */
+#individualDetailView {
+  position: relative;
+  width: 100%;
+  padding-bottom: 40px;
+}
+
+.detail-header-console { 
+  margin-bottom: 24px; 
+}
+.console-eyebrow { 
+  font-size: 11px; font-weight: 800; color: #77847b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; 
+}
+.detail-header-console h1 { 
+  font-size: 28px; font-weight: 800; color: var(--secondary); letter-spacing: -0.02em; margin: 0; 
+}
+.console-subtitle { 
+  font-size: 13px; color: var(--muted); margin-top: 4px; 
+}
+
+/* Top Info Bar */
+.detail-top-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  background: #FAF8F5;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+.detail-top-bar .full-width { grid-column: 1 / -1; }
+.top-bar-item { display: flex; flex-direction: column; gap: 4px; }
+.tb-label { font-size: 10px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.tb-value { font-size: 14px; font-weight: 700; color: var(--ink); }
+
+/* Per-report summary cards: consistent sizing, spacing, and eSaka palette */
+.summary-seven-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+.summary-seven-card {
+  min-width: 0;
+  min-height: 148px;
+  padding: 16px;
+  background: #FFFFFF;
+  border: 1px solid #E4E2D8;
+  border-top: 3px solid #14532D;
+  border-radius: 12px;
+  color: #202824;
+  box-shadow: 0 2px 7px rgba(11,56,42,.045);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.summary-seven-card:nth-child(4n + 2) { border-top-color: #5B6B4F; }
+.summary-seven-card:nth-child(4n + 3) { border-top-color: #EAB308; }
+.summary-seven-card:nth-child(4n + 4) { border-top-color: #8A9A5B; }
+.summary-seven-title {
+  min-height: 30px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  font-weight: 800;
+  color: #445439;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.summary-seven-value {
+  font-size: clamp(20px, 1.8vw, 26px);
+  font-weight: 800;
+  color: #202824;
+  line-height: 1.2;
+  margin-bottom: 3px;
+  overflow-wrap: anywhere;
+}
+.summary-seven-sub { font-size: 11px; line-height: 1.5; color: #5F6B64; }
+.summary-seven-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px dashed #EEECE3;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.summary-seven-row:last-child { border-bottom: none; }
+.summary-seven-row > span { min-width: 0; overflow-wrap: anywhere; }
+.summary-seven-row > b { flex: 0 0 auto; text-align: right; }
+@media (max-width: 1100px) {
+  .summary-seven-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .summary-seven-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .summary-seven-card { min-height: 136px; padding: 13px; }
+}
+@media (max-width: 520px) {
+  .summary-seven-grid { grid-template-columns: 1fr; }
+  .summary-seven-card { min-height: auto; }
+}
+
+/* Footer Actions */
+.detail-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-light);
+  margin-top: 24px;
+}
+
+/* Table */
+.table-responsive table th { background: #F8FAFC; font-weight: 700; color: #64748B; text-transform: uppercase; font-size: 10px; letter-spacing: .04em; }
+.table-responsive table td { font-size: 13px; }
+
+/* I-disable ang sticky topbar kapag naka-detail view para hindi maging gulo */
+body:has(#individualDetailView:not(.hidden-element)) .topbar {
+  position: relative !important; 
+}
+
 </style>
 </head>
 <body class="pc-modern">
@@ -1512,10 +1785,10 @@ input[type="checkbox"] {
 
     <!-- ===================== VIEW: Reports ===================== -->
     <section class="view active-view" id="view-reports">
-      <div class="main-header" id="reportsMainHeader">
+      <div class="main-header aew-style-header" id="reportsMainHeader">
         <div class="header-left">
-          <h1>Reports</h1>
-          <p>Review AEW reports and forward approved ones to Provincial.</p>
+          <h1>Municipal Reports</h1>
+          <p>Review AEW submissions, validate report details, and forward approved reports to the Provincial office.</p>
         </div>
 
         <div class="header-actions">
@@ -1529,33 +1802,7 @@ input[type="checkbox"] {
         </div>
       </div>
 
-      <!-- REPORTS SUMMARY CARDS -->
-      <div class="summary-cards reports-summary" id="reportSummaryCards">
-        <div class="summary-card reports-pending">
-          <div class="summary-info">
-            <h3>Pending Reports</h3>
-            <p class="summary-count" id="reportCountPending">0</p>
-            <span class="summary-label">Municipal Pending</span>
-          </div>
-        </div>
-
-        <div class="summary-card reports-revision">
-          <div class="summary-info">
-            <h3>Awaiting Revision</h3>
-            <p class="summary-count" id="reportCountRevision">0</p>
-            <span class="summary-label">AEW Revision</span>
-          </div>
-        </div>
-
-        <div class="summary-card reports-provincial">
-          <div class="summary-info">
-            <h3>Sent to Provincial</h3>
-            <p class="summary-count" id="reportCountProvincial">0</p>
-            <span class="summary-label">Forwarded</span>
-          </div>
-        </div>
-      </div>
-
+      <!-- Report KPI cards intentionally removed; status is shown in the report tabs. -->
       <!-- PENDING REPORTS -->
       <div id="pendingReportsView">
         <div class="card">
@@ -1594,6 +1841,7 @@ input[type="checkbox"] {
               </tbody>
             </table>
           </div>
+          <div class="report-pagination" id="pendingReportsPagination" aria-label="Pending reports pagination"></div>
         </div>
       </div>
 
@@ -1622,6 +1870,7 @@ input[type="checkbox"] {
               </tbody>
             </table>
           </div>
+          <div class="report-pagination" id="awaitingRevisionPagination" aria-label="Revision reports pagination"></div>
         </div>
       </div>
 
@@ -1658,63 +1907,57 @@ input[type="checkbox"] {
               </tbody>
             </table>
           </div>
+          <div class="report-pagination" id="sentReportsPagination" aria-label="Sent reports pagination"></div>
         </div>
       </div>
 
-      <!-- REPORT DETAIL -->
+            <!-- REPORT DETAIL -->
       <div id="individualDetailView" class="hidden-element">
-        <div class="main-header">
-          <div class="header-left">
-            <h1 id="detailReportTitle">Report Details</h1>
-            <p id="detailReportSubtitle">—</p>
-          </div>
+        
+        <div class="detail-header-console">
+          <div class="console-eyebrow">FIELD CONSOLE</div>
+          <h1 id="detailReportTitle">Report Details</h1>
+          <p id="detailReportSubtitle" class="console-subtitle">—</p>
         </div>
 
-        <div class="card">
-          <!-- REPORT INFO -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px 28px;padding:18px 20px;background:#F1F3EC;border-radius:12px;margin-bottom:24px;">
-            <div>
-              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Report ID</div>
-              <div id="detailReportId" style="font-size:14px;font-weight:700;color:var(--ink);">—</div>
+        <div id="reportDetailExportRoot">
+          
+          <!-- TOP INFO BAR -->
+          <div class="detail-top-bar">
+            <div class="top-bar-item">
+              <span class="tb-label">REPORT ID</span>
+              <span class="tb-value" id="detailReportId">—</span>
             </div>
-            <div>
-              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Municipality</div>
-              <div id="detailReportMunicipality" style="font-size:14px;font-weight:600;color:var(--ink);">—</div>
+            <div class="top-bar-item">
+              <span class="tb-label">MUNICIPALITY</span>
+              <span class="tb-value" id="detailReportMunicipality">—</span>
             </div>
-            <div>
-              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Status</div>
-              <div id="detailReportStatus" style="font-size:14px;color:var(--ink);">—</div>
+            <div class="top-bar-item">
+              <span class="tb-label">STATUS</span>
+              <span class="tb-value" id="detailReportStatus">—</span>
             </div>
-            <div>
-              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Submitted Date</div>
-              <div id="detailReportDate" style="font-size:14px;font-weight:600;color:var(--ink);">—</div>
+            <div class="top-bar-item">
+              <span class="tb-label">SUBMITTED DATE</span>
+              <span class="tb-value" id="detailReportDate">—</span>
             </div>
-            <div>
-              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Encoded By</div>
-              <div id="detailReportEncodedBy" style="font-size:14px;font-weight:600;color:var(--ink);">—</div>
-            </div>
-            <div>
-              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Est. Yield</div>
-              <div id="detailReportYield" style="font-size:14px;font-weight:600;color:var(--ink);">—</div>
-            </div>
-            <div style="grid-column:1/-1;">
-              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Notes / Remarks</div>
-              <div id="detailReportNotes" style="font-size:14px;color:var(--ink);line-height:1.5;">—</div>
+            <div class="top-bar-item full-width">
+              <span class="tb-label">NOTES / REMARKS</span>
+              <span class="tb-value" id="detailReportNotes" style="font-weight: 500;">—</span>
             </div>
           </div>
 
           <!-- ATTACHMENTS -->
-          <div style="margin-bottom:24px;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Attachments</div>
+          <div class="detail-section" style="margin-bottom: 24px;">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;">ATTACHMENTS</div>
             <div id="detailReportAttachments" style="font-size:14px;color:var(--muted);">No attachments</div>
           </div>
 
           <!-- REPORT SUMMARY -->
-          <div id="reportSummaryCardWrapper" style="display:none;">
-            <div class="summary-card">
-              <div class="summary-card-header">
+          <div id="reportSummaryCardWrapper" style="display:none; margin-bottom: 24px;">
+            <div class="summary-card" style="margin:0; padding: 0; border: none; background: transparent;">
+              <div class="summary-card-header" style="padding: 0 0 16px 0; border-bottom: none;">
                 <div>
-                  <div class="summary-card-title">📊 Report Summary</div>
+                  <div class="summary-card-title" style="font-size: 13px;">📊 REPORT SUMMARY</div>
                   <div id="summaryCoveragePeriod" class="summary-card-subtitle">Coverage: —</div>
                 </div>
                 <div id="reportSummaryToggle" style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none;padding:4px 10px;background:#FFF;border-radius:6px;border:1px solid var(--border);">Hide ▲</div>
@@ -1723,64 +1966,79 @@ input[type="checkbox"] {
             </div>
           </div>
 
-          <!-- VALIDATION HISTORY TIMELINE -->
-          <div id="validationHistoryWrapper" style="margin-top:28px;margin-bottom:24px;">
+          <!-- VALIDATION TIMELINE -->
+          <div id="validationHistoryWrapper" class="detail-section" style="margin-bottom: 24px;">
             <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border-light);">
-              📜 Validation Timeline (Audit Trail)
+              📜 VALIDATION TIMELINE (AUDIT TRAIL)
             </div>
-            <div id="validationTimelineContainer">
-              <div style="color:var(--muted);font-style:italic;font-size:13px;">Loading history...</div>
-            </div>
+            <div id="validationTimelineContainer"></div>
           </div>
 
           <!-- INCLUDED PLANTING INTENTS -->
-          <div style="margin-top:8px;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Included Planting Intents</div>
-            <div style="overflow-x:auto;">
-              <table>
+          <div class="detail-section" style="margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📋 INCLUDED PLANTING INTENTS</div>
+              <div id="detailVarianceBadge" style="display:none; font-size: 11px; font-weight: 700; color: #92400E; background: #FEF3C7; padding: 4px 12px; border-radius: 999px; border: 1px solid #FCD34D;">1 date variance remark</div>
+            </div>
+            <div class="table-responsive" style="border: 1px solid var(--border); border-radius: 8px; overflow-x: auto;">
+              <table style="margin: 0; width: 100%; border-collapse: collapse;">
                 <thead>
                   <tr>
-                    <th class="center-col">Intent ID</th>
-                    <th>Farmer</th>
-                    <th>Commodity</th>
-                    <th class="center-col">Volume</th>
-                    <th class="center-col" style="background:#F1F3EC;">📅 Planned Planting</th>
-                    <th class="center-col" style="background:#FEF3C7;">📍 Actual Planting</th>
-                    <th class="center-col" style="background:#F1F3EC;">📅 Planned Harvest</th>
-                    <th class="center-col" style="background:#FEF3C7;">📍 Actual Harvest</th>
-                    <th class="center-col">Harvest Status</th>
+                    <th class="center-col" style="padding: 12px; text-align: center;">INTENT ID</th>
+                    <th style="padding: 12px;">FARMER</th>
+                    <th style="padding: 12px;">COMMODITY</th>
+                    <th class="center-col" style="padding: 12px; text-align: center;">VOLUME</th>
+                    <th class="center-col" style="padding: 12px; text-align: center;">PLANNED PLANTING</th>
+                    <th class="center-col" style="padding: 12px; text-align: center;">ACTUAL PLANTING</th>
+                    <th class="center-col" style="padding: 12px; text-align: center;">PLANNED HARVEST</th>
+                    <th class="center-col" style="padding: 12px; text-align: center;">ACTUAL HARVEST</th>
+                    <th class="center-col" style="padding: 12px; text-align: center;">VARIANCE</th>
+                    <th class="center-col" style="padding: 12px; text-align: center;">HARVEST STATUS</th>
                   </tr>
                 </thead>
                 <tbody id="detailReportIntentsBody">
-                  <tr><td colspan="9" style="padding:20px;text-align:center;color:#999;">No intents included.</td></tr>
+                  <tr><td colspan="10" style="padding:20px;text-align:center;color:#999;">No intents included.</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
 
+          <!-- DATE VARIANCE REMARKS -->
+          <div id="varianceRemarksPanel" class="detail-section" style="display:none; margin-bottom: 24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <div style="font-size:11px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:.06em;">⚠️ DATE VARIANCE REMARKS</div>
+              <span id="varianceRemarksCount" class="variance-count-badge">0</span>
+            </div>
+            <div id="varianceRemarksBody" style="display:grid;gap:12px;"></div>
+          </div>
+
           <!-- REMARKS INPUT -->
-          <div class="notes-row notes-row-clean" style="margin-top:28px;">
+          <div class="detail-section notes-row-clean" style="margin-bottom: 24px;">
             <div class="notes-field">
-              <label>Remarks</label>
-              <textarea id="remarksTextarea" class="textarea-notes" placeholder="Enter remarks (required if flagging for revision)..."></textarea>
+              <label style="display:block; font-size:11px; font-weight:700; color:var(--muted); margin-bottom:8px; text-transform:uppercase;">REMARKS</label>
+              <textarea id="remarksTextarea" class="textarea-notes" placeholder="Type your comment here..." style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 13px;"></textarea>
             </div>
           </div>
+
         </div>
 
         <!-- ACTION BUTTONS -->
-        <div class="detail-actions-row">
-          <button class="btn-outline-report" id="backToPendingBtn" type="button">Return</button>
-          <button class="btn-outline-report" id="editReportBtn" type="button" style="display:none;">Edit</button>
-          <button class="btn-outline-report flag-btn" id="flagBtn" type="button">Flag for Revision</button>
-          <button class="btn-primary approve-btn" id="approveBtn" type="button">Approve &amp; Send to Provincial</button>
-          <button class="btn-primary" id="resubmitReportBtn" type="button" style="background:var(--secondary);display:none;">Resubmit to Provincial</button>
+        <div class="detail-footer-actions">
+          <button class="btn-outline-report" id="backToPendingBtn" type="button" style="padding: 8px 24px;">Back to Reports</button>
+          
+          <div style="display: flex; gap: 10px; margin-left: auto;">
+            <button class="btn-outline-report flag-btn" id="flagBtn" type="button" style="display:none; padding: 8px 24px;">Return to AEW for Revision</button>
+            <button class="btn-primary approve-btn" id="approveBtn" type="button" style="display:none; padding: 8px 24px;">Approve &amp; Send to Provincial</button>
+            <button class="btn-primary" id="resubmitReportBtn" type="button" style="background:var(--secondary); display:none; padding: 8px 24px;">Resubmit to Provincial</button>
+          </div>
         </div>
+
       </div>
     </section>
 
     <!-- ===================== VIEW: Summary ===================== -->
     <section class="view" id="view-summary">
-      <div class="main-header">
+      <div class="main-header aew-style-header">
         <div class="header-left">
           <h1>Municipal Summary Report</h1>
           <p>Aggregated view of all reports in your municipality for a selected period.</p>
@@ -1805,6 +2063,22 @@ input[type="checkbox"] {
         <button class="filter-pill" data-period="last-30" type="button">Last 30 Days</button>
         <button class="filter-pill" data-period="this-quarter" type="button">This Quarter</button>
         <button class="filter-pill" data-period="all-time" type="button">All Time</button>
+      </div>
+
+      <div class="aew-summary-export-panel no-print" aria-label="Summary export options">
+        <div class="aew-summary-export-copy">
+          <strong>Export Summary</strong>
+          <span>Download the summary for the selected reporting period, or export reports selected in View Reports.</span>
+        </div>
+        <div class="report-export-tools">
+          <label class="finalized-export-option">
+            <input type="checkbox" id="reportExportFinalizedOnly"> Finalized intents only
+          </label>
+          <button class="export-btn primary" id="exportSummaryPdfBtn" type="button">Download Summary PDF</button>
+          <button class="export-btn gold" id="exportSummaryXlsxBtn" type="button">Export Summary Excel</button>
+          <button class="export-btn secondary" id="exportSelectedPdfBtn" type="button">Selected Reports PDF</button>
+          <button class="export-btn secondary" id="exportSelectedXlsxBtn" type="button">Selected Reports Excel</button>
+        </div>
       </div>
 
       <div class="card" id="summaryLoadingCard">

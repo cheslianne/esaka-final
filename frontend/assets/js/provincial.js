@@ -3306,6 +3306,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     initApproveButton();
     initResubmitButton();
     initSummaryPeriodPicker();
+    initProvincialSummaryExports();
 
     const backBtn = document.getElementById("backToPendingBtn");
     if (backBtn) {
@@ -3580,3 +3581,141 @@ function pcMapRefresh() {
 document.addEventListener("DOMContentLoaded", () => {
     initReportsQuickFilters();
 });
+
+
+/* ============================================================
+   PROVINCIAL SUMMARY EXPORTS
+   Keep the dashboard's existing AEW-style presentation while
+   providing the same practical PDF / Excel export options.
+============================================================ */
+
+function initProvincialSummaryExports() {
+    document.getElementById("exportSummaryPdfBtn")?.addEventListener("click", exportProvincialSummaryPdf);
+    document.getElementById("exportSummaryXlsxBtn")?.addEventListener("click", exportProvincialSummaryXlsx);
+}
+
+function provincialExportDate(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("en-PH");
+}
+
+function provincialExportFileDate() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function getProvincialSummaryExportRows() {
+    const data = currentSummaryData || {};
+    const intents = Array.isArray(data.intents) ? data.intents : [];
+    return intents.map((intent) => ({
+        "Intent ID": intent.intent_id ?? intent.id ?? "",
+        "Report ID": intent.report_id ?? "",
+        "Farmer": intent.farmer_name ?? "",
+        "Farmer ID": intent.farmer_id ?? "",
+        "Municipality": intent.municipality ?? "",
+        "Commodity": intent.commodity ?? "",
+        "Planting Date": provincialExportDate(intent.planting_date),
+        "Harvest Date": provincialExportDate(intent.harvest_date),
+        "Planned Volume": Number(intent.volume) || 0,
+        "Actual Harvest Volume": Number(intent.actual_harvest_volume) || 0,
+        "Finalized Status": intent.finalized_status ?? "",
+        "Submitted At": provincialExportDate(intent.submitted_at)
+    }));
+}
+
+function exportProvincialSummaryXlsx() {
+    if (!currentSummaryData) {
+        openModal("Load the summary report before exporting.", { title: "Summary Not Ready", icon: "⚠", iconBg: "#FEF3C7", titleColor: "#D97706" });
+        return;
+    }
+    if (typeof XLSX === "undefined") {
+        openModal("Excel export library is unavailable. Refresh the page and try again.", { title: "Export Unavailable", icon: "⚠", iconBg: "#FEE2E2", titleColor: "#C0392B" });
+        return;
+    }
+
+    const data = currentSummaryData;
+    const intents = Array.isArray(data.intents) ? data.intents : [];
+    const period = `${provincialExportDate(data.period_start) || "All time"} to ${provincialExportDate(data.period_end) || "Present"}`;
+    const summaryRows = [
+        ["Provincial Summary Report", "Pampanga"],
+        ["Reporting Period", period],
+        ["Reports Included", Number(data.report_count) || 0],
+        ["Municipalities Included", Number(data.municipality_count) || 0],
+        ["Pending Reports", Number(data.pending_report_count) || 0],
+        ["Total Intents", intents.length],
+        ["Planned Volume", intents.reduce((sum, i) => sum + (Number(i.volume) || 0), 0)],
+        ["Actual Harvest Volume", intents.reduce((sum, i) => sum + (Number(i.actual_harvest_volume) || 0), 0)],
+        ["Prepared By", localStorage.getItem("user_display_name") || localStorage.getItem("full_name") || localStorage.getItem("name") || localStorage.getItem("username") || "Provincial Coordinator"],
+        ["Generated At", new Date().toLocaleString("en-PH")]
+    ];
+
+    const municipalityTotals = {};
+    intents.forEach((i) => {
+        const name = i.municipality || "Unknown";
+        if (!municipalityTotals[name]) municipalityTotals[name] = { intents: 0, planned: 0, actual: 0 };
+        municipalityTotals[name].intents += 1;
+        municipalityTotals[name].planned += Number(i.volume) || 0;
+        municipalityTotals[name].actual += Number(i.actual_harvest_volume) || 0;
+    });
+    const municipalityRows = Object.entries(municipalityTotals).sort((a,b) => a[0].localeCompare(b[0])).map(([municipality, v]) => ({
+        Municipality: municipality, "Intent Count": v.intents, "Planned Volume": v.planned, "Actual Harvest Volume": v.actual
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryRows), "Summary");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(municipalityRows.length ? municipalityRows : [{ Municipality: "No data", "Intent Count": 0, "Planned Volume": 0, "Actual Harvest Volume": 0 }]), "By Municipality");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(getProvincialSummaryExportRows().length ? getProvincialSummaryExportRows() : [{ Note: "No intents in selected period" }]), "Intent Details");
+    XLSX.writeFile(workbook, `provincial-summary-${provincialExportFileDate()}.xlsx`);
+}
+
+async function exportProvincialSummaryPdf() {
+    if (!currentSummaryData) {
+        openModal("Load the summary report before exporting.", { title: "Summary Not Ready", icon: "⚠", iconBg: "#FEF3C7", titleColor: "#D97706" });
+        return;
+    }
+    if (typeof html2pdf === "undefined") {
+        openModal("PDF export library is unavailable. Refresh the page and try again.", { title: "Export Unavailable", icon: "⚠", iconBg: "#FEE2E2", titleColor: "#C0392B" });
+        return;
+    }
+    const source = document.getElementById("provincialSummaryContent");
+    if (!source) return;
+    const clone = source.cloneNode(true);
+    clone.style.display = "block";
+    clone.style.background = "#FFFFFF";
+    clone.style.color = "#202824";
+    clone.style.padding = "18px";
+    clone.style.width = "100%";
+    clone.querySelectorAll(".no-print, button").forEach((el) => el.remove());
+
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "background:#fff;color:#202824;font-family:Arial,sans-serif;width:100%;";
+    const heading = document.createElement("div");
+    heading.style.cssText = "margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #0B382A;";
+    const title = document.createElement("h1");
+    title.textContent = "Provincial Summary Report — Pampanga";
+    title.style.cssText = "font-size:20px;margin:0 0 6px;color:#0B382A;";
+    const meta = document.createElement("p");
+    const d = currentSummaryData;
+    meta.textContent = `Period: ${provincialExportDate(d.period_start) || "All time"} to ${provincialExportDate(d.period_end) || "Present"} | Generated: ${new Date().toLocaleString("en-PH")}`;
+    meta.style.cssText = "font-size:10px;margin:0;color:#555;";
+    heading.append(title, meta);
+    wrapper.append(heading, clone);
+
+    const button = document.getElementById("exportSummaryPdfBtn");
+    if (button) { button.disabled = true; button.textContent = "Preparing PDF…"; }
+    try {
+        await html2pdf().set({
+            margin: [8, 8, 8, 8],
+            filename: `provincial-summary-${provincialExportFileDate()}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: "#FFFFFF" },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            pagebreak: { mode: ["css", "legacy"] }
+        }).from(wrapper).save();
+    } catch (error) {
+        console.error("Provincial PDF export failed:", error);
+        openModal("The PDF could not be generated. Please try again.", { title: "PDF Export Failed", icon: "⚠", iconBg: "#FEE2E2", titleColor: "#C0392B" });
+    } finally {
+        if (button) { button.disabled = false; button.textContent = "📄 Export PDF"; }
+    }
+}
