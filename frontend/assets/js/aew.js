@@ -8364,7 +8364,6 @@ async function fetchOfftakeRequests() {
      
     }
 }
-
 function renderOfftakeTable() {
     const tbody = document.getElementById("offtakeTableBody");
     if (!tbody) return;
@@ -8384,12 +8383,41 @@ function renderOfftakeTable() {
     paginatedItems.forEach(function (request) {
         const row = document.createElement("tr");
         row.className = "clickable-row";
+
+        // ---- Clean the location: strip "Region:", "Province:", etc. ----
+        const rawLocation = String(request.delivery_location || request._farmerLocation || "").trim();
+        const cleanedLocation = rawLocation
+            .split(",")
+            .map(function (part) {
+                return part
+                    .replace(/^\s*(Region|Province|Municipality\/City|Barangay|Street\/Purok\/Sitio|Landmark)\s*:\s*/i, "")
+                    .trim();
+            })
+            .filter(Boolean)
+            .join(", ");
+
+        // ---- Show the FULL address. Only truncate if really long. ----
+        let displayLocation = cleanedLocation || "—";
+        if (displayLocation.length > 70) {
+            displayLocation = displayLocation.slice(0, 70).trimEnd() + "…";
+        }
+
+        // ---- Friendly harvest date ----
+        const harvestDate = request.harvest_date
+            ? formatPlantingDate(request.harvest_date)
+            : "—";
+
         row.innerHTML = `
             <td><span class="pill">${escapeHtml(request._farmerName)}</span></td>
             <td><span class="pill">${escapeHtml(request.commodity || "—")}</span></td>
             <td><span class="pill">${escapeHtml(request.quantity || "—")} kg</span></td>
-            <td><span class="pill">${escapeHtml(request.delivery_location || request._farmerLocation)}</span></td>
-            <td><span class="pill">${escapeHtml(request.harvest_date || "—")}</span></td>
+            <td>
+                <span class="pill" title="${escapeHtml(cleanedLocation || "—")}"
+                      style="display:inline-block; max-width:320px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; cursor:help;">
+                    ${escapeHtml(displayLocation)}
+                </span>
+            </td>
+            <td><span class="pill">${escapeHtml(harvestDate)}</span></td>
             <td><span class="status-pill submitted">Submitted</span></td>
         `;
         tbody.appendChild(row);
@@ -8461,23 +8489,27 @@ function updateOfftakePagination() {
 }
 
 function collectOfftakeFormData() {
-    const deliveryLocation = [
-        ["Region", "offtakeRegion"],
-        ["Province", "offtakeProvince"],
-        ["Municipality/City", "offtakeMunicipality"],
-        ["Barangay", "offtakeBarangay"],
-        ["Street/Purok/Sitio", "offtakeStreet"],
-        ["Landmark", "offtakeLandmark"]
-    ].map(([label, id]) => [label, getOfftakeValue([id])])
-        .filter(([, value]) => value)
-        .map(([label, value]) => `${label}: ${value}`)
+    const street    = getOfftakeValue(["offtakeStreet"]).trim();
+    const barangay  = getOfftakeValue(["offtakeBarangay"]).trim();
+    const muni      = getOfftakeValue(["offtakeMunicipality"]).trim();
+    const province  = getOfftakeValue(["offtakeProvince"]).trim();
+    const region    = getOfftakeValue(["offtakeRegion"]).trim();
+    const landmark  = getOfftakeValue(["offtakeLandmark"]).trim();
+
+    // Clean, Filipino-style address: Street, Barangay, Municipality, Province, Region
+    const baseLocation = [street, barangay, muni, province, region]
+        .filter(Boolean)
         .join(", ");
+
+    const deliveryLocation = landmark
+        ? `${baseLocation} (Landmark: ${landmark})`
+        : baseLocation;
 
     return {
         farmer_name: getOfftakeValue(["offtakeFarmerName", "farmerName", "offtakeFarmer"]),
-        farmer_id: getOfftakeValue(["offtakeFarmerId", "farmerId", "offtakeFarmerID"]),
-        commodity: getOfftakeValue(["offtakeCommodity", "commodity"]),
-        quantity: getOfftakeValue(["offtakeQty", "offtakeQuantity", "quantity"]),
+        farmer_id:   getOfftakeValue(["offtakeFarmerId", "farmerId", "offtakeFarmerID"]),
+        commodity:   getOfftakeValue(["offtakeCommodity", "commodity"]),
+        quantity:    getOfftakeValue(["offtakeQty", "offtakeQuantity", "quantity"]),
         selling_price: getOfftakeValue(["offtakePrice", "offtakeSellingPrice", "sellingPrice"]),
         harvest_date: getOfftakeValue(["offtakeHarvestDate", "harvestDate"]),
         commodity_photo: getOfftakeValue(["offtakeCommodityPhoto", "commodityPhoto"]),
