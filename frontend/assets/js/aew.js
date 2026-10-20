@@ -8192,10 +8192,17 @@ function initOfftakeRequest() {
     const submittedModal = document.getElementById("offtakeSubmittedModal");
 
     initOfftakeLocationCascade();
+    setupOfftakePriceSuggestion();
     fetchOfftakeRequests();
 
     document.getElementById("createOfftakeBtn")?.addEventListener("click", function() {
         currentOfftakeRequest = null;
+
+    const wrapper = document.getElementById("offtakeSuggestionWrapper");
+    if (wrapper) wrapper.style.display = "none";
+    const hint = document.getElementById("offtakePriceHint");
+    if (hint) hint.style.display = "none";
+
         if (list) list.classList.add("hidden-element");
         if (submitSub) submitSub.classList.remove("hidden-element");
         if (confirmSub) confirmSub.classList.add("hidden-element");
@@ -8255,6 +8262,11 @@ function initOfftakeRequest() {
         if (list) list.classList.remove("hidden-element");
         currentOfftakeRequest = null;
         resetOfftakeForm();
+
+        const wrapper = document.getElementById("offtakeSuggestionWrapper");
+        if (wrapper) wrapper.style.display = "none";
+        const hint = document.getElementById("offtakePriceHint");
+        if (hint) hint.style.display = "none";  
     });
 
     const offtakeSearchInput = document.getElementById("searchOfftakeInput");
@@ -8693,6 +8705,278 @@ function resetOfftakeForm() {
     resetOfftakeBarangayDropdown("Select Municipality first");
 
     currentOfftakeRequest = null;
+}
+
+/* ============================================================
+   OFFTAKE — DYNAMIC SUGGESTED PRICE BASE (galing sa forecasting)
+============================================================ */
+
+// Cache para hindi paulit-ulit ang API call
+let FORECAST_CACHE = { data: null, loadedAt: 0 };
+const FORECAST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// I-map ang offtake commodity name papuntang forecast commodity name
+function mapOfftakeCommodityToForecast(commodity) {
+    const map = {
+        "Squash": "Squash fruit",
+        "Tomato": "Tomato",
+        "Red Onion": "Red Onion",
+        "White Onion": "White Onion"
+    };
+    return map[commodity] || commodity;
+}
+
+// Kunin ang forecast data (may cache)
+async function fetchForecastData() {
+    const now = Date.now();
+    if (FORECAST_CACHE.data && (now - FORECAST_CACHE.loadedAt) < FORECAST_CACHE_TTL) {
+        return FORECAST_CACHE.data;
+    }
+    try {
+        const data = await apiRequest(FORECASTS_ENDPOINT, { method: "GET" });
+        const list = Array.isArray(data) ? data : (data?.data || []);
+        FORECAST_CACHE.data = list;
+        FORECAST_CACHE.loadedAt = now;
+        return list;
+    } catch (err) {
+        console.error("Failed to fetch forecasts for suggestion:", err);
+        return FORECAST_CACHE.data || [];
+    }
+}
+
+// Hanapin ang forecast para sa commodity + harvest month
+function findForecastForCommodity(forecasts, commodity, harvestDate) {
+    if (!forecasts?.length || !commodity || !harvestDate) return null;
+
+    const harvestMonth = String(harvestDate).slice(0, 7); // "2026-07"
+    const forecastCommodity = mapOfftakeCommodityToForecast(commodity);
+
+    const matches = forecasts.filter(function (f) {
+        const fCommodity = f.commodity || f.crop || "";
+        const fDate = f.forecast_date || f.date || f.created_at || "";
+        return fCommodity === forecastCommodity && String(fDate).startsWith(harvestMonth);
+    });
+
+    if (!matches.length) return null;
+
+    const lower = matches.reduce(function (s, m) {
+        return s + Number(m.forecast_price_low || 0);
+    }, 0) / matches.length;
+
+    const upper = matches.reduce(function (s, m) {
+        return s + Number(m.forecast_price_high || 0);
+    }, 0) / matches.length;
+
+    return {
+        lower: lower,
+        upper: upper,
+        month: harvestMonth,
+        commodity: forecastCommodity,
+        count: matches.length
+    };
+}
+
+// I-render ang suggestion box
+function renderOfftakePriceSuggestion(forecast, commodity) {
+    const box = document.getElementById("offtakePriceSuggestion");
+    const wrapper = document.getElementById("offtakeSuggestionWrapper");
+    if (!box) return;
+
+    if (wrapper) wrapper.style.display = "block";
+
+    if (!forecast) {
+        box.style.display = "block";
+        box.style.background = "#FFF8E1";
+        box.style.borderLeftColor = "#D97706";
+        box.style.padding = "10px 14px";
+        box.style.marginTop = "8px";
+        box.style.borderRadius = "8px";
+        box.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 14px;">⚠️</span>
+                <span style="color: #9A5B00; font-weight: 600; font-size: 12.5px;">
+                    Walang forecast na available para sa <b>${escapeHtml(commodity || "commodity")}</b>.
+                </span>
+            </div>
+        `;
+        return;
+    }
+
+    const monthLabel = new Date(forecast.month + "-01").toLocaleDateString("en-PH", {
+        month: "long",
+        year: "numeric"
+    });
+
+    const mid = ((forecast.lower + forecast.upper) / 2).toFixed(2);
+    const lower = forecast.lower.toFixed(2);
+    const upper = forecast.upper.toFixed(2);
+
+    box.style.display = "block";
+    box.style.background = "linear-gradient(135deg, #F0F7F3 0%, #E8F2EC 100%)";
+    box.style.border = "1px solid #C8E4D4";
+    box.style.borderLeft = "3px solid var(--green)";
+    box.style.borderRadius = "10px";
+    box.style.padding = "14px 16px";
+    box.style.marginTop = "10px";
+
+    box.innerHTML = `
+        <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px;">
+            <div style="
+                width: 28px;
+                height: 28px;
+                border-radius: 8px;
+                background: var(--green);
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                flex-shrink: 0;
+            ">💡</div>
+            <div style="flex: 1; min-width: 0;">
+                <div style="
+                    font-weight: 800;
+                    color: var(--green-dark);
+                    font-size: 13px;
+                    letter-spacing: -0.01em;
+                    line-height: 1.3;
+                ">
+                    Suggested Price Base — ${escapeHtml(displayCommodityName(forecast.commodity))}
+                </div>
+                <div style="color: var(--muted); font-size: 11px; margin-top: 2px; line-height: 1.4;"></div>
+            </div>
+        </div>
+
+        <div style="
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            padding: 10px 14px;
+            background: #FFFFFF;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #D5E8DC;
+        ">
+            <span style="font-size: 20px; font-weight: 800; color: var(--green-dark); font-variant-numeric: tabular-nums;">₱${lower}</span>
+            <span style="color: var(--muted); font-size: 13px; font-weight: 600;">–</span>
+            <span style="font-size: 20px; font-weight: 800; color: var(--green-dark); font-variant-numeric: tabular-nums;">₱${upper}</span>
+            <span style="color: var(--muted); font-size: 11px; font-weight: 600; margin-left: 2px;">/ kg</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+            <button type="button" class="offtake-price-quick" data-price="${lower}"
+                    style="padding: 8px 10px; font-size: 11px; font-weight: 700; border: 1px solid #C8E4D4; background: #FFFFFF; border-radius: 8px; cursor: pointer; color: var(--green-dark); line-height: 1.2;">
+                <div style="font-size: 9px; opacity: 0.7; text-transform: uppercase;">Lower</div>
+                <div style="font-size: 12px; margin-top: 2px;">₱${lower}</div>
+            </button>
+            <button type="button" class="offtake-price-quick" data-price="${mid}"
+                    style="padding: 8px 10px; font-size: 11px; font-weight: 700; border: 1px solid var(--green); background: var(--green); border-radius: 8px; cursor: pointer; color: #FFFFFF; line-height: 1.2; box-shadow: 0 2px 6px rgba(15,61,46,.2);">
+                <div style="font-size: 9px; opacity: 0.85; text-transform: uppercase;">Mid ★</div>
+                <div style="font-size: 12px; margin-top: 2px;">₱${mid}</div>
+            </button>
+            <button type="button" class="offtake-price-quick" data-price="${upper}"
+                    style="padding: 8px 10px; font-size: 11px; font-weight: 700; border: 1px solid #C8E4D4; background: #FFFFFF; border-radius: 8px; cursor: pointer; color: var(--green-dark); line-height: 1.2;">
+                <div style="font-size: 9px; opacity: 0.7; text-transform: uppercase;">Upper</div>
+                <div style="font-size: 12px; margin-top: 2px;">₱${upper}</div>
+            </button>
+        </div>
+
+        <div style="margin-top: 8px; font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 4px; line-height: 1.3;">
+            <span>ℹ️</span>
+            <span>Gamitin ang <b>Mid</b> value para sa balanced recommendation. Mananatiling pwedeng i-adjust ang Selling Price.</span>
+        </div>
+    `;
+
+    box.querySelectorAll(".offtake-price-quick").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            const priceInput = document.getElementById("offtakePrice");
+            if (priceInput) {
+                priceInput.value = this.dataset.price;
+                priceInput.dispatchEvent(new Event("change", { bubbles: true }));
+                priceInput.style.transition = "background 0.3s ease";
+                priceInput.style.background = "#E8F2EC";
+                setTimeout(() => { priceInput.style.background = ""; }, 400);
+            }
+        });
+    });
+}
+
+// Main function — tatawagin kapag nagbago ang commodity o harvest date
+async function updateOfftakePriceSuggestion() {
+    const commodityEl = document.getElementById("offtakeCommodity");
+    const harvestEl = document.getElementById("offtakeHarvestDate");
+    const box = document.getElementById("offtakePriceSuggestion");
+    const wrapper = document.getElementById("offtakeSuggestionWrapper");
+    const hint = document.getElementById("offtakePriceHint");
+
+    if (!box) return;
+
+    const commodity = commodityEl?.value || "";
+    const harvestDate = harvestEl?.value || "";
+
+    if (!commodity) {
+        if (wrapper) wrapper.style.display = "none";
+        if (hint) hint.style.display = "none";
+        return;
+    }
+
+    if (!harvestDate) {
+        if (wrapper) wrapper.style.display = "none";
+        return;
+    }
+
+    if (hint) hint.style.display = "none";
+    if (wrapper) wrapper.style.display = "block";
+
+    box.style.background = "#F6F3EB";
+    box.style.border = "1px solid var(--border)";
+    box.style.borderLeft = "3px solid var(--muted)";
+    box.style.borderRadius = "10px";
+    box.style.padding = "14px 16px";
+    box.innerHTML = `<span style="color: var(--muted); font-style: italic;">Kinukuha ang suggested price...</span>`;
+
+    try {
+        const forecasts = await fetchForecastData();
+        const forecast = findForecastForCommodity(forecasts, commodity, harvestDate);
+        renderOfftakePriceSuggestion(forecast, commodity);
+    } catch (err) {
+        console.error("❌ Error:", err);
+        box.style.background = "#FDE4E4";
+        box.style.border = "1px solid #F0D3CC";
+        box.style.borderLeft = "3px solid #C0392B";
+        box.style.padding = "14px 16px";
+        box.style.borderRadius = "10px";
+        box.innerHTML = `<span style="color: #B02A2A; font-size: 12.5px;">⚠ ${escapeHtml(err.message || "Error")}</span>`;
+    }
+}
+
+// I-setup ang event listeners — tatawagin sa initOfftakeRequest
+function setupOfftakePriceSuggestion() {
+    const commodityEl = document.getElementById("offtakeCommodity");
+    const harvestEl = document.getElementById("offtakeHarvestDate");
+    const priceEl = document.getElementById("offtakePrice");
+    const hint = document.getElementById("offtakePriceHint");
+
+    if (commodityEl && !commodityEl.dataset.suggestionBound) {
+        commodityEl.addEventListener("change", updateOfftakePriceSuggestion);
+        commodityEl.dataset.suggestionBound = "true";
+    }
+    if (harvestEl && !harvestEl.dataset.suggestionBound) {
+        harvestEl.addEventListener("change", updateOfftakePriceSuggestion);
+        harvestEl.addEventListener("input", updateOfftakePriceSuggestion);
+        harvestEl.dataset.suggestionBound = "true";
+    }
+
+    if (priceEl && !priceEl.dataset.hintBound) {
+        priceEl.addEventListener("focus", function() {
+            const commodity = commodityEl?.value || "";
+            const harvestDate = harvestEl?.value || "";
+            if (!harvestDate && commodity && hint) {
+                hint.style.display = "flex";
+            }
+        });
+        priceEl.dataset.hintBound = "true";
+    }
 }
 
 /* ============================================================

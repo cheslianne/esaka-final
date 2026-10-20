@@ -3516,13 +3516,35 @@ body .report-summary .summary-card:not([aria-pressed="true"]) {
                               <input type="number" id="offtakeQty" required>
                           </div>
                           <div class="form-field-item">
-                              <label>Selling Price (₱ / kg) <span class="req">*</span></label>
-                              <input type="number" id="offtakePrice" required>
-                          </div>
-                          <div class="form-field-item">
-                              <label>Harvest Date <span class="req">*</span></label>
-                              <input type="date" id="offtakeHarvestDate" required>
-                          </div>
+    <label>Selling Price (₱ / kg) <span class="req">*</span></label>
+    <input type="number" id="offtakePrice" required>
+    <!-- ✅ HINT — lalabas kapag nag-click ang user at wala pang Harvest Date -->
+    <div id="offtakePriceHint" style="
+        display: none;
+        align-items: flex-start;
+        gap: 8px;
+        margin-top: 8px;
+        padding: 10px 14px;
+        background: #FFF9E9;
+        border-left: 3px solid #F4A340;
+        border-radius: 0 8px 8px 0;
+        font-size: 12px;
+        color: #805B1C;
+        line-height: 1.45;
+    ">
+        <span style="font-size: 14px; flex-shrink: 0; margin-top: 1px;">💡</span>
+        <span>Piliin muna ang <b>Harvest Date</b> para makita ang <b>suggested price base</b>.</span>
+    </div>
+</div>
+<div class="form-field-item">
+    <label>Harvest Date <span class="req">*</span></label>
+    <input type="date" id="offtakeHarvestDate" required>
+</div>
+<!-- ✅ SUGGESTED PRICE BASE — full width -->
+<div class="form-field-item form-field-full" id="offtakeSuggestionWrapper" style="display: none;">
+    <div id="offtakePriceSuggestion"></div>
+</div>
+                        
                           <div class="form-field-item form-field-full">
                               <label>Delivery Location <span class="req">*</span></label>
                               <div class="form-grid-two">
@@ -3562,7 +3584,7 @@ body .report-summary .summary-card:not([aria-pressed="true"]) {
                           </div>
                       </div>
                       <p class="delivery-location-hint" style="font-size:12px;color:var(--muted);margin-top:-6px;">
-                        Region → Province → Municipality → Barangay. Street and Landmark remain free text.
+                        
                       </p>
                       <div class="actions-right-row">
                           <button class="btn-outline-report" id="returnFromSubmitOfftakeBtn" type="button">Return</button>
