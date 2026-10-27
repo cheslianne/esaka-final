@@ -1053,16 +1053,13 @@ function openBuyerReview(buyer) {
     if (approveBtn) approveBtn.style.display = isPending ? "inline-flex" : "none";
     if (rejectBtn)  rejectBtn.style.display  = isPending ? "inline-flex" : "none";
 
-    buyerRegistryList?.classList.add("hidden-element");
-    buyerReviewDetails?.classList.remove("hidden-element");
-}
-
     renderReviewCommodities(buyer);
     const messageTextarea = document.querySelector("#buyerReviewDetails textarea");
     if (messageTextarea) messageTextarea.value = getBuyerMessage(buyer);
 
     buyerRegistryList?.classList.add("hidden-element");
     buyerReviewDetails?.classList.remove("hidden-element");
+}
 
 function renderReviewCommodities(buyer) {
     const container = document.getElementById("reviewCommodities");
