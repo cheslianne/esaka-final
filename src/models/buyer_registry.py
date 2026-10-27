@@ -43,6 +43,11 @@ class BuyerRegistry(Base):
         nullable=True
     )
 
+    commodities = Column(
+        Text,
+        nullable=True
+    )
+
     document = Column(
         String(255),
         nullable=False

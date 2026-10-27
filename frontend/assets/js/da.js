@@ -939,15 +939,21 @@ function renderVerifiedBuyers(buyers) {
     }
 
     paginatedBuyers.forEach(buyer => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td style="font-weight:600;">${escapeHtml(buyer.organization || "N/A")}</td>
-            <td>${escapeHtml(buyer.contact_person || "N/A")}</td>
-            <td>${escapeHtml(buyer.email_address || "N/A")}</td>
-            <td class="center-col"><span class="status-pill approved">Verified</span></td>
-        `;
-        tbody.appendChild(row);
-    });
+    const row = document.createElement("tr");
+    row.className = "clickable-row";
+    row.dataset.buyerStatusId = buyer.buyer_status_id ?? "";
+    row.dataset.buyerRegistryId = buyer.buyer_registry_id ?? "";
+
+    row.innerHTML = `
+        <td style="font-weight:600;">${escapeHtml(buyer.organization || "N/A")}</td>
+        <td>${escapeHtml(buyer.contact_person || "N/A")}</td>
+        <td>${escapeHtml(buyer.email_address || "N/A")}</td>
+        <td class="center-col"><span class="status-pill approved">Verified</span></td>
+    `;
+
+    row.addEventListener("click", () => openBuyerReview(buyer));
+    tbody.appendChild(row);
+});
 
     renderPaginationUI("verifiedBuyersBody", currentVerifiedPage, totalPages, (newPage) => {
         currentVerifiedPage = newPage;
@@ -1036,13 +1042,27 @@ function openBuyerReview(buyer) {
     const reviewEmail = document.getElementById("reviewEmail");
     if (reviewEmail) reviewEmail.textContent = buyer.email_address || "N/A";
 
+    const approveBtn = document.getElementById("approveBuyerBtn");
+    const rejectBtn  = document.getElementById("rejectBuyerBtn");
+    const statusRaw  = String(
+        buyer.status || buyer.buyer_status || buyer.status_label || ""
+    ).toUpperCase();
+
+    const isPending = statusRaw.includes("PENDING") || statusRaw === "";
+
+    if (approveBtn) approveBtn.style.display = isPending ? "inline-flex" : "none";
+    if (rejectBtn)  rejectBtn.style.display  = isPending ? "inline-flex" : "none";
+
+    buyerRegistryList?.classList.add("hidden-element");
+    buyerReviewDetails?.classList.remove("hidden-element");
+}
+
     renderReviewCommodities(buyer);
     const messageTextarea = document.querySelector("#buyerReviewDetails textarea");
     if (messageTextarea) messageTextarea.value = getBuyerMessage(buyer);
 
     buyerRegistryList?.classList.add("hidden-element");
     buyerReviewDetails?.classList.remove("hidden-element");
-}
 
 function renderReviewCommodities(buyer) {
     const container = document.getElementById("reviewCommodities");

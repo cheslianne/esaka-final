@@ -760,21 +760,23 @@
             </div>
 
             <div class="field commodity-field">
-  <label>COMMODITIES OF INTEREST</label>
-  <div class="commodity-list" id="commodityList" aria-label="Choose commodities">
-    <label>
-      <input type="checkbox" name="commodities" value="Tomato"> Tomato
-    </label>
-    <label>
-      <input type="checkbox" name="commodities" value="Red Onion"> Red Onion
-    </label>
-    <label>
-      <input type="checkbox" name="commodities" value="White Onion"> White Onion
-    </label>
-    <label>
-      <input type="checkbox" name="commodities" value="Squash"> Squash
-    </label>
-  </div>
+              <label>COMMODITIES OF INTEREST</label>
+              <div class="commodity-list" id="commodityList" aria-label="Choose commodities">
+                <label>
+                  <input type="checkbox" name="commodities" value="Tomato"> Tomato
+                </label>
+                <label>
+                  <input type="checkbox" name="commodities" value="Red Onion"> Red Onion
+                </label>
+                <label>
+                  <input type="checkbox" name="commodities" value="White Onion"> White Onion
+                </label>
+                <label>
+                  <input type="checkbox" name="commodities" value="Squash"> Squash
+                </label>
+              </div>
+            </div>
+          </div><!-- ✅ CLOSE form-grid -->
 
           <div class="card-footer">
             <button
@@ -793,7 +795,7 @@
               Continue
             </button>
           </div>
-        </div>
+        </div><!-- ✅ CLOSE step-1 -->
 
         <!-- STEP 2 -->
         <div class="step" id="step-2">
@@ -876,7 +878,7 @@
 
               </div>
             </div>
-          </div>
+          </div><!-- ✅ CLOSE form-grid -->
 
           <div class="card-footer">
             <button
@@ -895,7 +897,7 @@
               Submit Application
             </button>
           </div>
-        </div>
+        </div><!-- ✅ CLOSE step-2 -->
 
       </form>
     </div>
@@ -1181,15 +1183,16 @@ async function executeSubmission() {
   formData.append("phone_number", document.getElementById("phoneNumber").value.trim());
   formData.append("email_address", document.getElementById("buyerEmail").value.trim());
   formData.append("address", document.getElementById("address").value.trim());
-  const selectedCommodities = Array.from(document.querySelectorAll('input[name="commodities"]:checked'))
-    .map(function(checkbox) { return checkbox.value; });
-  const buyerMessage = document.getElementById("message").value.trim();
-  const messageParts = [];
-  if (selectedCommodities.length) {
-    messageParts.push("Commodities of interest: " + selectedCommodities.join(", "));
-  }
-  if (buyerMessage) messageParts.push(buyerMessage);
-  formData.append("message", messageParts.join("\n\n"));
+ // ✅ Commodities bilang hiwalay na field
+const selectedCommodities = Array.from(
+  document.querySelectorAll('input[name="commodities"]:checked')
+).map(cb => cb.value);
+
+formData.append("commodities", selectedCommodities.join(", "));
+
+// ✅ Message — plain na lang
+const buyerMessage = document.getElementById("message").value.trim();
+if (buyerMessage) formData.append("message", buyerMessage);
   formData.append("document", file);
 
   submitBtn.disabled = true;

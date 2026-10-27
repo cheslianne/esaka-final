@@ -23,7 +23,9 @@ class BuyerRegistryUpdate(BaseModel):
     email_address: Optional[EmailStr] = None
     address: Optional[str] = None
     message: Optional[str] = None
+    commodities: Optional[str] = None 
     document: Optional[str] = None
+
 
 
 class BuyerRegistryResponse(BuyerRegistryBase):

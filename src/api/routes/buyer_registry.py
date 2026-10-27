@@ -61,6 +61,7 @@ async def create_buyer_registry(
     email_address: str = Form(...),
     address: str = Form(...),
     message: str | None = Form(None),
+    commodities: str | None = Form(None),
     document: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -132,6 +133,7 @@ async def create_buyer_registry(
         email_address=email_address,
         address=address,
         message=message,
+        commodities=commodities,
 
         # Save path/reference to the actual uploaded file
         document=str(file_path.relative_to(PROJECT_ROOT)),
@@ -215,6 +217,7 @@ def get_all_buyer_registries(
                 email_address=buyer.email_address,
                 address=buyer.address,
                 message=buyer.message,
+                commodities=buyer.commodities, 
                 document=buyer.document,
                 status=status
             )
@@ -326,9 +329,13 @@ async def update_buyer_registry(
     email_address: str | None = Form(None),
     address: str | None = Form(None),
     message: str | None = Form(None),
-    document: UploadFile | None = File(None),
+    commodities: str | None = Form(None),
+    document: UploadFile | None = File(None),\
     db: Session = Depends(get_db)
 ):
+
+    if commodities is not None:                # ✅ IDAGDAG ITO
+        db_buyer.commodities = commodities
 
     db_buyer = (
         db.query(BuyerRegistry)
