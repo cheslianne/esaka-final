@@ -10,6 +10,7 @@ const PENDING_BUYERS_ENDPOINT      = `${API_BASE_URL}/api/buyer-status/pending`;
 const VERIFIED_BUYERS_ENDPOINT     = `${API_BASE_URL}/api/buyer-status/verified`;
 const BUYER_STATUS_ENDPOINT        = `${API_BASE_URL}/api/buyer-status`;
 const BUYER_ATTACHMENT_ENDPOINT    = `${API_BASE_URL}/api/buyer-registry/buyer-registry`;
+const REJECTED_BUYERS_ENDPOINT     = `${API_BASE_URL}/api/buyer-status/rejected`;
 
 const DA_PENDING_ENDPOINT              = `${API_BASE_URL}/api/report-submissions/for-da-rfo-validation`;
 const RETURNED_TO_PROVINCIAL_ENDPOINT  = `${API_BASE_URL}/api/report-submissions/returned-to-provincial`;
@@ -101,6 +102,7 @@ let mapInstance = null;
 let currentSelectedBuyer = null;
 let pendingBuyersCache = [];
 let verifiedBuyersCache = [];
+let rejectedBuyersCache = [];
 let currentActiveAlertCard = null;
 
 let MUNICIPALITY_MAP_RAW_DATA = [];
@@ -128,6 +130,7 @@ let currentApprovedReportsPage = 1;
 
 let currentPendingPage = 1;
 let currentVerifiedPage = 1;
+let currentRejectedPage = 1;
 
 let systemAlertsCache = [];
 let alertSearchTerm = "";
@@ -826,9 +829,8 @@ async function viewBuyerAttachment(buyer) {
 }
 
 async function loadBuyerRegistry() {
-    await Promise.all([loadPendingBuyers(), loadVerifiedBuyers()]);
+    await Promise.all([loadPendingBuyers(), loadVerifiedBuyers(), loadRejectedBuyers()]);
 }
-
 async function loadPendingBuyers() {
     const tbody = document.getElementById("pendingBuyersBody");
     if (!tbody) return;
@@ -953,10 +955,70 @@ function renderVerifiedBuyers(buyers) {
     }, "verifiedBuyersPagination", { totalItems: buyers.length, pageSize: ITEMS_PER_PAGE, label: "verified buyers" });
 }
 
+async function loadRejectedBuyers() {
+    const tbody = document.getElementById("rejectedBuyersBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="4" class="table-msg">Loading blocklisted buyers...</td></tr>`;
+    removePaginationControls("rejectedBuyersPagination");
+
+    try {
+        const response = await fetch(REJECTED_BUYERS_ENDPOINT, { method: "GET", headers: getAuthHeaders() });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch blocklisted buyers.\nStatus: ${response.status}\n${errorText}`);
+        }
+        const data = await response.json();
+        rejectedBuyersCache = Array.isArray(data) ? data : [];
+        renderRejectedBuyers(rejectedBuyersCache);
+        updateBuyerSummaryCards();
+    } catch (error) {
+        console.error("LOAD BLOCKLISTED BUYERS ERROR:", error);
+        tbody.innerHTML = `<tr><td colspan="4" class="table-msg" style="color:#C0392B;"><strong>Unable to load blocklisted buyers.</strong><br><small>Check if the endpoint is available.</small></td></tr>`;
+        removePaginationControls("rejectedBuyersPagination");
+    }
+}
+
+function renderRejectedBuyers(buyers) {
+    const tbody = document.getElementById("rejectedBuyersBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    const totalPages = Math.ceil(buyers.length / ITEMS_PER_PAGE) || 1;
+    if (currentRejectedPage > totalPages) currentRejectedPage = totalPages;
+    if (currentRejectedPage < 1) currentRejectedPage = 1;
+    const startIndex = (currentRejectedPage - 1) * ITEMS_PER_PAGE;
+    const paginatedBuyers = buyers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+    if (!paginatedBuyers.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="table-msg">No blocklisted buyers found.</td></tr>`;
+        removePaginationControls("rejectedBuyersPagination");
+        return;
+    }
+
+    paginatedBuyers.forEach(buyer => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td style="font-weight:600;">${escapeHtml(buyer.organization || "N/A")}</td>
+            <td>${escapeHtml(buyer.contact_person || "N/A")}</td>
+            <td>${escapeHtml(buyer.email_address || "N/A")}</td>
+            <td class="center-col"><span class="status-pill blocked">Blocklisted</span></td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    renderPaginationUI("rejectedBuyersBody", currentRejectedPage, totalPages, (newPage) => {
+        currentRejectedPage = newPage;
+        renderRejectedBuyers(buyers);
+    }, "rejectedBuyersPagination", { totalItems: buyers.length, pageSize: ITEMS_PER_PAGE, label: "blocklisted buyers" });
+}
+
 function updateBuyerSummaryCards() {
     const setCount = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setCount("buyerCountPending", pendingBuyersCache.length);
     setCount("buyerCountVerified", verifiedBuyersCache.length);
+    setCount("buyerCountBlocklisted", rejectedBuyersCache.length);
 }
 
 function openBuyerReview(buyer) {

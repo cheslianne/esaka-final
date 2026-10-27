@@ -819,6 +819,8 @@
     .summary-cards .summary-card.buyers-verified{ border-left-color:#2E7D32; }
     .summary-cards .summary-card.buyers-pending .summary-icon{ background:#FDF3E0; }
     .summary-cards .summary-card.buyers-verified .summary-icon{ background:#E6F4EA; }
+    .summary-cards .summary-card.buyers-blocklisted{ border-left-color:#C0392B; }
+.summary-cards .summary-card.buyers-blocklisted .summary-icon{ background:#FEE2E2; }
 
 
 /* ============================================================
@@ -930,6 +932,7 @@ tbody td{ border-bottom:1px solid var(--border-light); }
 .status-pill.flagged{ background-color:#C0392B !important; }
 .status-pill.rfo{ background-color:#14532D !important; }
 .status-pill.draft{ background-color:#7A857F !important; }
+.status-pill.blocked{ background-color:#C0392B !important; }
 
 .sev-pill.high{ background:#C0392B; }
 .sev-pill.medium{ background:#EAB308; color:#3A2C00; }
@@ -1466,7 +1469,15 @@ input[type="checkbox"]{ accent-color:var(--primary); }
           <span class="summary-label">Approved</span>
         </div>
       </div>
+
+    <div class="summary-card buyers-blocklisted">
+    <div class="summary-info">
+      <h3>Blocklisted Buyers</h3>
+      <p class="summary-count" id="buyerCountBlocklisted">0</p>
+      <span class="summary-label">Restricted</span>
     </div>
+  </div>
+</div>
 
 
           <!-- PENDING REQUESTS -->
@@ -1492,27 +1503,49 @@ input[type="checkbox"]{ accent-color:var(--primary); }
           </div>
 
           <!-- VERIFIED BUYERS -->
-          <div class="card" style="margin-bottom:24px;">
-            <div class="text-section-title" style="margin-bottom:16px;">
-              All Verified Buyers
-            </div>
-            <div style="overflow-x:auto;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Organization</th>
-                    <th>Contact</th>
-                    <th>Email</th>
-                    <th class="center-col">Status</th>
-                  </tr>
-                </thead>
-                <tbody id="verifiedBuyersBody">
-                  <tr><td colspan="4" class="table-msg">Loading verified buyers...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+<div class="card" style="margin-bottom:24px;">
+  <div class="text-section-title" style="margin-bottom:16px;">
+    All Verified Buyers
+  </div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Organization</th>
+          <th>Contact</th>
+          <th>Email</th>
+          <th class="center-col">Status</th>
+        </tr>
+      </thead>
+      <tbody id="verifiedBuyersBody">
+        <tr><td colspan="4" class="table-msg">Loading verified buyers...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- BLOCKLISTED BUYERS (sourced from /api/buyer-status/rejected) -->
+<div class="card" style="margin-bottom:24px;">
+  <div class="text-section-title" style="margin-bottom:16px;">
+    Blocklisted Buyers
+  </div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Organization</th>
+          <th>Contact</th>
+          <th>Email</th>
+          <th class="center-col">Status</th>
+        </tr>
+      </thead>
+      <tbody id="rejectedBuyersBody">
+        <tr><td colspan="4" class="table-msg">Loading blocklisted buyers...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+   </div> 
 
         <!-- REVIEW DETAILS -->
         <div id="buyerReviewDetails" class="hidden-element">
