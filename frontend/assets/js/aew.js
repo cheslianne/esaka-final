@@ -1321,6 +1321,20 @@ function initFarmerSubviews() {
                 return;
             }
 
+            if (!/^09\d{9}$/.test(phone)) {
+    alert("Invalid Phone Number.\n\nDapat 11 digits at nagsisimula sa 09.\nHalimbawa: 09171234567");
+    document.getElementById("regPhone")?.focus();
+    return;
+}
+
+/* ✅ EMAIL — kailangan may domain at TLD (.com, .ph, etc.) */
+if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+    alert("Invalid Email Address.\n\nDapat may domain at extension.\nHalimbawa: juan@gmail.com");
+    document.getElementById("regEmail")?.focus();
+    return;
+}
+
+
             const farmerData = {
                 rsbsa_id: rsbsaId,
                 first_name: firstName,
