@@ -173,6 +173,46 @@ function setupUserProfile() {
 }
 
 /* ============================================================
+   SESSION SYNC — i-overwrite ang localStorage mula sa server
+   Para kung sino ang nag-login, siya ang lumabas (kahit may stale data)
+============================================================ */
+
+async function syncSessionToLocalStorage() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            credentials: "include",
+            headers: { "Accept": "application/json" }
+        });
+        if (!res.ok) {
+            console.warn("Session sync failed:", res.status);
+            return;
+        }
+        const user = await res.json();
+
+        // Overwrite LAHAT ng user-scoped keys gamit ang tunay na session
+        localStorage.setItem("user_id", user.user_id);
+        localStorage.setItem("username", user.username);
+        localStorage.setItem("role", user.role);
+
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ")
+            || user.username
+            || "";
+        localStorage.setItem("user_display_name", fullName);
+        localStorage.setItem("full_name", fullName);
+
+        if (user.avatar) {
+            localStorage.setItem("user_avatar_src", `../images/${user.avatar}`);
+        } else {
+            localStorage.removeItem("user_avatar_src");
+        }
+
+        console.log("✅ Session synced:", user.username, `(${fullName})`);
+    } catch (err) {
+        console.error("Session sync error:", err);
+    }
+}
+
+/* ============================================================
    SIDEBAR
 ============================================================ */
 
@@ -3250,10 +3290,17 @@ function initProfileModal() {
 
     if (!openProfileBtn || !profileModal) return;
 
-    function showCustomAlert(message) {
-        if (customAlertText) customAlertText.textContent = message;
-        if (customAlertModal) customAlertModal.classList.add("show");
+   function showCustomAlert(message, isError = false) {
+    if (customAlertText) customAlertText.textContent = message;
+    if (customAlertModal) {
+        const titleEl = customAlertModal.querySelector("h2");
+        if (titleEl) {
+            titleEl.textContent = isError ? "May Error" : "Tagumpay!";
+            titleEl.style.color = isError ? "#C0392B" : "var(--secondary)";
+        }
+        customAlertModal.classList.add("show");
     }
+}
 
     closeCustomAlertBtn?.addEventListener("click", () => {
         customAlertModal?.classList.remove("show");
@@ -3262,16 +3309,20 @@ function initProfileModal() {
     let currentSelectedSrc = "../images/1.png";
     const userId = localStorage.getItem("user_id");
 
-    openProfileBtn.addEventListener("click", async (e) => {
+    openProfileBtn.addEventListener("open-profile", async (e) => {
         e.stopPropagation();
 
         if (!userId) {
-            showCustomAlert("Session expired. Please log in again.");
+            showCustomAlert("Session expired. Please log in again.", true);
             return;
         }
 
-        try {
-            const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
+            try {
+    const user = await fetchJsonWithTimeout(
+        `${API_BASE_URL}/api/users/${userId}`,
+        { method: "GET", headers: getAuthHeaders({ "Accept": "application/json" }) },
+        10000
+    );
 
             if (profileFirstName) profileFirstName.value = user.first_name || "";
             if (profileLastName) profileLastName.value = user.last_name || "";
@@ -3309,7 +3360,7 @@ function initProfileModal() {
             profileModal.classList.add("show");
         } catch (error) {
             console.error("Failed to load profile:", error);
-            showCustomAlert("Could not load profile data. Please try again.");
+            showCustomAlert("Could not load profile data. Please try again.", true);
         }
     });
 
@@ -3337,7 +3388,7 @@ function initProfileModal() {
         const lName = profileLastName.value.trim();
 
         if (!fName || !lName) {
-            showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields.");
+            showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields.", true);
             return;
         }
 
@@ -3350,14 +3401,19 @@ function initProfileModal() {
         }
 
         try {
-            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
-                method: "PUT",
-                body: JSON.stringify({
-                    first_name: fName,
-                    last_name: lName,
-                    avatar: avatarFilename
-                })
-            });
+            const updatedUser = await fetchJsonWithTimeout(
+    `${API_BASE_URL}/api/users/${userId}`,
+    {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+            first_name: fName,
+            last_name: lName,
+            avatar: avatarFilename
+        })
+    },
+    10000
+);
 
             localStorage.setItem("user_display_name", `${fName} ${lName}`);
             localStorage.setItem("user_avatar_src", currentSelectedSrc);
@@ -3376,7 +3432,7 @@ function initProfileModal() {
 
         } catch (error) {
             console.error("Update error:", error);
-            showCustomAlert(error.message || "Failed to update profile.");
+            showCustomAlert(error.message || "Failed to update profile.", true);
         } finally {
             if (saveBtn) {
                 saveBtn.disabled = false;
@@ -3388,11 +3444,61 @@ function initProfileModal() {
 
 
 /* ============================================================
+   PROFILE DROPDOWN + SIGN OUT (Provincial Coordinator)
+============================================================ */
+
+function initProfileDropdown() {
+    const openBtn    = document.getElementById("openProfileBtn");
+    const dropdown   = document.getElementById("profileDropdown");
+    const editBtn    = document.getElementById("menuEditProfile");
+    const signOutBtn = document.getElementById("menuSignOut");
+
+    if (!openBtn || !dropdown) return;
+
+    openBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!dropdown.contains(e.target) && !openBtn.contains(e.target)) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    editBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.style.display = "none";
+        openBtn.dispatchEvent(new CustomEvent("open-profile"));
+    });
+
+    signOutBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dropdown.style.display = "none";
+
+        showActionConfirm({
+            title: "Sign Out Confirmation",
+            message: "Are you sure you want to sign out of eSaka?",
+            confirmText: "Sign Out",
+            confirmColor: "#C0392B",
+            cancelText: "Cancel",
+            onConfirm: () => {
+                localStorage.clear();
+                window.location.href = "../index.html";
+            },
+        });
+    });
+}
+
+
+/* ============================================================
    INITIALIZATION
 ============================================================ */
 
 document.addEventListener("DOMContentLoaded", async () => {
     console.log("Provincial dashboard loaded.");
+
+    await syncSessionToLocalStorage();
 
     initSidebar();
     initViewNavigation();
@@ -3400,6 +3506,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     loadMunicipalityMapData();
     setupUserProfile();
     initProfileModal();
+    initProfileDropdown();  
     initSearch();
     initBulkActions();
     initSentToRegionalFilter();

@@ -134,6 +134,8 @@ const REPORTS_CURRENT_PAGE = {
 document.addEventListener("DOMContentLoaded", async () => {
     console.log("eSaka AEW Dashboard loaded.");
 
+     await syncSessionToLocalStorage();
+
     initSidebar();
     initViewNavigation();
     initMap();
@@ -347,6 +349,47 @@ async function setupUserProfile() {
     }
 }
 
+
+/* ============================================================
+   SESSION SYNC — i-overwrite ang localStorage mula sa server
+   Para kung sino ang nag-login, siya ang lumabas
+============================================================ */
+
+async function syncSessionToLocalStorage() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            credentials: "include",
+            headers: { "Accept": "application/json" }
+        });
+        if (!res.ok) {
+            console.warn("AEW session sync failed:", res.status);
+            return;
+        }
+        const user = await res.json();
+
+        localStorage.setItem("user_id", user.user_id);
+        localStorage.setItem("username", user.username);
+        localStorage.setItem("role", user.role);
+
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ")
+            || user.username
+            || "";
+        localStorage.setItem("user_display_name", fullName);
+        localStorage.setItem("full_name", fullName);
+
+        // AEW uses user-scoped avatar key
+        const avatarKey = `user_avatar_src_${user.user_id}`;
+        if (user.avatar) {
+            localStorage.setItem(avatarKey, `../images/${user.avatar}`);
+        } else {
+            localStorage.removeItem(avatarKey);
+        }
+
+        console.log("✅ AEW session synced:", user.username, `(${fullName})`);
+    } catch (err) {
+        console.error("AEW session sync error:", err);
+    }
+}
 /* ============================================================
    API REQUEST HELPER
 ============================================================ */

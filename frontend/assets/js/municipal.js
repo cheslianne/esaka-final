@@ -185,6 +185,48 @@ function setupUserProfile() {
     }
 }
 
+
+/* ============================================================
+   SESSION SYNC — i-overwrite ang localStorage mula sa server
+   Para kung sino ang nag-login, siya ang lumabas
+============================================================ */
+
+async function syncSessionToLocalStorage() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+            credentials: "include",
+            headers: { "Accept": "application/json" }
+        });
+        if (!res.ok) {
+            console.warn("Session sync failed:", res.status);
+            return;
+        }
+        const user = await res.json();
+
+        // Overwrite LAHAT ng user-scoped keys gamit ang tunay na session
+        localStorage.setItem("user_id", user.user_id);
+        localStorage.setItem("username", user.username);
+        localStorage.setItem("role", user.role);
+
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ")
+            || user.username
+            || "";
+        localStorage.setItem("user_display_name", fullName);
+        localStorage.setItem("full_name", fullName);
+
+        if (user.avatar) {
+            // scoped avatar key para hindi mag-leak sa ibang user
+            localStorage.setItem(getScopedAvatarKey(), `../images/${user.avatar}`);
+        } else {
+            localStorage.removeItem(getScopedAvatarKey());
+        }
+
+        console.log("✅ Session synced:", user.username, `(${fullName})`);
+    } catch (err) {
+        console.error("Session sync error:", err);
+    }
+}
+
 /* ============================================================
    SIDEBAR
 ============================================================ */
@@ -3070,14 +3112,20 @@ function initProfileModal() {
 
     if (!openProfileBtn || !profileModal) return;
 
-    function showCustomAlert(msg) {
-        if (customAlertText) customAlertText.textContent = msg;
-        if (customAlertModal) customAlertModal.classList.add("show");
+   function showCustomAlert(msg, isError = false) {
+    if (customAlertText) customAlertText.textContent = msg;
+    if (customAlertModal) {
+        const titleEl = customAlertModal.querySelector("h2");
+        if (titleEl) {
+            titleEl.textContent = isError ? "May Error" : "Tagumpay!";
+            titleEl.style.color = isError ? "#C0392B" : "var(--secondary)";
+        }
+        customAlertModal.classList.add("show");
     }
-    closeCustomBtn?.addEventListener("click", () =>
-        customAlertModal?.classList.remove("show")
-    );
-
+}
+closeCustomBtn?.addEventListener("click", () =>
+    customAlertModal?.classList.remove("show")
+);
     let currentSelectedSrc = "../images/1.png";
 
     async function loadProfileIntoModal(event) {
@@ -3123,7 +3171,7 @@ function initProfileModal() {
             profileModal.classList.add("show");
         } catch (err) {
             console.error("Failed to load profile:", err);
-            showCustomAlert("Could not load profile data. Please try again.");
+            showCustomAlert("Could not load profile data. Please try again.", true);
         }
     }
 
@@ -3152,22 +3200,27 @@ function initProfileModal() {
         const fName  = document.getElementById("profileFirstName").value.trim();
         const lName  = document.getElementById("profileLastName").value.trim();
 
-        if (!fName || !lName) return showCustomAlert("Please fill in all required fields.");
-        if (!userId)          return showCustomAlert("Session expired. Please log in again.");
+        if (!fName || !lName) return showCustomAlert("Please fill in all required fields.", true);
+        if (!userId)          return showCustomAlert("Session expired. Please log in again.", true);
 
         const avatarFilename = currentSelectedSrc.split("/").pop();
         const saveBtn = profileForm.querySelector('button[type="submit"]');
         if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
 
         try {
-            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
-                method: "PUT",
-                body: JSON.stringify({
-                    first_name: fName,
-                    last_name: lName,
-                    avatar: avatarFilename
-                })
-            });
+            const updatedUser = await fetchJsonWithTimeout(
+    `${API_BASE_URL}/api/users/${userId}`,
+    {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+            first_name: fName,
+            last_name: lName,
+            avatar: avatarFilename
+        })
+    },
+    10000
+);
 
             const serverFirst  = updatedUser?.first_name || fName;
             const serverLast   = updatedUser?.last_name  || lName;
@@ -3191,7 +3244,7 @@ function initProfileModal() {
 
         } catch (err) {
             console.error("Update error:", err);
-            showCustomAlert(err.message || "Failed to update profile.");
+            showCustomAlert(err.message || "Failed to update profile.", true);
         } finally {
             if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; }
         }
@@ -3204,6 +3257,8 @@ function initProfileModal() {
 
 document.addEventListener("DOMContentLoaded", async () => {
     console.log("Municipal dashboard loaded.");
+
+     await syncSessionToLocalStorage();
 
     const role = localStorage.getItem("role");
     if (role !== "Municipal Coordinator" && role !== "Municipal") {

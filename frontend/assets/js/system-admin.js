@@ -2058,10 +2058,17 @@ function initProfileModal() {
 
     if (!openProfileBtn || !profileModal) return;
 
-    function showCustomAlert(message) {
-        if (customAlertText) customAlertText.textContent = message;
-        if (customAlertModal) customAlertModal.classList.add("show");
+    function showCustomAlert(message, isError = false) {
+    if (customAlertText) customAlertText.textContent = message;
+    if (customAlertModal) {
+        const titleEl = customAlertModal.querySelector("h2");
+        if (titleEl) {
+            titleEl.textContent = isError ? "May Error" : "Tagumpay!";
+            titleEl.style.color = isError ? "#C0392B" : "var(--green-dark)";
+        }
+        customAlertModal.classList.add("show");
     }
+}
 
     closeCustomAlertBtn?.addEventListener("click", () => {
         customAlertModal?.classList.remove("show");
@@ -2075,17 +2082,27 @@ function initProfileModal() {
 
     // Open profile modal - fetch fresh data from DB
     openProfileBtn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        
-        if (!userId) {
-            showCustomAlert("Session expired. Please log in again.");
-            return;
-        }
+    e.stopPropagation();
+    
+    if (!userId) {
+        showCustomAlert("Session expired. Please log in again.");
+        return;
+    }
 
-        try {
-            // Fetch real user data from backend
-            const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
-            
+    try {
+        // Fetch real user data from backend
+        const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+            method: "GET",
+            headers: getAuthHeaders()
+        });
+        let data = {};
+        try { data = await response.json(); } catch { data = {}; }
+
+        if (response.status === 401) { handleUnauthorized(); return; }
+        if (!response.ok) throw new Error(getErrorMessage(data, "Failed to load profile."));
+
+        const user = data;
+
             // Populate form
             if (profileFirstName) profileFirstName.value = user.first_name || "";
             if (profileLastName) profileLastName.value = user.last_name || "";
@@ -2124,7 +2141,7 @@ function initProfileModal() {
             profileModal.classList.add("show");
         } catch (error) {
             console.error("Failed to load profile:", error);
-            showCustomAlert("Could not load profile data. Please try again.");
+            showCustomAlert("Could not load profile data. Please try again.", true);
         }
     });
 
@@ -2169,15 +2186,20 @@ function initProfileModal() {
         }
 
         try {
-            // PUT request to save to DB
-            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
-                method: "PUT",
-                body: JSON.stringify({
-                    first_name: fName,
-                    last_name: lName,
-                    avatar: avatarFilename
-                })
-            });
+            const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+        first_name: fName,
+        last_name: lName,
+        avatar: avatarFilename
+    })
+});
+let updatedUser = {};
+try { updatedUser = await response.json(); } catch { updatedUser = {}; }
+
+if (response.status === 401) { handleUnauthorized(); return; }
+if (!response.ok) throw new Error(getErrorMessage(updatedUser, "Failed to update profile.", true));
 
             // Update localStorage (for fallback/legacy code)
             localStorage.setItem("user_display_name", `${fName} ${lName}`);
