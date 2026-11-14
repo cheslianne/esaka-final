@@ -120,6 +120,8 @@ let selectedSummaryProvinces = [];
 let selectedSummaryMunicipalities = [];
 let daDashboardData = null;
 
+let mpSelectedFile = null;
+
 /* ---------- PAGINATION STATE (7 items per page) ---------- */
 const ITEMS_PER_PAGE = 7;
 const ALERTS_PER_PAGE = 4;   // alert cards are taller, so 4 per page
@@ -146,6 +148,10 @@ let currentEtlPage = 1;
 
 function initProfileModal() {
     const openProfileBtn = document.getElementById("openProfileBtn");
+    const profileDropdown = document.getElementById("profileDropdown");
+    const menuEditProfile = document.getElementById("menuEditProfile");
+    const menuSignOut = document.getElementById("menuSignOut");
+
     const profileModal = document.getElementById("profileModal");
     const closeProfileModalBtn = document.getElementById("closeProfileModalBtn");
     const profileForm = document.getElementById("profileForm");
@@ -159,52 +165,99 @@ function initProfileModal() {
     const customAlertText = document.getElementById("customAlertText");
     const closeCustomAlertBtn = document.getElementById("closeCustomAlertBtn");
 
-    if (!openProfileBtn || !profileModal) return;
+    if (!openProfileBtn) return;
 
-    function showCustomAlert(message) {
+    function showCustomAlert(message, isSuccess = true) {
         if (customAlertText) customAlertText.textContent = message;
-        if (customAlertModal) customAlertModal.classList.add("show");
+        if (customAlertModal) {
+            const titleEl = customAlertModal.querySelector("h2");
+            if (titleEl) {
+                titleEl.textContent = isSuccess ? "Tagumpay!" : "Paalala";
+                titleEl.style.color = isSuccess ? "var(--green-dark)" : "#C0392B";
+            }
+            customAlertModal.classList.add("show");
+        } else {
+            alert(message);
+        }
     }
 
     closeCustomAlertBtn?.addEventListener("click", () => {
         customAlertModal?.classList.remove("show");
     });
 
-    let currentSelectedSrc = "../images/1.png";
-    const userId = localStorage.getItem("user_id");
+    // Dropdown toggle
+    if (profileDropdown) {
+        openProfileBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = profileDropdown.style.display === "block";
+            profileDropdown.style.display = isOpen ? "none" : "block";
+        });
 
-    openProfileBtn.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        if (!userId) { showCustomAlert("Session expired. Please log in again."); return; }
+        document.addEventListener("click", (e) => {
+            if (!profileDropdown.contains(e.target) && !openProfileBtn.contains(e.target)) {
+                profileDropdown.style.display = "none";
+            }
+        });
+    }
+
+    async function openProfileModal() {
+        const userId = localStorage.getItem("user_id");
+        if (!userId) { showCustomAlert("Session expired. Please log in again.", false); return; }
 
         try {
             const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
+
             if (profileFirstName) profileFirstName.value = user.first_name || "";
             if (profileLastName) profileLastName.value = user.last_name || "";
             if (profileUsername) profileUsername.value = user.username || "";
 
             let avatarFile = user.avatar;
             if (!avatarFile) {
-                const savedLocal = localStorage.getItem("user_avatar_src");
+                const savedLocal = localStorage.getItem(`user_avatar_src_${userId}`);
                 if (savedLocal) avatarFile = savedLocal.split("/").pop();
             }
-            if (avatarFile) currentSelectedSrc = `../images/${avatarFile}`;
-            else currentSelectedSrc = "../images/1.png";
+            const currentSelectedSrc = avatarFile ? `../images/${avatarFile}` : "../images/1.png";
 
             let matched = false;
             avatarOptions.forEach((opt) => {
                 opt.classList.remove("selected");
-                if (opt.dataset.avatarImg === currentSelectedSrc) { opt.classList.add("selected"); matched = true; }
+                if (opt.dataset.avatarImg === currentSelectedSrc) {
+                    opt.classList.add("selected");
+                    matched = true;
+                }
             });
             if (!matched && avatarOptions.length > 0) {
                 avatarOptions[0].classList.add("selected");
-                currentSelectedSrc = avatarOptions[0].dataset.avatarImg;
             }
 
-            profileModal.classList.add("show");
+            profileModal?.classList.add("show");
         } catch (error) {
             console.error("Failed to load profile:", error);
-            showCustomAlert("Could not load profile data. Please try again.");
+            showCustomAlert("Could not load profile data. Please try again.", false);
+        }
+    }
+
+    menuEditProfile?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (profileDropdown) profileDropdown.style.display = "none";
+        openProfileModal();
+    });
+
+    menuSignOut?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (profileDropdown) profileDropdown.style.display = "none";
+
+        if (window.ESaka?.confirm) {
+            ESaka.confirm("Are you sure you want to sign out of eSaka?", {
+                title: "Sign Out Confirmation",
+                confirmText: "Sign Out",
+                danger: true
+            }).then((ok) => {
+                if (ok) { localStorage.clear(); window.location.href = "../index.html"; }
+            });
+        } else if (confirm("Are you sure you want to sign out?")) {
+            localStorage.clear();
+            window.location.href = "../index.html";
         }
     });
 
@@ -212,52 +265,68 @@ function initProfileModal() {
         opt.addEventListener("click", () => {
             avatarOptions.forEach(el => el.classList.remove("selected"));
             opt.classList.add("selected");
-            currentSelectedSrc = opt.dataset.avatarImg;
         });
     });
 
     closeProfileModalBtn?.addEventListener("click", (e) => {
         e.preventDefault();
-        profileModal.classList.remove("show");
+        profileModal?.classList.remove("show");
     });
 
-    profileModal.addEventListener("click", (e) => {
+    profileModal?.addEventListener("click", (e) => {
         if (e.target === profileModal) profileModal.classList.remove("show");
     });
 
     profileForm?.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const fName = profileFirstName.value.trim();
-        const lName = profileLastName.value.trim();
-        if (!fName || !lName) { showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields."); return; }
 
-        const avatarFilename = currentSelectedSrc.split("/").pop();
+        const userId = localStorage.getItem("user_id");
+        const fName = profileFirstName?.value.trim() || "";
+        const lName = profileLastName?.value.trim() || "";
+
+        if (!userId) { showCustomAlert("Session expired. Please log in again.", false); return; }
+        if (!fName || !lName) { showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields.", false); return; }
+
+        const selectedAvatar = document.querySelector(".avatar-option.selected");
+        const avatarFilename = selectedAvatar
+            ? selectedAvatar.dataset.avatarImg.split("/").pop()
+            : "1.png";
+
         const saveBtn = profileForm.querySelector('button[type="submit"]');
         if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
 
         try {
             const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
                 method: "PUT",
-                body: JSON.stringify({ first_name: fName, last_name: lName, avatar: avatarFilename })
+                body: JSON.stringify({
+                    first_name: fName,
+                    last_name: lName,
+                    avatar: avatarFilename
+                })
             });
 
-            localStorage.setItem("user_display_name", `${fName} ${lName}`);
-            localStorage.setItem("user_avatar_src", currentSelectedSrc);
+            const serverFirst = updatedUser?.first_name || fName;
+            const serverLast = updatedUser?.last_name || lName;
+            const serverAvatar = updatedUser?.avatar || avatarFilename;
+
+            localStorage.setItem(`user_avatar_src_${userId}`, `../images/${serverAvatar}`);
+            localStorage.setItem("user_display_name", `${serverFirst} ${serverLast}`);
+            localStorage.setItem("full_name", `${serverFirst} ${serverLast}`);
 
             const displayNameEl = document.getElementById("userDisplayName");
-            if (displayNameEl) displayNameEl.textContent = `${fName} ${lName}`;
+            if (displayNameEl) displayNameEl.textContent = `${serverFirst} ${serverLast}`;
 
-            const avatarBox = document.querySelector(".user-info .avatar");
+            const avatarBox = document.getElementById("userDisplayInitials");
             if (avatarBox) {
-                avatarBox.innerHTML = `<img src="${currentSelectedSrc}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                avatarBox.innerHTML = `<img src="../images/${serverAvatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`;
                 avatarBox.style.background = "transparent";
             }
 
-            profileModal.classList.remove("show");
-            showCustomAlert("Profile updated and saved successfully!");
+            profileModal?.classList.remove("show");
+            showCustomAlert("Profile updated and saved successfully!", true);
         } catch (error) {
             console.error("Update error:", error);
-            showCustomAlert(error.message || "Failed to update profile.");
+            showCustomAlert(error.message || "Failed to update profile.", false);
         } finally {
             if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; }
         }
@@ -283,7 +352,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     initDaSummaryExports();
     loadUserInformation();
     initProfileModal();
-    initMarketUploadSection();
+        try {
+        initMarketUploadSection();
+    } catch (err) {
+        console.error("Market upload init failed:", err);
+    }
 
     initializeETLSearch();
     const manualRunBtn = document.getElementById("manualRunBtn");
@@ -404,15 +477,24 @@ function renderDaDashboard(data) {
             ? municipalities.slice(0, 6).map(item => `<div class="da-municipality-row"><span>${escapeDaHtml(item.municipality)}</span><div class="da-municipality-bar"><i style="width:${Math.max(Number(item.total || 0) / maxIntents * 100, 4)}%"></i></div><strong>${Number(item.total || 0)}</strong></div>`).join("")
             : `<div class="da-stat-row"><span>No planting intents</span><strong>0</strong></div>`;
     }
-
     const actions = Array.isArray(data.actions) ? data.actions : [];
     const actionList = document.getElementById("daActionsList");
     if (actionList) {
         actionList.innerHTML = actions.length
             ? actions.slice(0, 4).map(item => {
                 const reviewTarget = item.type === "supply_risk" ? "map" : "reports";
-                const description = item.description ? `<p>${escapeDaHtml(item.description)}</p>` : "";
-                return `<div class="da-priority-item"><div><span class="da-panel-tag">${escapeDaHtml(item.type || "Action")}</span><strong>${escapeDaHtml(item.label || item.name || "Action")}</strong>${description}</div><footer><span>${escapeDaHtml(item.location || "Regional operations")}</span><button class="da-priority-action" data-review-target="${reviewTarget}" type="button">Review →</button></footer></div>`;
+                const actionType = (item.type || "").toLowerCase();
+                const description = item.description ? `<p class="da-priority-desc">${escapeDaHtml(item.description)}</p>` : "";
+                return `
+                  <div class="da-priority-item type-${escapeDaHtml(actionType)}">
+                    <div class="da-priority-body">
+                      <span class="da-priority-title">${escapeDaHtml(item.type || "Action")}</span>
+                      ${description}
+                      <span class="da-priority-meta">${escapeDaHtml(item.location || "Regional operations")}</span>
+                    </div>
+                    <button class="da-priority-action" data-review-target="${reviewTarget}" type="button">Review →</button>
+                  </div>
+                `;
             }).join("")
             : `<div class="da-action-item"><span class="da-action-name">No action items at the moment.</span><span class="da-action-count">0</span></div>`;
     }
@@ -461,7 +543,10 @@ function loadUserInformation() {
         localStorage.getItem("full_name");
 
     const role = localStorage.getItem("role");
-    const storedAvatar = localStorage.getItem("user_avatar_src");
+    const userId = localStorage.getItem("user_id");
+
+    const storedAvatar = userId ? localStorage.getItem(`user_avatar_src_${userId}`) : null;
+    const validAvatar = /^..\/images\/(?:[1-9]|1[0-2])\.png$/.test(storedAvatar || "") ? storedAvatar : null;
 
     const userDisplayName = document.getElementById("userDisplayName");
     const userDisplayRole = document.getElementById("userDisplayRole");
@@ -482,8 +567,8 @@ function loadUserInformation() {
     }
 
     if (userInitials) {
-        if (storedAvatar) {
-            userInitials.innerHTML = `<img src="${storedAvatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`;
+        if (validAvatar) {
+            userInitials.innerHTML = `<img src="${validAvatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;">`;
             userInitials.style.background = "transparent";
         } else {
             userInitials.textContent = getInitials(userName || role || "");
@@ -1053,6 +1138,11 @@ function openBuyerReview(buyer) {
     if (approveBtn) approveBtn.style.display = isPending ? "inline-flex" : "none";
     if (rejectBtn)  rejectBtn.style.display  = isPending ? "inline-flex" : "none";
 
+    // ✅ NASa loob na ng function
+    renderReviewCommodities(buyer);
+    const messageTextarea = document.querySelector("#buyerReviewDetails textarea");
+    if (messageTextarea) messageTextarea.value = getBuyerMessage(buyer);
+
     buyerRegistryList?.classList.add("hidden-element");
     buyerReviewDetails?.classList.remove("hidden-element");
 }
@@ -1246,6 +1336,39 @@ function getActionStyle(action) {
     if (a === "PULLED") return { icon: "↩", label: "Pulled to Draft", color: "#D97706" };
     if (a === "STATUS_CHANGED") return { icon: "•", label: "Status Changed", color: "#6c757d" };
     return { icon: "•", label: a || "Action", color: "#6c757d" };
+}
+async function apiRequest(url, options = {}) {
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            ...getAuthHeaders(options.body instanceof FormData ? false : true),
+            ...(options.headers || {})
+        }
+    });
+
+    let data = null;
+    const contentType = response.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+        try { data = await response.json(); } catch { data = null; }
+    } else {
+        try { data = await response.text(); } catch { data = null; }
+    }
+
+    if (!response.ok) {
+        let message = `HTTP ${response.status}`;
+        if (data && typeof data === "object" && data.detail) {
+            message = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+        } else if (typeof data === "string" && data.trim()) {
+            message = data;
+        }
+        const error = new Error(message);
+        error.status = response.status;
+        error.data = data;
+        throw error;
+    }
+
+    return data;
 }
 
 
@@ -3162,8 +3285,6 @@ function showSuccessModal({
 /* ============================================================
    MARKET DATA UPLOAD — TRIGGERS ETL + FORECAST
 ============================================================ */
-
-let mpSelectedFile = null;
 
 function initMarketUploadSection() {
     const uploadArea = document.getElementById("mpUploadArea");
