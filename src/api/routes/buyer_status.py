@@ -20,6 +20,57 @@ from src.api.services.email_service import send_verified_buyer_email
 router = APIRouter()
 
 
+def _buyer_status_response(status, registry_fields):
+    (
+        organization,
+        contact_person,
+        phone_number,
+        email_address,
+        address,
+        message,
+        document,
+    ) = registry_fields
+    return {
+        "buyer_status_id": status.buyer_status_id,
+        "buyer_registry_id": status.buyer_registry_id,
+        "status": status.status,
+        "reviewed_at": status.reviewed_at,
+        "organization": organization,
+        "contact_person": contact_person,
+        "phone_number": phone_number,
+        "email_address": email_address,
+        "address": address,
+        "message": message,
+        "document": document,
+    }
+
+
+def _get_buyers_by_status(status_value, db: Session):
+    return (
+        db.query(
+            BuyerStatus,
+            BuyerRegistry.organization,
+            BuyerRegistry.contact_person,
+            BuyerRegistry.phone_number,
+            BuyerRegistry.email_address,
+            BuyerRegistry.address,
+            BuyerRegistry.message,
+            BuyerRegistry.document,
+        )
+        .join(
+            BuyerRegistry,
+            BuyerStatus.buyer_registry_id
+            == BuyerRegistry.buyer_registry_id
+        )
+        .filter(BuyerStatus.status == status_value)
+        .order_by(
+            BuyerStatus.reviewed_at.desc(),
+            BuyerStatus.buyer_status_id.desc(),
+        )
+        .all()
+    )
+
+
 # ============================================================
 # CREATE BUYER STATUS
 # ============================================================
@@ -82,51 +133,9 @@ def create_buyer_status(
 def get_pending_buyers(
     db: Session = Depends(get_db)
 ):
-    results = (
-        db.query(BuyerStatus)
-        .join(
-            BuyerRegistry,
-            BuyerStatus.buyer_registry_id
-            == BuyerRegistry.buyer_registry_id
-        )
-        .filter(
-            BuyerStatus.status == "Pending"
-        )
-        .order_by(
-            BuyerStatus.buyer_status_id.desc()
-        )
-        .all()
-    )
-
     return [
-        {
-            "buyer_status_id": status.buyer_status_id,
-            "buyer_registry_id": status.buyer_registry_id,
-            "status": status.status,
-            "reviewed_at": status.reviewed_at,
-
-            "organization":
-                status.buyer_registry.organization,
-
-            "contact_person":
-                status.buyer_registry.contact_person,
-
-            "phone_number":
-                status.buyer_registry.phone_number,
-
-            "email_address":
-                status.buyer_registry.email_address,
-
-            "address":
-                status.buyer_registry.address,
-
-            "message":
-                status.buyer_registry.message,
-
-            "document":
-                status.buyer_registry.document,
-        }
-        for status in results
+        _buyer_status_response(status, registry_fields)
+        for status, *registry_fields in _get_buyers_by_status("Pending", db)
     ]
 
 
@@ -138,51 +147,9 @@ def get_pending_buyers(
 def get_verified_buyers(
     db: Session = Depends(get_db)
 ):
-    results = (
-        db.query(BuyerStatus)
-        .join(
-            BuyerRegistry,
-            BuyerStatus.buyer_registry_id
-            == BuyerRegistry.buyer_registry_id
-        )
-        .filter(
-            BuyerStatus.status == "Verified"
-        )
-        .order_by(
-            BuyerStatus.reviewed_at.desc()
-        )
-        .all()
-    )
-
     return [
-        {
-            "buyer_status_id": status.buyer_status_id,
-            "buyer_registry_id": status.buyer_registry_id,
-            "status": status.status,
-            "reviewed_at": status.reviewed_at,
-
-            "organization":
-                status.buyer_registry.organization,
-
-            "contact_person":
-                status.buyer_registry.contact_person,
-
-            "phone_number":
-                status.buyer_registry.phone_number,
-
-            "email_address":
-                status.buyer_registry.email_address,
-
-            "address":
-                status.buyer_registry.address,
-
-            "message":
-                status.buyer_registry.message,
-
-            "document":
-                status.buyer_registry.document,
-        }
-        for status in results
+        _buyer_status_response(status, registry_fields)
+        for status, *registry_fields in _get_buyers_by_status("Verified", db)
     ]
 
 
@@ -194,51 +161,9 @@ def get_verified_buyers(
 def get_rejected_buyers(
     db: Session = Depends(get_db)
 ):
-    results = (
-        db.query(BuyerStatus)
-        .join(
-            BuyerRegistry,
-            BuyerStatus.buyer_registry_id
-            == BuyerRegistry.buyer_registry_id
-        )
-        .filter(
-            BuyerStatus.status == "Rejected"
-        )
-        .order_by(
-            BuyerStatus.reviewed_at.desc()
-        )
-        .all()
-    )
-
     return [
-        {
-            "buyer_status_id": status.buyer_status_id,
-            "buyer_registry_id": status.buyer_registry_id,
-            "status": status.status,
-            "reviewed_at": status.reviewed_at,
-
-            "organization":
-                status.buyer_registry.organization,
-
-            "contact_person":
-                status.buyer_registry.contact_person,
-
-            "phone_number":
-                status.buyer_registry.phone_number,
-
-            "email_address":
-                status.buyer_registry.email_address,
-
-            "address":
-                status.buyer_registry.address,
-
-            "message":
-                status.buyer_registry.message,
-
-            "document":
-                status.buyer_registry.document,
-        }
-        for status in results
+        _buyer_status_response(status, registry_fields)
+        for status, *registry_fields in _get_buyers_by_status("Rejected", db)
     ]
 # ============================================================
 # VERIFY BUYER

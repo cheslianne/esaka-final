@@ -1138,7 +1138,6 @@ function openBuyerReview(buyer) {
     if (approveBtn) approveBtn.style.display = isPending ? "inline-flex" : "none";
     if (rejectBtn)  rejectBtn.style.display  = isPending ? "inline-flex" : "none";
 
-    // ✅ NASa loob na ng function
     renderReviewCommodities(buyer);
     const messageTextarea = document.querySelector("#buyerReviewDetails textarea");
     if (messageTextarea) messageTextarea.value = getBuyerMessage(buyer);
@@ -1146,7 +1145,6 @@ function openBuyerReview(buyer) {
     buyerRegistryList?.classList.add("hidden-element");
     buyerReviewDetails?.classList.remove("hidden-element");
 }
-
 
 function renderReviewCommodities(buyer) {
     const container = document.getElementById("reviewCommodities");
