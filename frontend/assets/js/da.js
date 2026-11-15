@@ -22,6 +22,27 @@ const DA_RFO_DASHBOARD_ENDPOINT       = `${API_BASE_URL}/api/da-rfo/dashboard`;
 
 
 /* ============================================================
+   SESSION CLEANUP
+   Sign-out / expired session used to call localStorage.clear(), which also
+   erased the browser-kept Oversupply Threshold history. This clears
+   everything EXCEPT those keys.
+============================================================ */
+const PERSISTENT_LOCAL_KEYS = ["da_threshold_history_v1", "da_threshold_last_v1"];
+
+function clearSessionStorageKeepingHistory() {
+    const keep = {};
+    PERSISTENT_LOCAL_KEYS.forEach(k => {
+        const v = localStorage.getItem(k);
+        if (v !== null) keep[k] = v;
+    });
+    localStorage.clear();
+    Object.entries(keep).forEach(([k, v]) => {
+        try { localStorage.setItem(k, v); } catch (_) {}
+    });
+}
+
+
+/* ============================================================
    AUTH
 ============================================================ */
 
@@ -253,10 +274,10 @@ function initProfileModal() {
                 confirmText: "Sign Out",
                 danger: true
             }).then((ok) => {
-                if (ok) { localStorage.clear(); window.location.href = "../index.html"; }
+                if (ok) { clearSessionStorageKeepingHistory(); window.location.href = "../index.html"; }
             });
         } else if (confirm("Are you sure you want to sign out?")) {
-            localStorage.clear();
+            clearSessionStorageKeepingHistory();
             window.location.href = "../index.html";
         }
     });
@@ -351,6 +372,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     initSummaryPeriodPicker();
     initDaSummaryExports();
     loadUserInformation();
+    hydrateUserFromServer();
     initProfileModal();
         try {
         initMarketUploadSection();
@@ -671,7 +693,7 @@ function initSignout() {
     const signoutBtn = document.getElementById("signoutBtn");
     if (!signoutBtn) return;
     signoutBtn.addEventListener("click", () => {
-        localStorage.clear();
+        clearSessionStorageKeepingHistory();
         window.location.href = "../index.html";
     });
 }
@@ -1373,6 +1395,8 @@ function initAlertThreshold() {
     const thresholdValue = document.getElementById("thresholdValue");
     const chips = document.querySelectorAll(".threshold-chip");
     const saveBtn = document.getElementById("saveConfigBtn");
+    const commoditySelect = document.getElementById("commoditySelect");
+    const baseDemandInput = document.getElementById("baseDemandInput");
 
     function updateThreshold(value) {
         if (thresholdRange) thresholdRange.value = value;
@@ -1380,33 +1404,224 @@ function initAlertThreshold() {
         chips.forEach(chip => { chip.classList.toggle("active", chip.dataset.val === String(value)); });
     }
 
+    function prefillFromConfig() {
+        const cfg = thresholdConfigs[commoditySelect?.value];
+        if (!cfg) return;
+        if (baseDemandInput && cfg.base_demand != null) baseDemandInput.value = cfg.base_demand;
+        if (cfg.oversupply_threshold != null) updateThreshold(cfg.oversupply_threshold);
+    }
+
     thresholdRange?.addEventListener("input", e => updateThreshold(e.target.value));
     chips.forEach(chip => chip.addEventListener("click", () => updateThreshold(chip.dataset.val)));
+    commoditySelect?.addEventListener("change", prefillFromConfig);
 
     saveBtn?.addEventListener("click", async () => {
-        const commodity = document.getElementById("commoditySelect")?.value;
-        const baseDemand = document.getElementById("baseDemandInput")?.value;
+        const commodity = commoditySelect?.value;
+        const baseDemand = baseDemandInput?.value;
         const oversupplyThreshold = thresholdRange?.value;
 
         if (!commodity) { alert("Please select a commodity."); return; }
         if (!baseDemand || Number(baseDemand) <= 0) { alert("Please enter a valid target demand."); return; }
 
         const payload = { commodity, base_demand: Number(baseDemand), oversupply_threshold: Number(oversupplyThreshold) };
+        const previous = thresholdConfigs[commodity] || null;
+
+        saveBtn.disabled = true;
+        const originalLabel = saveBtn.textContent;
+        saveBtn.textContent = "Saving...";
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/alert-thresholds`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+            await apiRequest(`${API_BASE_URL}/api/alert-thresholds`, { method: "POST", body: JSON.stringify(payload) });
+
+            // Local audit entry (used when the server does not provide a history endpoint)
+            addLocalThresholdHistory({
+                changed_at: new Date().toISOString(),
+                changed_by_name: getCurrentUserLabel(),
+                commodity,
+                base_demand: payload.base_demand,
+                oversupply_threshold: payload.oversupply_threshold,
+                previous_base_demand: previous ? previous.base_demand : null,
+                previous_oversupply_threshold: previous ? previous.oversupply_threshold : null
             });
-            const data = await response.json();
-            if (!response.ok) { alert(data.detail || "Failed to save threshold configuration."); return; }
+            thresholdConfigs[commodity] = { base_demand: payload.base_demand, oversupply_threshold: payload.oversupply_threshold };
+            saveLastThresholdConfigs();
+
+            thresholdHistoryPage = 1;
+            await loadThresholdHistory();
             alert("Threshold configuration saved successfully!");
         } catch (error) {
             console.error("Error saving threshold:", error);
-            alert("Unable to connect to the server.");
+            alert(error?.message || "Unable to save the threshold configuration.");
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalLabel;
         }
     });
+
+    document.getElementById("thresholdHistorySearch")?.addEventListener("input", (e) => {
+        thresholdHistorySearchTerm = e.target.value.trim().toLowerCase();
+        thresholdHistoryPage = 1;
+        renderThresholdHistory();
+    });
+
+    loadCurrentThresholds().then(prefillFromConfig);
+    loadThresholdHistory();
+}
+
+/* ============================================================
+   OVERSUPPLY THRESHOLD — CONFIGURATION HISTORY (audit trail)
+   Uses GET /api/alert-thresholds/history when the server provides it
+   (who / when / what changed). Otherwise it falls back to a log kept
+   in this browser so changes are still visible.
+============================================================ */
+
+const THRESHOLD_HISTORY_KEY = "da_threshold_history_v1";
+const THRESHOLD_LAST_KEY = "da_threshold_last_v1";
+const THRESHOLD_HISTORY_PAGE_SIZE = 5;
+let thresholdHistory = [];
+let thresholdHistorySource = "local";
+let thresholdHistorySearchTerm = "";
+let thresholdHistoryPage = 1;
+let thresholdConfigs = {};
+
+function getCurrentUserLabel() {
+    return localStorage.getItem("user_display_name") ||
+           localStorage.getItem("full_name") ||
+           localStorage.getItem("name") ||
+           localStorage.getItem("username") ||
+           "Unknown user";
+}
+
+function readLocalJson(key, fallback) {
+    try { const v = JSON.parse(localStorage.getItem(key) || "null"); return v ?? fallback; }
+    catch { return fallback; }
+}
+
+function addLocalThresholdHistory(entry) {
+    const list = readLocalJson(THRESHOLD_HISTORY_KEY, []);
+    list.unshift(entry);
+    try { localStorage.setItem(THRESHOLD_HISTORY_KEY, JSON.stringify(list.slice(0, 200))); } catch (_) {}
+}
+
+function saveLastThresholdConfigs() {
+    try { localStorage.setItem(THRESHOLD_LAST_KEY, JSON.stringify(thresholdConfigs)); } catch (_) {}
+}
+
+function normalizeThresholdEntry(raw) {
+    const num = v => (v === null || v === undefined || v === "" ? null : Number(v));
+    return {
+        changed_at: raw.changed_at || raw.created_at || raw.updated_at || raw.timestamp || null,
+        user: raw.changed_by_name || raw.user_name || raw.updated_by_name || raw.username ||
+              (typeof raw.changed_by === "string" ? raw.changed_by : null) ||
+              (typeof raw.updated_by === "string" ? raw.updated_by : null) || "Unknown user",
+        commodity: raw.commodity || "—",
+        base_demand: num(raw.base_demand ?? raw.new_base_demand),
+        threshold: num(raw.oversupply_threshold ?? raw.new_oversupply_threshold),
+        prev_demand: num(raw.previous_base_demand ?? raw.old_base_demand),
+        prev_threshold: num(raw.previous_oversupply_threshold ?? raw.old_oversupply_threshold)
+    };
+}
+
+async function loadCurrentThresholds() {
+    thresholdConfigs = readLocalJson(THRESHOLD_LAST_KEY, {}) || {};
+    try {
+        const data = await fetchJsonWithTimeout(`${API_BASE_URL}/api/alert-thresholds`, { method: "GET", headers: getAuthHeaders(false) }, 8000);
+        const list = Array.isArray(data) ? data : (data?.items || data?.thresholds || []);
+        if (Array.isArray(list)) {
+            list.forEach(item => {
+                if (item && item.commodity) {
+                    thresholdConfigs[item.commodity] = {
+                        base_demand: item.base_demand,
+                        oversupply_threshold: item.oversupply_threshold
+                    };
+                }
+            });
+        }
+    } catch (_) { /* endpoint may not exist; keep local values */ }
+}
+
+async function loadThresholdHistory() {
+    try {
+        const data = await fetchJsonWithTimeout(`${API_BASE_URL}/api/alert-thresholds/history`, { method: "GET", headers: getAuthHeaders(false) }, 8000);
+        const list = Array.isArray(data) ? data : (data?.items || data?.history || null);
+        if (!Array.isArray(list)) throw new Error("Unexpected history response");
+        thresholdHistory = list.map(normalizeThresholdEntry);
+        thresholdHistorySource = "server";
+    } catch (_) {
+        thresholdHistory = readLocalJson(THRESHOLD_HISTORY_KEY, []).map(normalizeThresholdEntry);
+        thresholdHistorySource = "local";
+    }
+    thresholdHistory.sort((a, b) => new Date(b.changed_at || 0) - new Date(a.changed_at || 0));
+    renderThresholdHistory();
+}
+
+function renderThresholdHistory() {
+    const listEl = document.getElementById("thresholdHistoryList");
+    const host = document.getElementById("thresholdHistoryPagination");
+    const countEl = document.getElementById("thresholdHistoryCount");
+    const noteEl = document.getElementById("thresholdHistoryNote");
+    if (!listEl) return;
+
+    if (noteEl) {
+        noteEl.hidden = thresholdHistorySource === "server";
+        noteEl.textContent = "Showing changes saved from this browser only. Connect the server history endpoint (GET /api/alert-thresholds/history) to keep a shared audit trail.";
+    }
+
+    const term = thresholdHistorySearchTerm;
+    const matches = thresholdHistory.filter(entry => {
+        if (!term) return true;
+        const hay = [entry.user, entry.commodity, formatDateTimeLong(entry.changed_at), entry.threshold, entry.base_demand].join(" ").toLowerCase();
+        return hay.includes(term);
+    });
+
+    if (countEl) countEl.textContent = matches.length;
+
+    const pageCount = Math.max(1, Math.ceil(matches.length / THRESHOLD_HISTORY_PAGE_SIZE));
+    thresholdHistoryPage = Math.min(Math.max(1, thresholdHistoryPage), pageCount);
+    const start = (thresholdHistoryPage - 1) * THRESHOLD_HISTORY_PAGE_SIZE;
+    const pageItems = matches.slice(start, start + THRESHOLD_HISTORY_PAGE_SIZE);
+
+    if (!pageItems.length) {
+        listEl.innerHTML = `<div class="th-empty">${term ? "No history matches your search." : "No configuration changes recorded yet."}</div>`;
+    } else {
+        const change = (label, oldV, newV, fmt) => {
+            const changed = oldV !== null && oldV !== undefined && oldV !== newV;
+            const newText = newV === null || newV === undefined ? "—" : fmt(newV);
+            const oldText = changed ? `<span class="th-old">${escapeHtml(fmt(oldV))}</span>` : "";
+            return `<div class="th-change"><div class="th-change-label">${label}</div><div class="th-change-value">${oldText}${escapeHtml(newText)}</div></div>`;
+        };
+        listEl.innerHTML = pageItems.map(entry => `
+            <div class="th-item">
+                <div class="th-item-top">
+                    <span class="th-commodity">${escapeHtml(entry.commodity)}</span>
+                    <span class="th-when">${escapeHtml(formatDateTimeLong(entry.changed_at))}</span>
+                </div>
+                <div class="th-changes">
+                    ${change("Threshold", entry.prev_threshold, entry.threshold, v => `${v}%`)}
+                    ${change("Target Demand", entry.prev_demand, entry.base_demand, v => formatKg(v))}
+                </div>
+                <div class="th-by"><span class="th-dot">${escapeHtml(getInitials(entry.user))}</span>Changed by <strong>${escapeHtml(entry.user)}</strong></div>
+            </div>`).join("");
+    }
+
+    if (host) {
+        const fragment = document.createDocumentFragment();
+        const label = document.createElement("span");
+        label.textContent = matches.length ? `${start + 1}–${Math.min(start + THRESHOLD_HISTORY_PAGE_SIZE, matches.length)} of ${matches.length} changes` : "0 changes";
+        fragment.appendChild(label);
+        const btn = (text, disabled, delta) => {
+            const b = document.createElement("button");
+            b.type = "button"; b.textContent = text; b.disabled = disabled;
+            b.addEventListener("click", () => { thresholdHistoryPage += delta; renderThresholdHistory(); });
+            fragment.appendChild(b);
+        };
+        btn("Previous", thresholdHistoryPage <= 1, -1);
+        const pg = document.createElement("span");
+        pg.textContent = `Page ${thresholdHistoryPage} / ${pageCount}`;
+        fragment.appendChild(pg);
+        btn("Next", thresholdHistoryPage >= pageCount, 1);
+        host.replaceChildren(fragment);
+    }
 }
 
 
@@ -1614,7 +1829,8 @@ function initModalListeners() {
 ============================================================ */
 
 function initReportsSection() {
-    initReportSearch();
+    initReportTables();
+    initReportKpiCards();
     initBulkActions();
     initReportDetailButtons();
     initReportSummaryToggle();
@@ -1675,16 +1891,12 @@ function renderPendingReports() {
 
     if (reports.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="padding:30px; text-align:center; color:#999;">No reports awaiting DA-RFO validation.</td></tr>`;
-        removePaginationControls("pendingReportsPagination");
+        updateDaReportCards();
+        refreshDaReportTables();
         return;
     }
 
-    // --- PAGINATION (3 items per page) ---
-    const totalPages = Math.ceil(reports.length / REPORTS_PAGE_SIZE) || 1;
-    if (currentPendingReportsPage > totalPages) currentPendingReportsPage = totalPages;
-    if (currentPendingReportsPage < 1) currentPendingReportsPage = 1;
-    const startIndex = (currentPendingReportsPage - 1) * REPORTS_PAGE_SIZE;
-    const paginatedReports = reports.slice(startIndex, startIndex + REPORTS_PAGE_SIZE);
+    const paginatedReports = reports;
 
     paginatedReports.forEach(report => {
         const tr = document.createElement("tr");
@@ -1726,10 +1938,8 @@ function renderPendingReports() {
 
     updateSelectAllCheckbox();
 
-    renderPaginationUI("pendingReportsBody", currentPendingReportsPage, totalPages, (newPage) => {
-        currentPendingReportsPage = newPage;
-        renderPendingReports();
-    }, "pendingReportsPagination", { totalItems: reports.length, pageSize: REPORTS_PAGE_SIZE, label: "pending reports" });
+    updateDaReportCards();
+    refreshDaReportTables();
 }
 
 async function loadReturnedToProvincial() {
@@ -1760,16 +1970,12 @@ function renderReturnedToProvincial() {
 
     if (returnedToProvincialReports.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No reports returned to Provincial.</td></tr>`;
-        removePaginationControls("returnedReportsPagination");
+        updateDaReportCards();
+        refreshDaReportTables();
         return;
     }
 
-    // --- PAGINATION (3 items per page) ---
-    const totalPages = Math.ceil(returnedToProvincialReports.length / REPORTS_PAGE_SIZE) || 1;
-    if (currentReturnedReportsPage > totalPages) currentReturnedReportsPage = totalPages;
-    if (currentReturnedReportsPage < 1) currentReturnedReportsPage = 1;
-    const startIndex = (currentReturnedReportsPage - 1) * REPORTS_PAGE_SIZE;
-    const paginatedReports = returnedToProvincialReports.slice(startIndex, startIndex + REPORTS_PAGE_SIZE);
+    const paginatedReports = returnedToProvincialReports;
 
     paginatedReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
@@ -1788,10 +1994,8 @@ function renderReturnedToProvincial() {
         tbody.appendChild(tr);
     });
 
-    renderPaginationUI("returnedToProvincialBody", currentReturnedReportsPage, totalPages, (newPage) => {
-        currentReturnedReportsPage = newPage;
-        renderReturnedToProvincial();
-    }, "returnedReportsPagination", { totalItems: returnedToProvincialReports.length, pageSize: REPORTS_PAGE_SIZE, label: "returned reports" });
+    updateDaReportCards();
+    refreshDaReportTables();
 }
 
 async function loadApprovedReports() {
@@ -1821,16 +2025,12 @@ function renderApprovedReports() {
 
     if (approvedReports.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No approved reports yet.</td></tr>`;
-        removePaginationControls("approvedReportsPagination");
+        updateDaReportCards();
+        refreshDaReportTables();
         return;
     }
 
-    // --- PAGINATION (3 items per page) ---
-    const totalPages = Math.ceil(approvedReports.length / REPORTS_PAGE_SIZE) || 1;
-    if (currentApprovedReportsPage > totalPages) currentApprovedReportsPage = totalPages;
-    if (currentApprovedReportsPage < 1) currentApprovedReportsPage = 1;
-    const startIndex = (currentApprovedReportsPage - 1) * REPORTS_PAGE_SIZE;
-    const paginatedReports = approvedReports.slice(startIndex, startIndex + REPORTS_PAGE_SIZE);
+    const paginatedReports = approvedReports;
 
     paginatedReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
@@ -1849,10 +2049,8 @@ function renderApprovedReports() {
         tbody.appendChild(tr);
     });
 
-    renderPaginationUI("approvedReportsBody", currentApprovedReportsPage, totalPages, (newPage) => {
-        currentApprovedReportsPage = newPage;
-        renderApprovedReports();
-    }, "approvedReportsPagination", { totalItems: approvedReports.length, pageSize: REPORTS_PAGE_SIZE, label: "approved reports" });
+    updateDaReportCards();
+    refreshDaReportTables();
 }
 
 function initReportSearch() {
@@ -1978,6 +2176,8 @@ async function openReportDetail(report) {
 
     const mainHeader = document.getElementById("reportsMainHeader");
     if (mainHeader) mainHeader.style.display = "none";
+    const kpiCards = document.getElementById("reportSummaryCards");
+    if (kpiCards) kpiCards.style.display = "none";
 
     document.getElementById("pendingReportsView")?.style.setProperty("display", "none");
     document.getElementById("returnedToProvincialView")?.style.setProperty("display", "none");
@@ -1992,6 +2192,8 @@ async function openReportDetail(report) {
 
     if (summaryWrapper) summaryWrapper.style.display = "none";
     if (summaryBody) summaryBody.innerHTML = "";
+    const varPanel = document.getElementById("varianceRemarksPanel");
+    if (varPanel) varPanel.style.display = "none";
     if (historyContainer) historyContainer.innerHTML = `<div style="color: var(--muted); font-style: italic; font-size: 13px;">Loading history...</div>`;
 
     const titleEl           = document.getElementById("detailReportTitle");
@@ -2137,175 +2339,12 @@ function renderValidationTimeline(history) {
 ============================================================ */
 
 function renderReportSummaryCard(intents, meta) {
-    const wrapper = document.getElementById("reportSummaryCardWrapper");
-    const body = document.getElementById("reportSummaryBody");
-    const coveragePeriodEl = document.getElementById("summaryCoveragePeriod");
-    if (!wrapper || !body) return;
-
-    if (!Array.isArray(intents) || intents.length === 0) { wrapper.style.display = "none"; return; }
-    wrapper.style.display = "block";
-
-    const selected = intents;
-    const selectedCount = selected.length;
-    const totalVolume = selected.reduce((sum, i) => sum + (Number(i.volume) || 0), 0);
-    const uniqueFarmers = new Set(selected.map(i => i.farmer_id || i.farmer_name).filter(Boolean));
-    const uniqueFarmerCount = uniqueFarmers.size;
-
-    const pendingReportIds = new Set();
-    intents.forEach(i => {
-        const s = String(i.report_status || i.status || "").toUpperCase();
-        if (s === "SUBMITTED_REGIONAL_PENDING" || s === "FOR_DA_RFO_VALIDATION") {
-            if (i.report_id != null) pendingReportIds.add(i.report_id);
-        }
-    });
-    const pendingCount = pendingReportIds.size;
-
-    const harvestedIntents = selected.filter(i => (i.finalized_status_at_submission || i.finalized_status || "").toUpperCase() === "HARVESTED");
-    const harvestedVolume = harvestedIntents.reduce((sum, i) => {
-        const actual = Number(i.actual_harvest_volume);
-        const planned = Number(i.volume);
-        return sum + (actual > 0 ? actual : (planned || 0));
-    }, 0);
-
-    const harvestRate = selectedCount > 0 ? Math.round((harvestedIntents.length / selectedCount) * 100) : 0;
-    const totalActualHarvest = selected.reduce((sum, i) => {
-        const v = Number(i.actual_harvest_volume);
-        return sum + (v > 0 ? v : 0);
-    }, 0);
-
-    if (coveragePeriodEl) {
-        const submittedAt = meta?.submitted_at || meta?.created_at;
-        if (submittedAt) {
-            const reportDate = new Date(submittedAt);
-            if (!isNaN(reportDate.getTime())) {
-                const weekStart = new Date(reportDate);
-                weekStart.setDate(reportDate.getDate() - 6);
-                const fmt = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                coveragePeriodEl.textContent = `Coverage: ${fmt(weekStart)} – ${fmt(reportDate)}`;
-            } else coveragePeriodEl.textContent = "Coverage: —";
-        } else coveragePeriodEl.textContent = "Coverage: —";
+    // Shared card (assets/js/report-summary-card.js): same layout and colors for AEW, Municipal, Provincial and DA-RFO.
+    if (window.EsakaReportSummary) {
+        window.EsakaReportSummary.render(intents, meta);
+    } else {
+        console.error("report-summary-card.js is not loaded.");
     }
-
-    const byCommodity = {};
-    selected.forEach(intent => {
-        const c = intent.commodity || "Unknown";
-        if (!byCommodity[c]) byCommodity[c] = { count: 0, volume: 0 };
-        byCommodity[c].count += 1;
-        byCommodity[c].volume += Number(intent.volume) || 0;
-    });
-
-    const byBarangay = {};
-    selected.forEach(intent => {
-        let b = intent.barangay;
-        if (!b && intent.location) b = String(intent.location).split(",")[0].trim();
-        if (!b) b = intent.municipality || "Unknown";
-        if (!byBarangay[b]) byBarangay[b] = { count: 0, volume: 0 };
-        byBarangay[b].count += 1;
-        byBarangay[b].volume += Number(intent.volume) || 0;
-    });
-
-    const byStatus = {
-        "NOT PLANTED": { count: 0, volume: 0, label: "Not Planted", color: "#6c757d" },
-        "PLANTED":     { count: 0, volume: 0, label: "Planted",     color: "#D97706" },
-        "HARVESTED":   { count: 0, volume: 0, label: "Harvested",   color: "#2E7D32" },
-        "MEDIATING":   { count: 0, volume: 0, label: "Mediating",   color: "#2980B9" },
-    };
-    selected.forEach(intent => {
-        const s = (intent.finalized_status_at_submission || intent.finalized_status || "NOT PLANTED").toUpperCase();
-        if (byStatus[s]) { byStatus[s].count += 1; byStatus[s].volume += Number(intent.volume) || 0; }
-    });
-
-    const yieldPlanned = totalVolume;
-    const yieldActual = totalActualHarvest;
-    const hasActualData = yieldActual > 0;
-    const variancePct = hasActualData && yieldPlanned > 0 ? Math.round(((yieldActual - yieldPlanned) / yieldPlanned) * 100) : 0;
-
-    const plantingDates = selected.map(i => i.planting_date).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d.getTime()));
-    const harvestDates = selected.map(i => i.harvest_date).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d.getTime()));
-
-    let html = "";
-
-    html += `
-        <div class="summary-kpi-grid">
-            <div class="summary-kpi-card"><div class="summary-kpi-label">✓ Selected Intents</div><div class="summary-kpi-value">${selectedCount}</div><div class="summary-kpi-subtext">Included in this report</div></div>
-            <div class="summary-kpi-card"><div class="summary-kpi-label">Total Volume</div><div class="summary-kpi-value">${formatKg(totalVolume)}</div><div class="summary-kpi-subtext">Across ${selectedCount} intent${selectedCount !== 1 ? "s" : ""}</div></div>
-            <div class="summary-kpi-card"><div class="summary-kpi-label">Unique Farmers</div><div class="summary-kpi-value">${uniqueFarmerCount}</div><div class="summary-kpi-subtext">Beneficiaries in this report</div></div>
-        </div>
-    `;
-
-    html += `
-        <div class="summary-kpi-grid">
-            <div class="summary-kpi-card"><div class="summary-kpi-label">Pending Reports</div><div class="summary-kpi-value" style="color:${pendingCount > 0 ? "#D97706" : "#2E7D32"};">${pendingCount}</div><div class="summary-kpi-subtext">${pendingCount === 1 ? "report awaiting your review" : "reports awaiting your review"}</div></div>
-            <div class="summary-kpi-card"><div class="summary-kpi-label">Harvested Volume</div><div class="summary-kpi-value" style="color:#2E7D32;">${formatKg(harvestedVolume)}</div><div class="summary-kpi-subtext">${harvestedIntents.length} of ${selectedCount} harvested</div></div>
-            <div class="summary-kpi-card"><div class="summary-kpi-label">Harvest Rate</div><div class="summary-kpi-value" style="color:${harvestRate === 100 ? "#2E7D32" : harvestRate > 0 ? "#D97706" : "#6c757d"};">${harvestRate}%</div><div class="summary-kpi-subtext">Completion ratio</div></div>
-        </div>
-    `;
-
-    html += `<div class="summary-breakdown-grid">`;
-    html += `<div><div class="summary-breakdown-title">By Commodity</div><div class="summary-breakdown-body">`;
-    const commodityEntries = Object.entries(byCommodity).sort((a, b) => b[1].volume - a[1].volume);
-    if (commodityEntries.length === 0) html += `<span style="color: var(--muted); font-style: italic;">No data.</span>`;
-    else commodityEntries.forEach(([name, d]) => {
-        html += `<div class="summary-breakdown-row"><span style="font-weight: 600;">${escapeHtml(name)}</span><span style="font-size:12px; color:var(--muted); font-variant-numeric: tabular-nums;">${d.count} · <b style="color:var(--green-dark);">${formatKg(d.volume)}</b></span></div>`;
-    });
-    html += `</div></div>`;
-
-    html += `<div><div class="summary-breakdown-title">📍 By Barangay</div><div class="summary-breakdown-body">`;
-    const barangayEntries = Object.entries(byBarangay).sort((a, b) => b[1].volume - a[1].volume);
-    if (barangayEntries.length === 0) html += `<span style="color: var(--muted); font-style: italic;">No data.</span>`;
-    else if (barangayEntries.length === 1) html += `<div style="color: var(--muted); font-style: italic; font-size: 12px;">All intents from <b>${escapeHtml(barangayEntries[0][0])}</b></div>`;
-    else barangayEntries.forEach(([name, d]) => {
-        html += `<div class="summary-breakdown-row"><span style="font-weight: 600;">📍 ${escapeHtml(name)}</span><span style="font-size:12px; color:var(--muted); font-variant-numeric: tabular-nums;">${d.count} · <b style="color:var(--green-dark);">${formatKg(d.volume)}</b></span></div>`;
-    });
-    html += `</div></div>`;
-
-    html += `<div><div class="summary-breakdown-title">📋 By Finalized Status</div><div class="summary-breakdown-body">`;
-    Object.values(byStatus).forEach(d => {
-        const isZero = d.count === 0;
-        html += `<div class="summary-breakdown-row" style="opacity:${isZero ? 0.45 : 1};"><span style="font-weight: 600; color:${isZero ? 'var(--muted)' : 'var(--ink)'};"><span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${d.color}; margin-right: 8px;"></span>${d.label}</span><span style="font-size:12px; color:var(--muted); font-variant-numeric: tabular-nums;">${d.count} · <b style="color:${isZero ? 'var(--muted)' : d.color};">${formatKg(d.volume)}</b></span></div>`;
-    });
-    html += `</div></div>`;
-    html += `</div>`;
-
-    html += `<div class="summary-insight-grid">`;
-    html += `<div class="summary-insight-card green"><div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-light);">Yield Performance</div>`;
-    if (hasActualData) {
-        let varianceColor = "#2E7D32"; let varianceIcon = "↑"; let varianceLabel = "surplus";
-        if (variancePct < 0) { varianceColor = "#C0392B"; varianceIcon = "↓"; varianceLabel = "shortfall"; }
-        else if (variancePct === 0) { varianceColor = "#6c757d"; varianceIcon = "→"; varianceLabel = "on target"; }
-        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: var(--muted);">Expected (planned):</span><b>${yieldPlanned.toLocaleString("en-US")} kg</b></div>`;
-        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 10px;"><span style="color: var(--muted);">Actual (harvested):</span><b>${yieldActual.toLocaleString("en-US")} kg</b></div>`;
-        html += `<div style="display: inline-block; padding: 4px 12px; background: ${varianceColor}15; border-radius: 6px; font-size: 13px; font-weight: 700; color: ${varianceColor};">${varianceIcon} ${Math.abs(variancePct)}% ${varianceLabel}</div>`;
-        html += `<div style="margin-top: 8px; font-size: 11px; color: var(--muted); font-style: italic;">Based on ${harvestedIntents.length} of ${selectedCount} harvested</div>`;
-    } else html += `<span style="color: var(--muted); font-style: italic;">No actual harvest volume recorded yet.</span>`;
-    html += `</div>`;
-
-    html += `<div class="summary-insight-card orange"><div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-light);">📅 Planting Window</div>`;
-    if (plantingDates.length > 0) {
-        const earliest = new Date(Math.min.apply(null, plantingDates));
-        const latest = new Date(Math.max.apply(null, plantingDates));
-        const spanDays = Math.round((latest - earliest) / (1000 * 60 * 60 * 24));
-        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: var(--muted);">🌱 Earliest:</span><b>${formatDateLong(earliest)}</b></div>`;
-        html += `<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: var(--muted);">Latest:</span><b>${formatDateLong(latest)}</b></div>`;
-        html += `<div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Span:</span><b>${spanDays} day${spanDays !== 1 ? "s" : ""}</b></div>`;
-        if (harvestDates.length > 0) {
-            const earliestH = new Date(Math.min.apply(null, harvestDates));
-            const latestH = new Date(Math.max.apply(null, harvestDates));
-            const spanH = Math.round((latestH - earliestH) / (1000 * 60 * 60 * 24));
-            html += `<div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-light);">`;
-            html += `<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: var(--muted);">Harvest earliest:</span><b>${formatDateLong(earliestH)}</b></div>`;
-            html += `<div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="color: var(--muted);">Harvest latest:</span><b>${formatDateLong(latestH)}</b></div>`;
-            html += `<div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Harvest span:</span><b>${spanH} day${spanH !== 1 ? "s" : ""}</b></div>`;
-            html += `</div>`;
-        }
-    } else html += `<span style="color: var(--muted); font-style: italic;">No planting dates available.</span>`;
-    html += `</div></div>`;
-
-    const preparedBy = localStorage.getItem("full_name") || localStorage.getItem("name") || localStorage.getItem("username") || "DA-RFO Officer";
-    const generatedAt = new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-    html += `<div class="summary-footer"><div><b style="color: var(--ink);">Report:</b> #${escapeHtml(String(meta?.report_id || "—"))} — ${escapeHtml(meta?.title || "—")}</div><div><b style="color: var(--ink);">Viewed by:</b> ${escapeHtml(preparedBy)} at ${escapeHtml(generatedAt)}</div></div>`;
-
-    body.innerHTML = html;
 }
 
 
@@ -2339,12 +2378,152 @@ function renderAttachments(attachments) {
    RENDER DETAIL INTENTS
 ============================================================ */
 
+/* ============================================================
+   DATE VARIANCE HELPERS
+============================================================ */
+
+function isIntentDateVariance(plan, actual) {
+    if (!plan || !actual) return false;
+    return String(plan).slice(0, 10) !== String(actual).slice(0, 10);
+}
+
+function getDayDiff(plannedDate, actualDate) {
+    if (!plannedDate || !actualDate) return null;
+    const p = new Date(`${String(plannedDate).slice(0, 10)}T00:00:00`);
+    const a = new Date(`${String(actualDate).slice(0, 10)}T00:00:00`);
+    if (isNaN(p.getTime()) || isNaN(a.getTime())) return null;
+    return Math.round((a - p) / 86400000);
+}
+
+function formatDateSafe(value) {
+    if (!value) return "—";
+    const iso = String(value).slice(0, 10);
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T00:00:00`) : new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function getVarianceRemark(intent) {
+    return String((intent && (intent.comment_snapshot || intent.comment || intent.variance_remark || intent.variance_remarks || intent.date_variance_remark || intent.date_variance_remarks || intent.variance_comment)) || "").trim();
+}
+
+function getIntentVariances(intent) {
+    const out = [];
+    if (isIntentDateVariance(intent.planting_date, intent.actual_planting_date)) {
+        out.push({ label: "Planting", planned: intent.planting_date, actual: intent.actual_planting_date,
+                   diff: getDayDiff(intent.planting_date, intent.actual_planting_date) });
+    }
+    if (isIntentDateVariance(intent.harvest_date, intent.actual_harvest_date)) {
+        out.push({ label: "Harvest", planned: intent.harvest_date, actual: intent.actual_harvest_date,
+                   diff: getDayDiff(intent.harvest_date, intent.actual_harvest_date) });
+    }
+    return out;
+}
+
+function renderVarianceDateBox(v) {
+    let diffLabel = "", diffColor = "#6c757d";
+    if (v.diff) {
+        const n = Math.abs(v.diff);
+        diffLabel = `${n} day${n === 1 ? "" : "s"} ${v.diff > 0 ? "late" : "early"}`;
+        diffColor = v.diff > 0 ? "#D97706" : "#2980B9";
+    }
+    return `
+        <div class="variance-date-box">
+            <div style="font-size:10px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">${escapeHtml(v.label)}</div>
+            <div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:var(--muted);">Planned:</span><b>${escapeHtml(formatDateSafe(v.planned))}</b></div>
+            <div style="display:flex;justify-content:space-between;gap:8px;margin-top:2px;"><span style="color:var(--muted);">Actual:</span><b>${escapeHtml(formatDateSafe(v.actual))}</b></div>
+            ${diffLabel ? `<div style="margin-top:4px;padding-top:4px;border-top:1px dashed #FCD34D;font-size:11px;font-weight:700;text-align:right;color:${diffColor};">${diffLabel}</div>` : ""}
+        </div>`;
+}
+
+/* ============================================================
+   DATE VARIANCE REMARKS PANEL
+============================================================ */
+
+function renderVarianceRemarksPanel(intents) {
+    const panel = document.getElementById("varianceRemarksPanel");
+    const body = document.getElementById("varianceRemarksBody");
+    if (!panel || !body) return;
+
+    const withVariances = (Array.isArray(intents) ? intents : []).filter(i => getIntentVariances(i).length > 0 || getVarianceRemark(i));
+    
+    if (withVariances.length === 0) {
+        panel.style.display = "none";
+        body.innerHTML = "";
+        return;
+    }
+    panel.style.display = "block";
+    const countEl = document.getElementById("varianceRemarksCount");
+    if (countEl) countEl.textContent = withVariances.length;
+
+    body.innerHTML = withVariances.map(intent => {
+        const variances = getIntentVariances(intent);
+        const remark = getVarianceRemark(intent);
+        
+        let boxesHtml = "";
+        variances.forEach(v => {
+            const isPlanting = v.label === "Planting";
+            const borderColor = isPlanting ? "#10B981" : "#3B82F6"; // Green for planting, Blue for harvest
+            const diffColor = v.diff > 0 ? "#D97706" : "#2563EB";
+            
+            boxesHtml += `
+                <div style="background:#FFF;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:1;">
+                    <div style="padding:8px 12px;background:#F8FAFC;border-bottom:1px solid var(--border);font-size:10px;font-weight:800;color:#64748B;text-transform:uppercase;">
+                        ${isPlanting ? 'PLANTING' : 'HARVEST'}
+                    </div>
+                    <div style="padding:12px;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                            <span style="font-size:12px;color:var(--muted);">Planned:</span>
+                            <b style="font-size:12px;color:var(--ink);">${escapeHtml(formatDateSafe(v.planned))}</b>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;">
+                            <span style="font-size:12px;color:var(--muted);">Actual:</span>
+                            <b style="font-size:12px;color:var(--ink);">${escapeHtml(formatDateSafe(v.actual))}</b>
+                        </div>
+                        ${v.diff ? `<div style="margin-top:8px;font-size:11px;font-weight:700;color:${diffColor};text-align:right;">${Math.abs(v.diff)} day${Math.abs(v.diff)===1?'':'s'} ${v.diff > 0 ? 'late' : 'early'}</div>` : ""}
+                    </div>
+                </div>
+            `;
+        });
+
+        return `
+            <div class="variance-card" style="background:#FFFCF5; border:1px solid #FCD34D; border-radius:10px; overflow:hidden;">
+                <div style="padding:12px 16px; background:#FFF; border-bottom:1px solid #FCD34D; display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:12px;font-weight:800;color:#92400E;background:#FEF3C7;padding:2px 8px;border-radius:6px;">#${escapeHtml(String(intent.planting_intent_id ?? "—"))}</span>
+                    <span style="font-size:13px;font-weight:700;color:var(--ink);">${escapeHtml(intent.farmer_name || "N/A")}</span>
+                    <span style="font-size:12px;color:var(--muted);">· ${escapeHtml(intent.commodity || "N/A")}</span>
+                    <span class="variance-badge" style="margin-left:auto;">⚠️ ${variances.map(v => v.label).join(" + ")}</span>
+                </div>
+                <div style="padding:16px; display:flex; gap:12px; flex-wrap:wrap;">
+                    ${boxesHtml}
+                </div>
+                ${remark ? `
+                <div style="padding:12px 16px; background:#FFF; border-top:1px dashed #FCD34D;">
+                    <div style="font-size:10px;font-weight:800;color:#92400E;text-transform:uppercase;margin-bottom:4px;">Remark</div>
+                    <div style="font-size:12px;color:var(--ink);">${escapeHtml(remark)}</div>
+                </div>` : `
+                <div style="padding:12px 16px; background:#FFF; border-top:1px dashed #FCD34D; font-style:italic; font-size:12px; color:#94A3B8;">
+                    No remark recorded for this variance.
+                </div>`}
+            </div>
+        `;
+    }).join("");
+}
+
+
 function renderDetailIntents(intents) {
     const tbody = document.getElementById("detailReportIntentsBody");
     if (!tbody) return;
 
+    const badgeEl = document.getElementById("detailVarianceBadge");
+    if (badgeEl) {
+        const hasVariances = Array.isArray(intents) && intents.some(i => getIntentVariances(i).length > 0 || getVarianceRemark(i));
+        badgeEl.style.display = hasVariances ? "inline-block" : "none";
+    }
+
     if (!Array.isArray(intents) || intents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" style="padding:20px; text-align:center; color:#999;">No intents included.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" style="padding:20px; text-align:center; color:#999;">No intents included.</td></tr>`;
+        renderVarianceRemarksPanel([]);
         return;
     }
 
@@ -2380,6 +2559,11 @@ function renderDetailIntents(intents) {
         else if (statusUpper === "HARVESTED") { statusText = "Harvested";  bgColor = "#2E7D32"; }
         else if (statusUpper === "MEDIATING") { statusText = "Mediating";  bgColor = "#2980B9"; }
 
+        const varianceLabels = getIntentVariances(intent).map(v => v.label);
+        const varianceCell = varianceLabels.length
+            ? `<span class="variance-badge">⚠️ ${varianceLabels.join(" + ")}</span>`
+            : `<span style="color:#9CA3AF;">—</span>`;
+
         return `
             <tr>
                 <td class="center-col" style="font-weight: 600;">#${escapeHtml(String(id))}</td>
@@ -2390,10 +2574,13 @@ function renderDetailIntents(intents) {
                 <td class="center-col" style="background: #FFFBF5;">${renderActualDate(actualPlanting, intent.planting_date)}</td>
                 <td class="center-col" style="background: #FAFAFA;">${escapeHtml(plannedHarvest)}</td>
                 <td class="center-col" style="background: #FFFBF5;">${renderActualDate(actualHarvest, intent.harvest_date)}</td>
+                <td class="center-col">${varianceCell}</td>
                 <td class="center-col"><span class="status-pill" style="display:inline-block; padding:3px 12px; border-radius:999px; font-size:11px; font-weight:700; color:#FFFFFF; background-color:${bgColor};">${escapeHtml(statusText)}</span></td>
             </tr>
         `;
     }).join("");
+
+    renderVarianceRemarksPanel(intents);
 }
 
 
@@ -2407,14 +2594,11 @@ function closeReportDetail() {
     if (detailView) { detailView.classList.add("hidden-element"); detailView.style.display = "none"; }
     const listView = document.getElementById("reportsListView");
     if (listView) { listView.classList.remove("hidden-element"); listView.style.display = "block"; }
-    const pendingView = document.getElementById("pendingReportsView");
-    if (pendingView) pendingView.style.display = "block";
-    const returnedView = document.getElementById("returnedToProvincialView");
-    if (returnedView) returnedView.style.display = "block";
-    const approvedView = document.getElementById("approvedReportsView");
-    if (approvedView) approvedView.style.display = "block";
+    showActiveDaReportView();   // only the table of the selected KPI card, not all three
     const mainHeader = document.getElementById("reportsMainHeader");
     if (mainHeader) mainHeader.style.display = "flex";
+    const kpiCards = document.getElementById("reportSummaryCards");
+    if (kpiCards) kpiCards.style.display = "grid";
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -2988,7 +3172,7 @@ async function loadETLRunLogs() {
         let data = {};
         try { data = await response.json(); } catch { data = {}; }
 
-        if (response.status === 401) { localStorage.clear(); window.location.href = "../index.html"; return; }
+        if (response.status === 401) { clearSessionStorageKeepingHistory(); window.location.href = "../index.html"; return; }
         if (response.status === 403) { etlRows.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:24px; color:#C0392B;">You do not have permission to view ETL logs.</td></tr>`; return; }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -3038,8 +3222,20 @@ function renderETLLogs() {
         const status = log.status || "—";
         const errorMessage = log.error_message || "";
         const statusColor = status.toLowerCase() === "success" ? "#2E7D32" : status.toLowerCase() === "failed" ? "#C0392B" : "#6c757d";
-        const failureDetails = status.toLowerCase() === "failed" ? (errorMessage ? `<details><summary>View reason</summary><div>${escapeHtml(errorMessage)}</div></details>` : `<span>No details recorded for this run.</span>`) : "—";
-        row.innerHTML = `<td style="text-align:left; padding:13px 14px; border-bottom:1px solid var(--border-light);">${escapeHtml(runDateTime)}</td><td style="text-align:left; padding:13px 14px; border-bottom:1px solid var(--border-light);">${escapeHtml(dataSource)}</td><td style="text-align:left; padding:13px 14px; border-bottom:1px solid var(--border-light);"><span style="display:inline-block; padding:4px 12px; border-radius:999px; font-size:11.5px; font-weight:700; color:#FFFFFF; background-color:${statusColor}; text-transform:uppercase;">${escapeHtml(status)}</span></td><td style="text-align:left; padding:13px 14px; border-bottom:1px solid var(--border-light); max-width:420px; overflow-wrap:anywhere;">${failureDetails}</td>`;
+        const isFailed = status.toLowerCase() === "failed";
+        let failureDetails;
+        if (isFailed && errorMessage) {
+            failureDetails = `<div class="etl-fail"><button type="button" class="etl-fail-toggle" aria-expanded="false">View reason <span class="etl-fail-chevron" aria-hidden="true">▾</span></button><div class="etl-fail-body"><div class="etl-fail-inner"><div class="etl-fail-text">${escapeHtml(errorMessage)}</div></div></div></div>`;
+        } else if (isFailed) {
+            failureDetails = `<div class="etl-cell"><span class="etl-cell-text">No details recorded for this run.</span></div>`;
+        } else {
+            failureDetails = `<div class="etl-cell"><span class="etl-cell-text">—</span></div>`;
+        }
+        row.innerHTML =
+            `<td class="etl-td"><div class="etl-cell"><span class="etl-cell-text" title="${escapeHtml(runDateTime)}">${escapeHtml(runDateTime)}</span></div></td>` +
+            `<td class="etl-td"><div class="etl-cell"><span class="etl-cell-text" title="${escapeHtml(dataSource)}">${escapeHtml(dataSource)}</span></div></td>` +
+            `<td class="etl-td"><div class="etl-cell"><span class="etl-pill" style="background-color:${statusColor};">${escapeHtml(status)}</span></div></td>` +
+            `<td class="etl-td">${failureDetails}</td>`;
         etlRows.appendChild(row);
     });
 
@@ -3066,7 +3262,7 @@ async function manualRunETL() {
         let data = {};
         try { data = await response.json(); } catch { data = {}; }
 
-        if (response.status === 401) { localStorage.clear(); window.location.href = "../index.html"; return; }
+        if (response.status === 401) { clearSessionStorageKeepingHistory(); window.location.href = "../index.html"; return; }
         if (response.status === 403) throw new Error("You do not have permission to run the ETL pipeline.");
         if (!response.ok) throw new Error(data.detail || "Failed to start ETL pipeline.");
 
@@ -3096,7 +3292,7 @@ async function waitForETLCompletion(baselineLogId = 0) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
             const response = await fetch(`${API_BASE_URL}/api/etl-run-log/`, { method: "GET", headers: getAuthHeaders() });
-            if (response.status === 401) { localStorage.clear(); window.location.href = "../index.html"; throw new Error("Session expired."); }
+            if (response.status === 401) { clearSessionStorageKeepingHistory(); window.location.href = "../index.html"; throw new Error("Session expired."); }
             if (!response.ok) throw new Error("Unable to check ETL run status.");
 
             const data = await response.json();
@@ -4176,7 +4372,7 @@ function getFilteredSummaryIntents() {
         if (isNaN(p.getTime()) || isNaN(a.getTime())) return null;
         return Math.round((a - p) / 86400000);
     }
-    function getVarianceRemark(intent) { return String((intent && (intent.comment_snapshot || intent.comment)) || "").trim(); }
+    function getVarianceRemark(intent) { return String((intent && (intent.comment_snapshot || intent.comment || intent.variance_remark || intent.variance_remarks || intent.date_variance_remark || intent.date_variance_remarks || intent.variance_comment)) || "").trim(); }
     function getIntentVariances(intent) {
         const out = [];
         if (isIntentDateVariance(intent.planting_date, intent.actual_planting_date)) out.push({ label: "Planting", planned: intent.planting_date, actual: intent.actual_planting_date, diff: getDayDiff(intent.planting_date, intent.actual_planting_date) });
@@ -4637,5 +4833,258 @@ function initDaSummaryExports() {
 }
 
 /* ============================================================
-   END OF da.js
+   END OF ORIGINAL da.js LOGIC
 ============================================================ */
+
+/* ============================================================
+   USER PROFILE — load name + avatar from the database
+   (localStorage is cleared on sign-out, so the server is the source
+   of truth after logging in again)
+============================================================ */
+
+async function hydrateUserFromServer() {
+    const userId = localStorage.getItem("user_id");
+    if (!userId) return;
+    try {
+        const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
+        if (!user || typeof user !== "object") return;
+
+        const full = `${(user.first_name || "").trim()} ${(user.last_name || "").trim()}`.trim();
+        if (full) {
+            localStorage.setItem("user_display_name", full);
+            localStorage.setItem("full_name", full);
+        }
+        if (user.avatar) {
+            localStorage.setItem(`user_avatar_src_${userId}`, `../images/${String(user.avatar).split("/").pop()}`);
+        }
+        loadUserInformation();
+    } catch (error) {
+        console.warn("Could not load the profile from the server:", error);
+    }
+}
+
+
+/* ============================================================
+   REPORTS — search + date filter + pagination
+   (same behavior as Municipal / Provincial: every row is rendered,
+   then filtered and paged in one place)
+============================================================ */
+
+const DA_REPORT_PAGE_SIZE = 8;
+const DA_REPORT_TABLES = {
+    pending:  { bodyId: "pendingReportsBody",       hostId: "pendingReportsPagination",       viewId: "pendingReportsView",       dateCol: 5, label: "pending reports" },
+    returned: { bodyId: "returnedToProvincialBody", hostId: "returnedToProvincialPagination", viewId: "returnedToProvincialView", dateCol: 4, label: "returned reports" },
+    approved: { bodyId: "approvedReportsBody",      hostId: "approvedReportsPagination",      viewId: "approvedReportsView",      dateCol: 4, label: "approved reports" }
+};
+const daReportState = {
+    pending:  { period: "all", from: "", to: "", page: 1 },
+    returned: { period: "all", from: "", to: "", page: 1 },
+    approved: { period: "all", from: "", to: "", page: 1 }
+};
+let daReportSearchTerm = "";
+let daActiveReportKpi = "pending";
+
+function daPad(n) { return String(n).padStart(2, "0"); }
+function daToISO(d) { return `${d.getFullYear()}-${daPad(d.getMonth() + 1)}-${daPad(d.getDate())}`; }
+
+function daPeriodRange(period) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (period === "week") {
+        const day = today.getDay();
+        const mon = new Date(today); mon.setDate(today.getDate() + (day === 0 ? -6 : 1 - day));
+        const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23, 59, 59, 999);
+        return { from: mon, to: sun };
+    }
+    if (period === "month") return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999) };
+    if (period === "year") return { from: new Date(now.getFullYear(), 0, 1), to: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999) };
+    return null;
+}
+
+function daActiveRange(key) {
+    const st = daReportState[key];
+    if (st.period === "all") return null;
+    if (st.period === "custom") {
+        if (!st.from || !st.to) return null;
+        const [fy, fm, fd] = st.from.split("-").map(Number);
+        const [ty, tm, td] = st.to.split("-").map(Number);
+        return { from: new Date(fy, fm - 1, fd), to: new Date(ty, tm - 1, td, 23, 59, 59, 999) };
+    }
+    return daPeriodRange(st.period);
+}
+
+function refreshDaReportTable(key) {
+    const cfg = DA_REPORT_TABLES[key];
+    const state = daReportState[key];
+    const tbody = document.getElementById(cfg.bodyId);
+    const host = document.getElementById(cfg.hostId);
+    if (!tbody) return;
+
+    tbody.querySelectorAll("tr.filter-empty-row").forEach(r => r.remove());
+
+    const rows = Array.from(tbody.querySelectorAll("tr[data-report-id]"));
+    const range = daActiveRange(key);
+
+    const matches = rows.filter(row => {
+        if (daReportSearchTerm && !row.textContent.toLowerCase().includes(daReportSearchTerm)) return false;
+        if (range) {
+            const cell = row.cells[cfg.dateCol];
+            const dt = cell ? new Date(cell.textContent.trim()) : null;
+            if (!dt || isNaN(dt.getTime()) || dt < range.from || dt > range.to) return false;
+        }
+        return true;
+    });
+
+    const pageCount = Math.max(1, Math.ceil(matches.length / DA_REPORT_PAGE_SIZE));
+    state.page = Math.min(Math.max(1, state.page), pageCount);
+    const start = (state.page - 1) * DA_REPORT_PAGE_SIZE;
+    const onPage = new Set(matches.slice(start, start + DA_REPORT_PAGE_SIZE));
+    rows.forEach(row => { row.style.display = onPage.has(row) ? "" : "none"; });
+
+    if (rows.length && !matches.length) {
+        const tr = document.createElement("tr");
+        tr.className = "filter-empty-row";
+        const cols = tbody.closest("table").querySelectorAll("thead th").length || 6;
+        tr.innerHTML = `<td colspan="${cols}" style="padding:30px; text-align:center; color:#999;">${daReportSearchTerm ? "No reports match your search." : "No reports in this period."}</td>`;
+        tbody.appendChild(tr);
+    }
+
+    if (host) {
+        const fragment = document.createDocumentFragment();
+        const addLabel = text => { const el = document.createElement("span"); el.textContent = text; fragment.appendChild(el); };
+        const addButton = (text, disabled, delta) => {
+            const b = document.createElement("button");
+            b.type = "button"; b.textContent = text; b.disabled = disabled;
+            b.addEventListener("click", () => { state.page += delta; refreshDaReportTable(key); });
+            fragment.appendChild(b);
+        };
+        addLabel(matches.length ? `${start + 1}–${Math.min(start + DA_REPORT_PAGE_SIZE, matches.length)} of ${matches.length} ${cfg.label}` : `0 ${cfg.label}`);
+        addButton("Previous", state.page <= 1, -1);
+        addLabel(`Page ${state.page} / ${pageCount}`);
+        addButton("Next", state.page >= pageCount, 1);
+        host.replaceChildren(fragment);
+    }
+
+    if (key === "pending" && typeof updateSelectAllCheckbox === "function") updateSelectAllCheckbox();
+}
+
+function refreshDaReportTables() {
+    Object.keys(DA_REPORT_TABLES).forEach(refreshDaReportTable);
+}
+
+function updateDaReportCards() {
+    const pendingCount = pendingReports.filter(report => {
+        const s = String(report.status || "").toUpperCase();
+        return s === "SUBMITTED_REGIONAL_PENDING" || s === "FOR_DA_RFO_VALIDATION";
+    }).length;
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set("reportCountPending", pendingCount);
+    set("reportCountReturned", returnedToProvincialReports.length);
+    set("reportCountApproved", approvedReports.length);
+}
+
+function showActiveDaReportView() {
+    Object.entries(DA_REPORT_TABLES).forEach(([key, cfg]) => {
+        document.getElementById(cfg.viewId)?.style.setProperty("display", key === daActiveReportKpi ? "block" : "none");
+    });
+}
+
+function activateDaReportKpi(tab) {
+    if (!DA_REPORT_TABLES[tab]) tab = "pending";
+    daActiveReportKpi = tab;
+    document.querySelectorAll("[data-report-kpi]").forEach(card => {
+        const active = card.dataset.reportKpi === tab;
+        card.classList.toggle("active", active);
+        card.setAttribute("aria-pressed", String(active));
+    });
+    showActiveDaReportView();
+    const searchInput = document.getElementById("reportSearchInput");
+    if (searchInput) {
+        searchInput.placeholder = {
+            pending: "Search pending reports...",
+            returned: "Search returned reports...",
+            approved: "Search approved reports..."
+        }[tab];
+    }
+}
+
+function initReportKpiCards() {
+    document.querySelectorAll("[data-report-kpi]").forEach(card => {
+        card.addEventListener("click", () => activateDaReportKpi(card.dataset.reportKpi));
+    });
+    activateDaReportKpi("pending");
+    updateDaReportCards();
+}
+
+function initReportTables() {
+    // Search
+    const searchInput = document.getElementById("reportSearchInput");
+    if (searchInput) {
+        const onSearch = () => {
+            daReportSearchTerm = searchInput.value.trim().toLowerCase();
+            Object.values(daReportState).forEach(s => s.page = 1);
+            refreshDaReportTables();
+        };
+        searchInput.addEventListener("input", onSearch);
+        document.querySelectorAll(".nav-item").forEach(btn => btn.addEventListener("click", () => {
+            if (!searchInput.value) return;
+            searchInput.value = "";
+            onSearch();
+        }));
+    }
+
+    // Date filter (per table)
+    document.querySelectorAll(".report-date-filter").forEach(row => {
+        const key = row.dataset.filterTab;
+        if (!DA_REPORT_TABLES[key]) return;
+        const startInput = row.querySelector(".report-date-start");
+        const endInput = row.querySelector(".report-date-end");
+        const presets = row.querySelectorAll(".report-date-presets .filter-pill");
+        const state = daReportState[key];
+
+        const setActive = p => presets.forEach(b => b.classList.toggle("active", (b.dataset.period || "all") === p));
+        const sync = p => {
+            if (p === "custom") { startInput.value = state.from || ""; endInput.value = state.to || ""; return; }
+            const r = daPeriodRange(p);
+            startInput.value = r ? daToISO(r.from) : "";
+            endInput.value = r ? daToISO(r.to) : "";
+        };
+        const notify = msg => (typeof showToast === "function" ? showToast(msg) : alert(msg));
+        const apply = () => { state.page = 1; refreshDaReportTable(key); };
+        const applyCustom = () => {
+            const from = startInput.value, to = endInput.value;
+            if (!from || !to) { notify("Please select both a start and end date."); return; }
+            if (from > to) { notify("Start date must be before or equal to the end date."); return; }
+            Object.assign(state, { period: "custom", from, to });
+            setActive("custom");
+            apply();
+        };
+
+        presets.forEach(btn => btn.addEventListener("click", () => {
+            const p = btn.dataset.period || "all";
+            if (p === "custom") {
+                if (startInput.value && endInput.value) applyCustom();
+                else { setActive("custom"); startInput.focus(); }
+                return;
+            }
+            Object.assign(state, { period: p, from: "", to: "" });
+            setActive(p); sync(p); apply();
+        }));
+        row.querySelector(".report-date-apply")?.addEventListener("click", applyCustom);
+        row.querySelector(".report-date-clear")?.addEventListener("click", () => {
+            Object.assign(state, { period: "all", from: "", to: "" });
+            setActive("all"); sync("all"); apply();
+        });
+        setActive("all"); sync("all");
+    });
+}
+
+/* ETL failure details: custom toggle (native <details> jumped inside the table cell) */
+document.addEventListener("click", (event) => {
+    const toggle = event.target.closest(".etl-fail-toggle");
+    if (!toggle) return;
+    const box = toggle.closest(".etl-fail");
+    const open = !box.classList.contains("open");
+    box.classList.toggle("open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+});

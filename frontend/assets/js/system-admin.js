@@ -85,6 +85,142 @@ function checkAdminRole() {
 }
 
 
+/* ============================================================
+   API REQUEST HELPER
+   (was missing — profile load/save calls apiRequest but it was never defined here)
+============================================================ */
+async function apiRequest(url, options = {}) {
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            ...getAuthHeaders(),
+            ...(options.headers || {})
+        }
+    });
+
+    let data = null;
+    const contentType = response.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+        try { data = await response.json(); } catch { data = null; }
+    } else {
+        try { data = await response.text(); } catch { data = null; }
+    }
+
+    if (response.status === 401) {
+        handleUnauthorized();
+    }
+
+    if (!response.ok) {
+        const message = getErrorMessage(
+            data && typeof data === "object" ? data : null,
+            (typeof data === "string" && data.trim()) ? data : `HTTP ${response.status}`
+        );
+        const error = new Error(message);
+        error.status = response.status;
+        error.data = data;
+        throw error;
+    }
+
+    return data;
+}
+
+/* ============================================================
+   USER PROFILE — display helpers + user-scoped avatar storage
+============================================================ */
+function getInitials(name) {
+    if (!name) return "--";
+    const cleaned = String(name)
+        .replace(/^(aew|mcoord|admin|user|municipal|provincial|pcoord|da)[_\s-]+/i, "")
+        .replace(/[_\-.]+/g, " ")
+        .trim();
+    if (!cleaned) return "--";
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function formatRole(role) {
+    if (!role) return "";
+    return String(role).replace(/_/g, " ").toUpperCase();
+}
+
+const VALID_AVATAR_RE = /^\.\.\/images\/(?:[1-9]|1[0-2])\.png$/;
+
+function getAvatarBoxes() {
+    return document.querySelectorAll(".user-info .avatar, #userDisplayInitials");
+}
+
+function renderAvatar(src) {
+    getAvatarBoxes().forEach(el => {
+        el.innerHTML = `<img src="${src}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+        el.style.background = "transparent";
+    });
+}
+
+function renderDisplayName(displayName, username) {
+    document.querySelectorAll("#userDisplayName, #loggedInUserName").forEach(el => {
+        el.textContent = displayName;
+    });
+    const unameEl = document.getElementById("userDisplayUsername");
+    if (unameEl) unameEl.textContent = username ? `@${username}` : "";
+}
+
+async function setupUserProfile() {
+    const userId = localStorage.getItem("user_id");
+
+    const storedName =
+        localStorage.getItem("user_display_name") ||
+        localStorage.getItem("full_name") ||
+        localStorage.getItem("name") ||
+        localStorage.getItem("username");
+    const storedRole = localStorage.getItem("role");
+
+    const storedAvatar = userId ? localStorage.getItem(`user_avatar_src_${userId}`) : null;
+    const validAvatar = VALID_AVATAR_RE.test(storedAvatar || "") ? storedAvatar : null;
+
+    const roleEl = document.getElementById("userDisplayRole");
+    if (storedName) renderDisplayName(storedName, localStorage.getItem("username"));
+    if (roleEl && storedRole) roleEl.textContent = formatRole(storedRole);
+
+    if (validAvatar) {
+        renderAvatar(validAvatar);
+    } else {
+        getAvatarBoxes().forEach(el => {
+            el.innerHTML = "";
+            el.textContent = getInitials(storedName || storedRole);
+            el.style.background = "var(--green)";
+        });
+    }
+
+    if (!userId) return;
+
+    try {
+        const user = await apiRequest(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, { method: "GET" });
+        if (!user) return;
+
+        const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+        if (fullName) {
+            localStorage.setItem("user_display_name", fullName);
+            localStorage.setItem("full_name", fullName);
+            localStorage.setItem("first_name", user.first_name || "");
+            localStorage.setItem("last_name", user.last_name || "");
+            renderDisplayName(fullName, user.username);
+        }
+        if (user.role && roleEl) roleEl.textContent = formatRole(user.role);
+
+        if (user.avatar) {
+            const dbAvatarSrc = `../images/${user.avatar}`;
+            localStorage.setItem(`user_avatar_src_${userId}`, dbAvatarSrc);
+            localStorage.setItem("avatar", user.avatar);
+            renderAvatar(dbAvatarSrc);
+        }
+    } catch (error) {
+        console.warn("Could not fetch fresh profile data on load:", error);
+    }
+}
+
+
 function escapeHTML(value) {
     return String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -2041,191 +2177,231 @@ async function loadEditLocationDropdowns(user) {
    PROFILE & AVATAR PERSISTENCE (System Admin)
 ============================================================ */
 
+/* ============================================================
+   SIGN OUT (shared by the sidebar button and the profile dropdown)
+============================================================ */
+function openLogoutConfirm() {
+    const modal = document.getElementById("confirmLogoutModal");
+    if (modal) {
+        modal.classList.add("show");
+    } else if (confirm("Are you sure you want to sign out of eSaka?")) {
+        performLogout();
+    }
+}
+
+async function performLogout(button) {
+    if (button) { button.disabled = true; button.classList.add("is-loading"); }
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+            method: "POST",
+            headers: getAuthHeaders()
+        });
+        // 401 = session already gone; still fine to leave.
+        if (!response.ok && response.status !== 401) {
+            throw new Error(`Sign out failed (${response.status}).`);
+        }
+        [
+            "user_id", "username", "role", "access_token", "token_type",
+            "user_display_name", "full_name", "first_name", "last_name", "avatar"
+        ].forEach(key => localStorage.removeItem(key));
+        window.location.href = "../index.html";
+    } catch (error) {
+        console.error("Sign out error:", error);
+        alert(error.message || "Unable to sign out. Please try again.");
+        if (button) { button.disabled = false; button.classList.remove("is-loading"); }
+    }
+}
+
+function initSignOut() {
+    // Sign Out lives in the profile dropdown (#menuSignOut, wired in initProfileDropdown).
+    document.getElementById("cancelLogoutBtn")?.addEventListener("click", () => {
+        document.getElementById("confirmLogoutModal")?.classList.remove("show");
+    });
+    document.getElementById("confirmLogoutModal")?.addEventListener("click", (e) => {
+        if (e.target.id === "confirmLogoutModal") e.target.classList.remove("show");
+    });
+    document.getElementById("finalLogoutBtn")?.addEventListener("click", (e) => {
+        performLogout(e.currentTarget);
+    });
+}
+
+function initProfileDropdown() {
+    const openBtn    = document.getElementById("openProfileBtn");
+    const dropdown   = document.getElementById("profileDropdown");
+    const editBtn    = document.getElementById("menuEditProfile");
+    const signOutBtn = document.getElementById("menuSignOut");
+    const wrapper    = openBtn?.closest(".profile-menu");
+
+    if (!openBtn || !dropdown) return;
+
+    const setOpen = (open) => {
+        dropdown.style.display = open ? "block" : "none";
+        wrapper?.classList.toggle("open", open);
+        openBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+
+    // Capture phase on window: runs before any other script's click handler on the
+    // profile pill (e.g. shared UX scripts that open the profile modal directly), so
+    // clicking the pill ONLY toggles this menu.
+    window.addEventListener("click", (e) => {
+        if (!openBtn.contains(e.target)) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setOpen(dropdown.style.display !== "block");
+    }, true);
+
+    openBtn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen(dropdown.style.display !== "block");
+        }
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!dropdown.contains(e.target) && !openBtn.contains(e.target)) setOpen(false);
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") setOpen(false);
+    });
+
+    editBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setOpen(false);
+        openBtn.dispatchEvent(new CustomEvent("open-profile"));
+    });
+
+    signOutBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setOpen(false);
+        openLogoutConfirm();
+    });
+}
+
 function initProfileModal() {
     const openProfileBtn = document.getElementById("openProfileBtn");
     const profileModal = document.getElementById("profileModal");
     const closeProfileModalBtn = document.getElementById("closeProfileModalBtn");
     const profileForm = document.getElementById("profileForm");
-
     const profileUsername = document.getElementById("profileUsername");
     const profileFirstName = document.getElementById("profileFirstName");
     const profileLastName = document.getElementById("profileLastName");
     const avatarOptions = document.querySelectorAll(".avatar-option");
-
     const customAlertModal = document.getElementById("customAlertModal");
     const customAlertText = document.getElementById("customAlertText");
     const closeCustomAlertBtn = document.getElementById("closeCustomAlertBtn");
 
-    if (!openProfileBtn || !profileModal) return;
+    if (!openProfileBtn || !profileModal || !profileForm) return;
 
-    function showCustomAlert(message, isError = false) {
-    if (customAlertText) customAlertText.textContent = message;
-    if (customAlertModal) {
-        const titleEl = customAlertModal.querySelector("h2");
-        if (titleEl) {
-            titleEl.textContent = isError ? "May Error" : "Tagumpay!";
-            titleEl.style.color = isError ? "#C0392B" : "var(--green-dark)";
-        }
-        customAlertModal.classList.add("show");
-    }
-}
+    const showCustomAlert = (message) => {
+        if (customAlertText) customAlertText.textContent = message;
+        if (customAlertModal) customAlertModal.classList.add("show");
+    };
 
-    closeCustomAlertBtn?.addEventListener("click", () => {
-        customAlertModal?.classList.remove("show");
-    });
+    closeCustomAlertBtn?.addEventListener("click", () => customAlertModal?.classList.remove("show"));
 
-    // Default avatar just in case
     let currentSelectedSrc = "../images/1.png";
-    
-    // Get current user ID from localStorage
-    const userId = localStorage.getItem("user_id");
 
-    // Open profile modal - fetch fresh data from DB
-    openProfileBtn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    
-    if (!userId) {
-        showCustomAlert("Session expired. Please log in again.");
-        return;
-    }
+    // Read at call time (not init time) so it's always the current session's user.
+    const getUserId = () => localStorage.getItem("user_id");
+    const getAvatarFilename = () => {
+        const src = currentSelectedSrc || "../images/1.png";
+        return src.split("/").pop() || "1.png";
+    };
 
-    try {
-        // Fetch real user data from backend
-        const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
-            method: "GET",
-            headers: getAuthHeaders()
+    const setSelectedAvatar = (src) => {
+        currentSelectedSrc = src || "../images/1.png";
+        let matched = false;
+        avatarOptions.forEach(opt => {
+            const isMatch = opt.dataset.avatarImg === currentSelectedSrc;
+            opt.classList.toggle("selected", isMatch);
+            if (isMatch) matched = true;
         });
-        let data = {};
-        try { data = await response.json(); } catch { data = {}; }
+        if (!matched && avatarOptions.length) {
+            avatarOptions[0].classList.add("selected");
+            currentSelectedSrc = avatarOptions[0].dataset.avatarImg || "../images/1.png";
+        }
+    };
 
-        if (response.status === 401) { handleUnauthorized(); return; }
-        if (!response.ok) throw new Error(getErrorMessage(data, "Failed to load profile."));
+    const loadProfileIntoModal = async (event) => {
+        event?.stopPropagation();
+        const userId = getUserId();
+        if (!userId) return showCustomAlert("Session expired. Please log in again.");
 
-        const user = data;
+        try {
+            const user = await apiRequest(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, { method: "GET" });
+            if (profileFirstName) profileFirstName.value = user?.first_name || "";
+            if (profileLastName) profileLastName.value = user?.last_name || "";
+            if (profileUsername) profileUsername.value = user?.username || "";
 
-            // Populate form
-            if (profileFirstName) profileFirstName.value = user.first_name || "";
-            if (profileLastName) profileLastName.value = user.last_name || "";
-            if (profileUsername) profileUsername.value = user.username || "";
-
-            let avatarFile = user.avatar;
-
+            let avatarFile = user?.avatar;
             if (!avatarFile) {
-                const savedLocal = localStorage.getItem("user_avatar_src");
-                if (savedLocal) {
-                    avatarFile = savedLocal.split("/").pop(); // kunin filename lang
-                }
+                const saved = localStorage.getItem(`user_avatar_src_${userId}`);
+                if (saved) avatarFile = saved.split("/").pop();
             }
-
-            if (avatarFile) {
-                currentSelectedSrc = `../images/${avatarFile}`;
-            } else {
-                currentSelectedSrc = "../images/1.png";
-            }
-
-            let matched = false;
-            avatarOptions.forEach((opt) => {
-                opt.classList.remove("selected");
-                // Check kung tugma yung filename
-                if (opt.dataset.avatarImg === currentSelectedSrc) {
-                    opt.classList.add("selected");
-                    matched = true;
-                }
-            });
-
-            if (!matched && avatarOptions.length > 0) {
-                avatarOptions[0].classList.add("selected");
-                currentSelectedSrc = avatarOptions[0].dataset.avatarImg;
-            }
-
+            setSelectedAvatar(avatarFile ? `../images/${avatarFile}` : "../images/1.png");
             profileModal.classList.add("show");
         } catch (error) {
             console.error("Failed to load profile:", error);
-            showCustomAlert("Could not load profile data. Please try again.", true);
+            showCustomAlert(error?.message || "Could not load profile data. Please try again.");
         }
-    });
+    };
 
-    // Avatar selection UI highlight
-    avatarOptions.forEach(opt => {
-        opt.addEventListener("click", () => {
-            avatarOptions.forEach(el => el.classList.remove("selected"));
-            opt.classList.add("selected");
-            currentSelectedSrc = opt.dataset.avatarImg;
-        });
-    });
+    // Dropdown present -> it fires "open-profile"; otherwise the button opens the modal itself.
+    if (document.getElementById("profileDropdown")) {
+        openProfileBtn.addEventListener("open-profile", loadProfileIntoModal);
+    } else {
+        openProfileBtn.addEventListener("click", loadProfileIntoModal);
+    }
 
-    // Close modal
-    closeProfileModalBtn?.addEventListener("click", (e) => {
+    avatarOptions.forEach(opt => opt.addEventListener("click", () => setSelectedAvatar(opt.dataset.avatarImg)));
+    closeProfileModalBtn?.addEventListener("click", (e) => { e.preventDefault(); profileModal.classList.remove("show"); });
+    profileModal.addEventListener("click", (e) => { if (e.target === profileModal) profileModal.classList.remove("show"); });
+
+    profileForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        profileModal.classList.remove("show");
-    });
+        const userId = getUserId();
+        const fName = profileFirstName?.value.trim() || "";
+        const lName = profileLastName?.value.trim() || "";
+        if (!fName || !lName) return showCustomAlert("Please fill in all required fields.");
+        if (!userId) return showCustomAlert("Session expired. Please log in again.");
 
-    profileModal.addEventListener("click", (e) => {
-        if (e.target === profileModal) profileModal.classList.remove("show");
-    });
-
-    // Save profile to Database
-    profileForm?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const fName = profileFirstName.value.trim();
-        const lName = profileLastName.value.trim();
-        
-        if (!fName || !lName) {
-            showCustomAlert("Pakisagutan ang lahat ng kinakailangang fields.");
-            return;
-        }
-
-        // Extract just the filename e.g. "2.png"
-        const avatarFilename = currentSelectedSrc.split("/").pop();
-
+        const avatarFilename = getAvatarFilename();
+        const payload = { first_name: fName, last_name: lName, avatar: avatarFilename };
         const saveBtn = profileForm.querySelector('button[type="submit"]');
-        if (saveBtn) {
-            saveBtn.disabled = true;
-            saveBtn.textContent = "Saving...";
-        }
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
-    method: "PUT",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({
-        first_name: fName,
-        last_name: lName,
-        avatar: avatarFilename
-    })
-});
-let updatedUser = {};
-try { updatedUser = await response.json(); } catch { updatedUser = {}; }
+            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
 
-if (response.status === 401) { handleUnauthorized(); return; }
-if (!response.ok) throw new Error(getErrorMessage(updatedUser, "Failed to update profile.", true));
+            const serverFirst = updatedUser?.first_name || fName;
+            const serverLast = updatedUser?.last_name || lName;
+            const serverAvatar = updatedUser?.avatar || avatarFilename;
+            const serverUsername = updatedUser?.username || profileUsername?.value || "";
+            const displayName = `${serverFirst} ${serverLast}`.trim();
+            const avatarSrc = `../images/${serverAvatar}`;
 
-            // Update localStorage (for fallback/legacy code)
-            localStorage.setItem("user_display_name", `${fName} ${lName}`);
-            localStorage.setItem("user_avatar_src", currentSelectedSrc);
+            localStorage.setItem("user_display_name", displayName);
+            localStorage.setItem("full_name", displayName);
+            localStorage.setItem("first_name", serverFirst);
+            localStorage.setItem("last_name", serverLast);
+            if (serverUsername) localStorage.setItem("username", serverUsername);
+            localStorage.setItem(`user_avatar_src_${userId}`, avatarSrc);
+            localStorage.setItem("avatar", serverAvatar);
 
-            // Update Topbar UI instantly
-            const displayNameEl = document.getElementById("userDisplayName");
-            if (displayNameEl) displayNameEl.textContent = `${fName} ${lName}`;
-
-            const avatarBox = document.querySelector(".user-info .avatar");
-            if (avatarBox) {
-                avatarBox.innerHTML = `<img src="${currentSelectedSrc}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
-                avatarBox.style.background = "transparent";
-            }
+            renderDisplayName(displayName, serverUsername);
+            renderAvatar(avatarSrc);
 
             profileModal.classList.remove("show");
             showCustomAlert("Profile updated and saved successfully!");
-
         } catch (error) {
             console.error("Update error:", error);
-            showCustomAlert(error.message || "Failed to update profile.");
+            showCustomAlert(error?.message || "Failed to update profile.");
         } finally {
-            if (saveBtn) {
-                saveBtn.disabled = false;
-                saveBtn.textContent = "Save Changes";
-            }
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; }
         }
     });
 }
@@ -2353,7 +2529,9 @@ document.getElementById("editUserForm")?.addEventListener("submit", saveUserEdit
     loadArchivedUsers();
     initializeLocationDropdowns();
     initEditLocationDropdownListeners();
-    initProfileModal(); 
+    setupUserProfile();
+    initProfileDropdown();
+    initProfileModal();
         /* ============================================================
        USER DETAIL MODAL — Close Handlers
     ============================================================ */
@@ -2533,27 +2711,5 @@ document.getElementById("searchArchived")?.addEventListener("input", (e) => {
 
 
     // Logout
-    document.getElementById("signOutButton")?.addEventListener("click", (e) => {
-        e.preventDefault();
-        document.getElementById("confirmLogoutModal")?.classList.add("show");
-    });
-    document.getElementById("cancelLogoutBtn")?.addEventListener("click", () => {
-        document.getElegitmentById("confirmLogoutModal")?.classList.remove("show");
-    });
-    document.getElementById("finalLogoutBtn")?.addEventListener("click", async (event) => {
-        const button = event.currentTarget;
-        button.disabled = true;
-        button.classList.add("is-loading");
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/auth/logout`, { method: "POST" });
-            if (!response.ok) throw new Error(`Sign out failed (${response.status}).`);
-            ["user_id", "username", "role", "user_display_name"].forEach(key => localStorage.removeItem(key));
-            window.location.href = "../index.html";
-        } catch (error) {
-            console.error("Sign out error:", error);
-            alert(error.message || "Unable to sign out. Please try again.");
-            button.disabled = false;
-            button.classList.remove("is-loading");
-        }
-    });
+    initSignOut();
 });
