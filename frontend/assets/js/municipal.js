@@ -3568,10 +3568,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             doc.roundedRect(margin, top, contentWidth, height, 1.6, 1.6, "FD");
 
             const cells = [
-                { w: 0.22, label: "MUNICIPALITY", value: municipality || "-", sub: "Municipal Agriculture Office" },
-                { w: 0.27, label: "REPORTING PERIOD", value: reportingPeriod, sub: "" },
-                { w: 0.31, label: "PREPARED BY", value: preparedByName || "-", sub: positionText },
-                { w: 0.20, label: "GENERATED", value: generatedAt, sub: "eSaka system" }
+                { w: 0.33, label: "MUNICIPALITY", value: municipality || "-", sub: "Municipal Agriculture Office" },
+                { w: 0.34, label: "REPORTING PERIOD", value: reportingPeriod, sub: "" },
+                { w: 0.33, label: "GENERATED", value: generatedAt, sub: "eSaka system" }
             ];
 
             let x = margin + 4;
@@ -4371,43 +4370,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             root.appendChild(section);
         };
 
-        const kpiGrid = document.createElement("div");
-        kpiGrid.className = "summary-kpi-grid";
-        kpiGrid.style.cssText =
-            "display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0 12px;";
-
-        model.metrics.slice(1, 7).forEach(row => {
-            const card = document.createElement("div");
-            card.className = "summary-kpi-card";
-            card.style.cssText =
-                "border:1px solid #0B382A;border-left:4px solid #EAB308;padding:7px;background:#FFFFFF;min-height:48px;";
-
-            const label = document.createElement("div");
-            label.className = "summary-kpi-label";
-            label.textContent = row[0] || "Metric";
-            label.style.cssText = "font-size:7px;color:#0B382A;font-weight:700;";
-
-            const value = document.createElement("strong");
-            value.className = "summary-kpi-value";
-            value.textContent = row[1] || "—";
-            value.style.cssText =
-                "display:block;font-size:13px;color:#0B382A;margin:3px 0;";
-
-            const sub = document.createElement("small");
-            sub.className = "summary-kpi-subtext";
-            sub.textContent = row[2] || "";
-            sub.style.cssText = "font-size:6px;color:#595959;";
-
-            card.append(label, value, sub);
-            kpiGrid.appendChild(card);
-        });
-
-        const kpiHeading = document.createElement("h3");
-        kpiHeading.textContent = "KPI Dashboard";
-        kpiHeading.style.cssText =
-            "font-size:11px;font-weight:700;color:#0B382A;margin:7px 0 4px;";
-
-        root.append(kpiHeading, kpiGrid);
 
         model.reportSections
             .filter(section => section.key !== "kpis")
