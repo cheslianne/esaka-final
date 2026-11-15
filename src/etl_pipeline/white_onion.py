@@ -1,7 +1,7 @@
-import requests
 import csv
-from io import StringIO
 from datetime import datetime
+from io import StringIO
+import requests
 
 from src.etl_pipeline.load import load_price_data
 
@@ -22,7 +22,6 @@ API_URL = (
 
 REGION_CODE = "20"       # REGION III (CENTRAL LUZON)
 COMMODITY_CODE = "7"     # White Onion
-
 YEARS = ["14", "15", "16"]  # 2024, 2025, 2026
 
 PERIODS = [
@@ -36,7 +35,6 @@ PERIODS = [
 # ============================================================
 
 def fetch_white_onion_data():
-
     payload = {
         "query": [
             {
@@ -86,7 +84,6 @@ def fetch_white_onion_data():
 
     csv_data = StringIO(response.text)
     reader = csv.reader(csv_data)
-
     rows = list(reader)
 
     headers = rows[0]
@@ -95,38 +92,20 @@ def fetch_white_onion_data():
     records = []
 
     for header, value in zip(headers[2:], values[2:]):
-
-        # ----------------------------------------------------
-        # Ignore PSA missing values
-        # ----------------------------------------------------
-
-        if value in ("..", "", "NA", "N/A"):
+        cleaned = str(value).strip().replace('"', "")
+        if cleaned in ("..", "", "NA", "N/A", "-"):
             continue
 
         try:
-            price = float(value)
+            price = float(cleaned)
         except ValueError:
             continue
-
-        # ----------------------------------------------------
-        # Ignore zero / invalid prices
-        # ----------------------------------------------------
 
         if price <= 0:
             continue
 
-        # ----------------------------------------------------
-        # Convert:
-        #
-        # "2024 January"
-        #
-        # to:
-        #
-        # date(2024, 1, 1)
-        # ----------------------------------------------------
-
         record_date = datetime.strptime(
-            header,
+            header.strip(),
             "%Y %B"
         ).date()
 
@@ -144,22 +123,18 @@ def fetch_white_onion_data():
 # ============================================================
 
 def main():
-
     print("=" * 70)
-    print("PSA WHITE ONION ETL — REGION III")
+    print("PSA WHITE ONION ETL - REGION III")
     print("=" * 70)
     print()
-
     print("Commodity: White Onion")
     print("Geolocation: Region III (Central Luzon)")
     print("Years: 2024, 2025, 2026")
     print()
-
     print("FETCHING PSA DATA...")
     print()
 
     try:
-
         records = fetch_white_onion_data()
 
         print("VALID OBSERVATIONS:", len(records))
@@ -167,26 +142,20 @@ def main():
 
         if not records:
             print("No valid White Onion observations found.")
-            return
+            return 0
 
         print("CLEAN DATA")
         print("-" * 70)
 
         for record in records:
-
             print(
                 f"{record['record_date']} | "
                 f"{record['commodity']:<13} | "
-                f"₱{record['price_per_kg']:,.2f}/kg"
+                f"PHP {record['price_per_kg']:,.2f}/kg"
             )
 
         print("-" * 70)
         print()
-
-        # ====================================================
-        # LOAD TO DATABASE
-        # ====================================================
-
         print("LOADING TO DATABASE...")
         print()
 
@@ -198,21 +167,18 @@ def main():
         print("=" * 70)
         print(f"Valid PSA observations: {len(records)}")
         print(f"Database records processed: {loaded_count}")
+        return loaded_count
 
     except requests.exceptions.RequestException as e:
-
         print("PSA API ERROR:")
         print(e)
+        return 0
 
     except Exception as e:
-
         print("ETL ERROR:")
         print(e)
+        return 0
 
-
-# ============================================================
-# RUN
-# ============================================================
 
 if __name__ == "__main__":
     main()

@@ -1,85 +1,70 @@
+from decimal import Decimal
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from src.core.database import get_db
-from src.models.market_price_forecast import (
-    MarketPriceForecast
-)
+from src.models.market_price_forecast import MarketPriceForecast
 from src.api.schemas.market_price_forecast import (
     MarketPriceForecastCreate,
     MarketPriceForecastResponse,
-    MonthlyMarketPriceForecastResponse
+    MonthlyMarketPriceForecastResponse,
 )
-
 
 router = APIRouter(
     prefix="/api/market-price-forecasts",
-    tags=["Market Price Forecasts"]
+    tags=["Market Price Forecasts"],
 )
 
 
 @router.get(
     "/",
-    response_model=list[MarketPriceForecastResponse]
+    response_model=list[MarketPriceForecastResponse],
 )
 def get_market_price_forecasts(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-
     return (
         db.query(MarketPriceForecast)
-        .order_by(
-            MarketPriceForecast.forecast_date.asc()
-        )
+        .filter(MarketPriceForecast.forecast_price_low > Decimal("1.00"))
+        .order_by(MarketPriceForecast.forecast_date.asc())
         .all()
     )
 
 
 # ============================================================
-# NEW: MONTHLY AGGREGATED FORECASTS
+# MONTHLY AGGREGATED FORECASTS (AVERAGE WEEKLY BAND)
 # ============================================================
 
 @router.get(
     "/monthly",
-    response_model=list[MonthlyMarketPriceForecastResponse]
+    response_model=list[MonthlyMarketPriceForecastResponse],
 )
 def get_monthly_market_price_forecasts(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
-    Weekly forecasts aggregated to monthly.
-
-    For each (commodity, price_type, year, month):
-    - forecast_price_low = minimum of all weekly lows
-    - forecast_price_high = maximum of all weekly highs
+    Weekly forecasts aggregated to monthly using the average
+    weekly lower bound and average weekly upper bound.
     """
-
-    # --------------------------------------------------------
-    # Get all forecasts
-    # --------------------------------------------------------
-
     forecasts = (
         db.query(MarketPriceForecast)
-        .order_by(
-            MarketPriceForecast.forecast_date.asc()
-        )
+        .filter(MarketPriceForecast.forecast_price_low > Decimal("1.00"))
+        .order_by(MarketPriceForecast.forecast_date.asc())
         .all()
     )
-
-    # --------------------------------------------------------
-    # Group by (commodity, price_type, year, month)
-    # --------------------------------------------------------
 
     grouped = {}
 
     for f in forecasts:
-
         key = (
             f.commodity,
             f.price_type,
             f.forecast_date.year,
             f.forecast_date.month,
         )
+
+        low_val = Decimal(str(f.forecast_price_low))
+        high_val = Decimal(str(f.forecast_price_high))
 
         if key not in grouped:
             grouped[key] = {
@@ -89,26 +74,34 @@ def get_monthly_market_price_forecasts(
                 "etl_cadence": f.etl_cadence,
                 "year": f.forecast_date.year,
                 "month": f.forecast_date.month,
-                "forecast_price_low": f.forecast_price_low,
-                "forecast_price_high": f.forecast_price_high,
+                "lows": [low_val],
+                "highs": [high_val],
             }
         else:
-            if f.forecast_price_low < grouped[key]["forecast_price_low"]:
-                grouped[key]["forecast_price_low"] = (
-                    f.forecast_price_low
-                )
+            grouped[key]["lows"].append(low_val)
+            grouped[key]["highs"].append(high_val)
 
-            if f.forecast_price_high > grouped[key]["forecast_price_high"]:
-                grouped[key]["forecast_price_high"] = (
-                    f.forecast_price_high
-                )
+    result = []
+    for item in grouped.values():
+        avg_low = (sum(item["lows"]) / Decimal(len(item["lows"]))).quantize(
+            Decimal("0.01")
+        )
+        avg_high = (sum(item["highs"]) / Decimal(len(item["highs"]))).quantize(
+            Decimal("0.01")
+        )
 
-    # --------------------------------------------------------
-    # Sort by (year, month, commodity, price_type)
-    # --------------------------------------------------------
+        result.append({
+            "commodity": item["commodity"],
+            "price_type": item["price_type"],
+            "data_source": item["data_source"],
+            "etl_cadence": item["etl_cadence"],
+            "year": item["year"],
+            "month": item["month"],
+            "forecast_price_low": avg_low,
+            "forecast_price_high": max(avg_low, avg_high),
+        })
 
-    result = sorted(
-        grouped.values(),
+    result.sort(
         key=lambda x: (
             x["year"],
             x["month"],
@@ -120,17 +113,14 @@ def get_monthly_market_price_forecasts(
     return result
 
 
-
-
 @router.post(
     "/",
-    response_model=MarketPriceForecastResponse
+    response_model=MarketPriceForecastResponse,
 )
 def create_market_price_forecast(
     data: MarketPriceForecastCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-
     forecast = MarketPriceForecast(
         commodity=data.commodity,
         price_type=data.price_type,
@@ -138,11 +128,9 @@ def create_market_price_forecast(
         etl_cadence=data.etl_cadence,
         forecast_date=data.forecast_date,
         forecast_price_low=data.forecast_price_low,
-        forecast_price_high=data.forecast_price_high
+        forecast_price_high=data.forecast_price_high,
     )
-
     db.add(forecast)
     db.commit()
     db.refresh(forecast)
-
     return forecast
