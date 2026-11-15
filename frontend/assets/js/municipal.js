@@ -26,6 +26,10 @@ const MUNICIPAL_SUMMARY_ENDPOINT =
 ============================================================ */
 
 let pendingReports = [];
+/* Report date filters (per tab): week | month | year | all | custom */
+const MUNI_DATE_FILTERS = { pending: "all", revision: "all", provincial: "all" };
+const MUNI_DATE_CUSTOM = { pending: null, revision: null, provincial: null };
+
 let sentReports = [];
 let awaitingRevisionReports = [];
 let selectedReportIds = new Set();
@@ -52,15 +56,11 @@ function getAuthToken() {
     return "cookie-session";
 }
 
-function getAuthHeaders(extra = {}) {
+function getAuthHeaders(includeContentType = true, extra = {}) {
     const token = getAuthToken();
-    const headers = {
-        "Content-Type": "application/json",
-        ...extra
-    };
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
+    const headers = { ...extra };
+    if (includeContentType) headers["Content-Type"] = "application/json";
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     return headers;
 }
 
@@ -122,6 +122,44 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 10000) {
     }
 }
 
+/* ============================================================
+   API REQUEST HELPER
+   (was missing — broke the profile modal for Municipal roles)
+============================================================ */
+
+async function apiRequest(url, options = {}) {
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            ...getAuthHeaders(),
+            ...(options.headers || {})
+        }
+    });
+
+    let data = null;
+    const contentType = response.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+        try { data = await response.json(); } catch { data = null; }
+    } else {
+        try { data = await response.text(); } catch { data = null; }
+    }
+
+    if (!response.ok) {
+        let message = `HTTP ${response.status}`;
+        if (data && typeof data === "object" && data.detail) {
+            message = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+        } else if (typeof data === "string" && data.trim()) {
+            message = data;
+        }
+        const error = new Error(message);
+        error.status = response.status;
+        error.data = data;
+        throw error;
+    }
+
+    return data;
+}
 
 /* ============================================================
    USER PROFILE
@@ -158,15 +196,21 @@ function getScopedAvatarKey() {
     return `user_avatar_src_${userId}`;
 }
 
-function setupUserProfile() {
-    const storedName =
+async function setupUserProfile() {
+    const userId = localStorage.getItem("user_id");
+    
+    let storedName =
         localStorage.getItem("user_display_name") ||
         localStorage.getItem("full_name") ||
         localStorage.getItem("name") ||
         localStorage.getItem("username");
 
     const storedRole = localStorage.getItem("role");
-    const storedAvatar = localStorage.getItem(getScopedAvatarKey());
+    
+    const storedAvatar = userId ? localStorage.getItem(`user_avatar_src_${userId}`) : null;
+    const validAvatar = /^..\/images\/(?:[1-9]|1[0-2])\.png$/.test(storedAvatar || "")
+        ? storedAvatar
+        : null;
 
     const nameEl = document.getElementById("userDisplayName");
     const roleEl = document.getElementById("userDisplayRole");
@@ -176,11 +220,51 @@ function setupUserProfile() {
     if (roleEl && storedRole) roleEl.textContent = formatRole(storedRole);
 
     if (initEl) {
-        if (storedAvatar) {
-            initEl.innerHTML = `<img src="${storedAvatar}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+        initEl.innerHTML = "";
+        initEl.style.background = "";
+        
+        if (validAvatar) {
+            initEl.innerHTML = `<img src="${validAvatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
             initEl.style.background = "transparent";
         } else {
             initEl.textContent = getInitials(storedName || storedRole);
+            initEl.style.background = "var(--green)";
+        }
+    }
+
+    if (userId) {
+        try {
+            const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
+            
+            if (user) {
+                const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
+                
+                if (fullName) {
+                    localStorage.setItem("user_display_name", fullName);
+                    localStorage.setItem("full_name", fullName);
+                    localStorage.setItem("first_name", user.first_name);
+                    localStorage.setItem("last_name", user.last_name);
+                    
+                    if (nameEl) nameEl.textContent = fullName;
+                }
+                
+                if (user.role && roleEl) {
+                    roleEl.textContent = formatRole(user.role);
+                }
+
+                if (user.avatar) {
+                    const dbAvatarSrc = `../images/${user.avatar}`;
+                    localStorage.setItem(`user_avatar_src_${userId}`, dbAvatarSrc);
+                    localStorage.setItem("avatar", user.avatar);
+                    
+                    if (initEl) {
+                        initEl.innerHTML = `<img src="${dbAvatarSrc}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                        initEl.style.background = "transparent";
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn("Could not fetch fresh profile data on load:", error);
         }
     }
 }
@@ -589,10 +673,10 @@ function renderPendingReports() {
     const tbody = document.getElementById("pendingReportsBody");
     if (!tbody) return;
 
-    const reports = pendingReports.filter(report => {
+    const reports = muniApplyDateFilter(pendingReports.filter(report => {
         const s = String(report.status || "").toUpperCase();
         return s === "SUBMITTED_MUNICIPAL_PENDING" || s === "FOR_MUNICIPAL_VALIDATION";
-    });
+    }), "pending", r => r.planting_date || r.submitted_at);
 
     const badge = document.getElementById("pendingCountBadge");
     if (badge) badge.textContent = reports.length;
@@ -693,12 +777,15 @@ function renderAwaitingRevision() {
     const tbody = document.getElementById("awaitingRevisionBody");
     if (!tbody) return;
 
+    const revisionReports = muniApplyDateFilter(awaitingRevisionReports, "revision",
+        r => r.flagged_at || r.updated_at || r.submitted_at);
+
     const badge = document.getElementById("awaitingRevisionCountBadge");
-    if (badge) badge.textContent = awaitingRevisionReports.length;
+    if (badge) badge.textContent = revisionReports.length;
 
     tbody.innerHTML = "";
 
-    if (awaitingRevisionReports.length === 0) {
+    if (revisionReports.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" style="padding:30px; text-align:center; color:#999;">
@@ -709,7 +796,7 @@ function renderAwaitingRevision() {
         return;
     }
 
-    awaitingRevisionReports.forEach(report => {
+    revisionReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
         const tr = document.createElement("tr");
         tr.className = "clickable-row";
@@ -794,6 +881,11 @@ function renderSentReports() {
         });
     }
 
+    filteredReports = muniApplyDateFilter(filteredReports, "provincial", r =>
+        currentSentToProvincialFilter === "approved"
+            ? (r.approved_at || r.updated_at || r.submitted_at)
+            : r.submitted_at);
+
     const badge = document.getElementById("sentCountBadge");
     if (badge) badge.textContent = filteredReports.length;
 
@@ -846,6 +938,148 @@ function renderSentReports() {
         tbody.appendChild(tr);
     });
 }
+
+/* ============================================================
+   REPORT DATE FILTER (presets + custom range)
+============================================================ */
+function muniGetPeriodRange(period) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (period === "week") {
+        const day = today.getDay();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + (day === 0 ? -6 : 1 - day));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        return { from: monday, to: sunday };
+    }
+    if (period === "month") {
+        return {
+            from: new Date(now.getFullYear(), now.getMonth(), 1),
+            to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        };
+    }
+    if (period === "year") {
+        return {
+            from: new Date(now.getFullYear(), 0, 1),
+            to: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+        };
+    }
+    return null;
+}
+
+function muniApplyDateFilter(reports, tab, dateGetter) {
+    const period = MUNI_DATE_FILTERS[tab] || "all";
+    if (period === "all") return reports.slice();
+
+    let range = null;
+    if (period === "custom") {
+        const c = MUNI_DATE_CUSTOM[tab];
+        if (!c || !c.from || !c.to) return reports.slice();
+        const [fy, fm, fd] = c.from.split("-").map(Number);
+        const [ty, tm, td] = c.to.split("-").map(Number);
+        range = {
+            from: new Date(fy, fm - 1, fd, 0, 0, 0, 0),
+            to: new Date(ty, tm - 1, td, 23, 59, 59, 999)
+        };
+    } else {
+        range = muniGetPeriodRange(period);
+    }
+    if (!range || isNaN(range.from.getTime()) || isNaN(range.to.getTime())) return reports.slice();
+
+    return reports.filter(report => {
+        const raw = dateGetter(report);
+        if (!raw) return false;
+        const dt = new Date(raw);
+        if (isNaN(dt.getTime())) return false;
+        return dt >= range.from && dt <= range.to;
+    });
+}
+
+function muniNotify(msg) {
+    if (typeof showToast === "function") showToast(msg); else alert(msg);
+}
+
+function muniRerenderTab(tab) {
+    if (tab === "pending") renderPendingReports();
+    else if (tab === "revision") renderAwaitingRevision();
+    else renderSentReports();
+}
+
+function initReportDateFilters() {
+    const pad = n => String(n).padStart(2, "0");
+    const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    document.querySelectorAll(".report-date-filter").forEach(row => {
+        const tab = row.dataset.filterTab;
+        if (!tab) return;
+
+        const startInput = row.querySelector(".report-date-start");
+        const endInput = row.querySelector(".report-date-end");
+        const presets = row.querySelectorAll(".report-date-presets .filter-pill");
+
+        // The range box is always visible and shows the range currently in effect.
+        const syncInputs = period => {
+            if (!startInput || !endInput) return;
+            if (period === "custom") {
+                const c = MUNI_DATE_CUSTOM[tab];
+                startInput.value = c ? c.from : "";
+                endInput.value = c ? c.to : "";
+                return;
+            }
+            const r = muniGetPeriodRange(period);
+            startInput.value = r ? toISO(r.from) : "";
+            endInput.value = r ? toISO(r.to) : "";
+        };
+        const setActivePill = period =>
+            presets.forEach(p => p.classList.toggle("active", (p.dataset.period || "all") === period));
+
+        const applyCustom = () => {
+            const from = startInput?.value || "";
+            const to = endInput?.value || "";
+            if (!from || !to) { muniNotify("Please select both a start and end date."); return; }
+            if (from > to) { muniNotify("Start date must be before or equal to the end date."); return; }
+            MUNI_DATE_CUSTOM[tab] = { from, to };
+            MUNI_DATE_FILTERS[tab] = "custom";
+            setActivePill("custom");
+            muniRerenderTab(tab);
+        };
+
+        presets.forEach(pill => {
+            pill.addEventListener("click", () => {
+                const period = pill.dataset.period || "all";
+                if (period === "custom") {
+                    if (startInput?.value && endInput?.value) applyCustom();
+                    else { setActivePill("custom"); startInput?.focus(); }
+                    return;
+                }
+                MUNI_DATE_CUSTOM[tab] = null;
+                MUNI_DATE_FILTERS[tab] = period;
+                setActivePill(period);
+                syncInputs(period);
+                muniRerenderTab(tab);
+            });
+        });
+
+        row.querySelector(".report-date-apply")?.addEventListener("click", applyCustom);
+
+        row.querySelector(".report-date-clear")?.addEventListener("click", () => {
+            MUNI_DATE_CUSTOM[tab] = null;
+            MUNI_DATE_FILTERS[tab] = "all";
+            setActivePill("all");
+            syncInputs("all");
+            muniRerenderTab(tab);
+        });
+
+        const initial = MUNI_DATE_FILTERS[tab] || "all";
+        setActivePill(initial);
+        syncInputs(initial);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", initReportDateFilters);
 
 /* ============================================================
    REPORT SUMMARY CARDS
@@ -1248,7 +1482,7 @@ async function openReportDetail(report) {
             `${API_BASE_URL}/api/raw-plant-reports/${report.report_id}`,
             {
                 method: "GET",
-                headers: getAuthHeaders({ "Accept": "application/json" })
+                headers: getAuthHeaders(false, { "Accept": "application/json" })
             },
             10000
         );
@@ -1413,156 +1647,12 @@ function renderValidationTimeline(history) {
 ============================================================ */
 
 function renderReportSummaryCard(intents, meta) {
-    const wrapper = document.getElementById("reportSummaryCardWrapper");
-    const body = document.getElementById("reportSummaryBody");
-    const coveragePeriodEl = document.getElementById("summaryCoveragePeriod");
-
-    if (!wrapper || !body) return;
-
-    if (!Array.isArray(intents) || intents.length === 0) {
-        wrapper.style.display = "none";
-        return;
-    }
-    wrapper.style.display = "block";
-
-    const selected = intents;
-    const selectedCount = selected.length;
-    const plural = (n, word) => `${n} ${word}${n !== 1 ? "s" : ""}`;
-    const statusOf = (i) => String(i.finalized_status_at_submission || i.finalized_status || "NOT PLANTED").toUpperCase();
-
-    if (coveragePeriodEl) {
-        const submittedAt = meta?.submitted_at || meta?.created_at;
-        const reportDate = submittedAt ? new Date(submittedAt) : null;
-        if (reportDate && !isNaN(reportDate.getTime())) {
-            const weekStart = new Date(reportDate);
-            weekStart.setDate(reportDate.getDate() - 6);
-            const fmt = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-            coveragePeriodEl.textContent = `Coverage: ${fmt(weekStart)} – ${fmt(reportDate)}`;
-        } else {
-            coveragePeriodEl.textContent = "Coverage: —";
-        }
-    }
-
-    const totalVolume = selected.reduce((sum, i) => sum + (Number(i.volume) || 0), 0);
-    const uniqueFarmerCount = new Set(selected.map(i => i.farmer_id || i.farmer_name).filter(Boolean)).size;
-
-    const byCommodity = {};
-    const byBarangay = {};
-    selected.forEach(intent => {
-        const c = intent.commodity || "Unknown";
-        if (!byCommodity[c]) byCommodity[c] = { count: 0, volume: 0 };
-        byCommodity[c].count += 1;
-        byCommodity[c].volume += Number(intent.volume) || 0;
-
-        let b = intent.barangay;
-        if (!b && intent.location) b = String(intent.location).split(",")[0].trim();
-        if (!b) b = intent.municipality || "Unknown";
-        if (!byBarangay[b]) byBarangay[b] = { count: 0, volume: 0 };
-        byBarangay[b].count += 1;
-        byBarangay[b].volume += Number(intent.volume) || 0;
-    });
-
-    const breakdownRows = (map, icon) => {
-        const entries = Object.entries(map).sort((a, b) => b[1].volume - a[1].volume);
-        if (entries.length === 0) return `<span style="color:var(--muted);font-style:italic;">No data.</span>`;
-        return entries.map(([name, d]) => `
-            <div class="summary-seven-row">
-                <span style="font-weight:600;">${icon}${escapeHtml(name)}</span>
-                <span style="color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;">
-                    ${d.count} · <b style="color:var(--ink);">${formatKg(d.volume)}</b>
-                </span>
-            </div>`).join("");
-    };
-
-    const harvested = selected.filter(i => statusOf(i) === "HARVESTED");
-    const withActual = harvested.filter(i => Number(i.actual_harvest_volume) > 0);
-    const yieldActual = withActual.reduce((s, i) => s + Number(i.actual_harvest_volume), 0);
-    const yieldPlanned = withActual.reduce((s, i) => s + (Number(i.volume) || 0), 0);
-
-    let yieldHtml;
-    if (yieldActual > 0) {
-        const pct = yieldPlanned > 0 ? Math.round(((yieldActual - yieldPlanned) / yieldPlanned) * 100) : 0;
-        let color = "#16A34A", icon = "↑", label = "surplus";
-        if (pct < 0) { color = "#DC2626"; icon = "↓"; label = "shortfall"; }
-        else if (pct === 0) { color = "#6c757d"; icon = "→"; label = "on target"; }
-        
-        yieldHtml = `
-            <div class="summary-seven-row"><span style="color:var(--muted);">Expected (planned):</span><b>${yieldPlanned.toLocaleString("en-US")} kg</b></div>
-            <div class="summary-seven-row"><span style="color:var(--muted);">Actual (harvested):</span><b>${yieldActual.toLocaleString("en-US")} kg</b></div>
-            <div style="margin-top:10px;">
-                <span style="display:inline-block;padding:4px 10px;background:${color}15;border-radius:6px;font-size:11px;font-weight:700;color:${color};">
-                    ${icon} ${Math.abs(pct)}% ${label}
-                </span>
-            </div>
-            <div style="margin-top:8px;font-size:10px;color:var(--muted);font-style:italic;">
-                Based on ${withActual.length} of ${selectedCount} harvested
-            </div>`;
+    // Shared card (assets/js/report-summary-card.js): same layout and colors for AEW, Municipal, Provincial and DA-RFO.
+    if (window.EsakaReportSummary) {
+        window.EsakaReportSummary.render(intents, meta);
     } else {
-        yieldHtml = `<span style="color:var(--muted);font-style:italic;">No actual harvest volume recorded yet.</span>`;
+        console.error("report-summary-card.js is not loaded.");
     }
-
-    const toDates = (key) => selected.map(i => i[key]).filter(Boolean).map(d => new Date(`${String(d).slice(0, 10)}T00:00:00`)).filter(d => !isNaN(d.getTime()));
-    const plantingDates = toDates("planting_date");
-    const harvestDates = toDates("harvest_date");
-    const span = (arr) => {
-        const lo = new Date(Math.min.apply(null, arr));
-        const hi = new Date(Math.max.apply(null, arr));
-        return { lo, hi, days: Math.round((hi - lo) / 86400000) };
-    };
-    const row = (label, value) => `<div class="summary-seven-row"><span style="color:var(--muted);">${label}</span><b>${value}</b></div>`;
-
-    let windowHtml;
-    if (plantingDates.length > 0) {
-        const p = span(plantingDates);
-        windowHtml = row("🌱 Earliest:", formatDate(p.lo)) + row("Latest:", formatDate(p.hi)) + row("Span:", plural(p.days, "day"));
-        if (harvestDates.length > 0) {
-            const hv = span(harvestDates);
-            windowHtml += `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-light);">`
-                + row("🌾 Harvest earliest:", formatDate(hv.lo))
-                + row("Harvest latest:", formatDate(hv.hi))
-                + row("Harvest span:", plural(hv.days, "day"))
-                + `</div>`;
-        }
-    } else {
-        windowHtml = `<span style="color:var(--muted);font-style:italic;">No planting dates available.</span>`;
-    }
-
-    let html = `
-        <div class="summary-seven-grid">
-            <div class="summary-seven-card">
-                <div class="summary-seven-title">✓ SELECTED INTENTS</div>
-                <div class="summary-seven-value">${selectedCount}</div>
-                <div class="summary-seven-sub">${selectedCount === 1 ? "Intent included" : "Intents included"}</div>
-            </div>
-            <div class="summary-seven-card">
-                <div class="summary-seven-title">📦 TOTAL VOLUME</div>
-                <div class="summary-seven-value">${formatKg(totalVolume)}</div>
-                <div class="summary-seven-sub">Sum of estimated volumes</div>
-            </div>
-            <div class="summary-seven-card">
-                <div class="summary-seven-title">👥 UNIQUE FARMERS</div>
-                <div class="summary-seven-value">${uniqueFarmerCount}</div>
-                <div class="summary-seven-sub">${uniqueFarmerCount === 1 ? "1 beneficiary" : `${uniqueFarmerCount} beneficiaries`}</div>
-            </div>
-            <div class="summary-seven-card">
-                <div class="summary-seven-title">🌾 BY COMMODITY</div>
-                ${breakdownRows(byCommodity, "")}
-            </div>
-            <div class="summary-seven-card">
-                <div class="summary-seven-title">📍 BY BARANGAY</div>
-                ${breakdownRows(byBarangay, "📍 ")}
-            </div>
-            <div class="summary-seven-card">
-                <div class="summary-seven-title">📊 YIELD PERFORMANCE</div>
-                ${yieldHtml}
-            </div>
-            <div class="summary-seven-card">
-                <div class="summary-seven-title">📅 PLANTING WINDOW</div>
-                ${windowHtml}
-            </div>
-        </div>`;
-
-    body.innerHTML = html;
 }
 
 
@@ -1635,7 +1725,7 @@ function formatDateSafe(value) {
 }
 
 function getVarianceRemark(intent) {
-    return String((intent && (intent.comment_snapshot || intent.comment)) || "").trim();
+    return String((intent && (intent.comment_snapshot || intent.comment || intent.variance_remark || intent.variance_remarks || intent.date_variance_remark || intent.date_variance_remarks || intent.variance_comment)) || "").trim();
 }
 
 function getIntentVariances(intent) {
@@ -1868,24 +1958,23 @@ function closeReportDetail() {
     selectedReport = null;
 
     const detailView = document.getElementById("individualDetailView");
-    const pendingView = document.getElementById("pendingReportsView");
-    const sentView = document.getElementById("sentToProvincialView");
-    const awaitingView = document.getElementById("awaitingRevisionView");
 
     if (detailView) {
         detailView.style.display = "none";
         detailView.classList.add("hidden-element");
     }
-
-    if (pendingView) pendingView.style.display = "block";
-    if (sentView) sentView.style.display = "block";
-    if (awaitingView) awaitingView.style.display = "block";
-
     const mainHeader = document.getElementById("reportsMainHeader");
     if (mainHeader) mainHeader.style.display = "flex";
 
     const statusCards = document.getElementById("municipalStatusCards");
     if (statusCards) statusCards.style.display = "grid";
+
+    const activeKpi = document.querySelector(".status-kpi-card.active");
+    if (activeKpi) {
+        activeKpi.click();
+    } else {
+        document.querySelector('[data-report-kpi="pending"]')?.click();
+    }
 }
 
 
@@ -1927,7 +2016,7 @@ function initFlagButton() {
         if (!remarksInput) {
             showActionConfirm({
                 title: "Remarks Required",
-                message: "Please enter your revision remarks in the text area before flagging this report. <br><br>The AEW needs to know <strong>what to fix.</strong>",
+                message: "Please enter your revision remarks in the text area before returning this report. <br><br>The AEW needs to know <strong>what to fix.</strong>",
                 confirmText: "OK, I'll Add Remarks",
                 confirmColor: "#D97706",
                 cancelText: "Cancel",
@@ -2275,7 +2364,7 @@ function openModal(message, options = {}) {
     const closeBtn = document.getElementById("reportModalConfirmBtn");
 
     if (!modal || !text) {
-        alert(message);
+        showToast(message);
         return;
     }
 
@@ -3058,138 +3147,139 @@ function initProfileDropdown() {
 }
 
 function initProfileModal() {
-    const openProfileBtn   = document.getElementById("openProfileBtn");
-    const profileModal     = document.getElementById("profileModal");
-    const closeProfileBtn  = document.getElementById("closeProfileModalBtn");
-    const profileForm      = document.getElementById("profileForm");
+    const openProfileBtn = document.getElementById("openProfileBtn");
+    const profileModal = document.getElementById("profileModal");
+    const closeProfileModalBtn = document.getElementById("closeProfileModalBtn");
+    const profileForm = document.getElementById("profileForm");
+    const profileUsername = document.getElementById("profileUsername");
+    const profileFirstName = document.getElementById("profileFirstName");
+    const profileLastName = document.getElementById("profileLastName");
+    const avatarOptions = document.querySelectorAll(".avatar-option");
     const customAlertModal = document.getElementById("customAlertModal");
-    const customAlertText  = document.getElementById("customAlertText");
-    const closeCustomBtn   = document.getElementById("closeCustomAlertBtn");
+    const customAlertText = document.getElementById("customAlertText");
+    const closeCustomAlertBtn = document.getElementById("closeCustomAlertBtn");
 
-    if (!openProfileBtn || !profileModal) return;
+    if (!openProfileBtn || !profileModal || !profileForm) return;
 
-    function showCustomAlert(msg) {
-        if (customAlertText) customAlertText.textContent = msg;
+    const showCustomAlert = (message) => {
+        if (customAlertText) customAlertText.textContent = message;
         if (customAlertModal) customAlertModal.classList.add("show");
-    }
-    closeCustomBtn?.addEventListener("click", () =>
-        customAlertModal?.classList.remove("show")
-    );
+    };
+
+    closeCustomAlertBtn?.addEventListener("click", () => customAlertModal?.classList.remove("show"));
 
     let currentSelectedSrc = "../images/1.png";
 
-    async function loadProfileIntoModal(event) {
-        if (event) event.stopPropagation();
-        const userId = localStorage.getItem("user_id");
+    const getUserId = () => localStorage.getItem("user_id");
+    const getAvatarFilename = () => {
+        const src = currentSelectedSrc || "../images/1.png";
+        return src.split("/").pop() || "1.png";
+    };
+
+    const setSelectedAvatar = (src) => {
+        currentSelectedSrc = src || "../images/1.png";
+        let matched = false;
+        avatarOptions.forEach(opt => {
+            const isMatch = opt.dataset.avatarImg === currentSelectedSrc;
+            opt.classList.toggle("selected", isMatch);
+            if (isMatch) matched = true;
+        });
+        if (!matched && avatarOptions.length) {
+            avatarOptions[0].classList.add("selected");
+            currentSelectedSrc = avatarOptions[0].dataset.avatarImg || "../images/1.png";
+        }
+    };
+
+    const loadProfileIntoModal = async (event) => {
+        event?.stopPropagation();
+        const userId = getUserId();
         if (!userId) return showCustomAlert("Session expired. Please log in again.");
 
         try {
-            const user = await fetchJsonWithTimeout(
-                `${API_BASE_URL}/api/users/${userId}`,
-                { method: "GET", headers: getAuthHeaders({ "Accept": "application/json" }) },
-                10000
-            );
+            const user = await apiRequest(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, { method: "GET" });
+            if (profileFirstName) profileFirstName.value = user?.first_name || "";
+            if (profileLastName) profileLastName.value = user?.last_name || "";
+            if (profileUsername) profileUsername.value = user?.username || "";
 
-            document.getElementById("profileFirstName").value = user.first_name || "";
-            document.getElementById("profileLastName").value  = user.last_name  || "";
-            document.getElementById("profileUsername").value  = user.username   || "";
-
-            let avatarFile = user.avatar;
+            let avatarFile = user?.avatar;
             if (!avatarFile) {
-                const saved = localStorage.getItem(getScopedAvatarKey());
-                if (saved) avatarFile = saved.split("/").pop();
+                try {
+                    const saved = typeof ESakaUX !== "undefined" ? ESakaUX.avatar.get() : localStorage.getItem(`user_avatar_src_${userId}`);
+                    if (saved) avatarFile = saved.split("/").pop();
+                } catch (_) {}
             }
-
-            currentSelectedSrc = avatarFile
-                ? `../images/${avatarFile}`
-                : "../images/1.png";
-
-            let matched = false;
-            document.querySelectorAll(".avatar-option").forEach(opt => {
-                const isMatch = opt.dataset.avatarImg === currentSelectedSrc;
-                opt.classList.toggle("selected", isMatch);
-                if (isMatch) matched = true;
-            });
-            if (!matched) {
-                const first = document.querySelector(".avatar-option");
-                if (first) {
-                    first.classList.add("selected");
-                    currentSelectedSrc = first.dataset.avatarImg || "../images/1.png";
-                }
-            }
-
+            setSelectedAvatar(avatarFile ? `../images/${avatarFile}` : "../images/1.png");
             profileModal.classList.add("show");
-        } catch (err) {
-            console.error("Failed to load profile:", err);
-            showCustomAlert("Could not load profile data. Please try again.");
+        } catch (error) {
+            console.error("Failed to load profile:", error);
+            showCustomAlert(error?.message || "Could not load profile data. Please try again.");
         }
-    }
+    };
 
     openProfileBtn.addEventListener("open-profile", loadProfileIntoModal);
+    document.getElementById("menuEditProfile")?.addEventListener("click", loadProfileIntoModal);
 
-    document.querySelectorAll(".avatar-option").forEach(opt => {
-        opt.addEventListener("click", () => {
-            document.querySelectorAll(".avatar-option").forEach(el => el.classList.remove("selected"));
-            opt.classList.add("selected");
-            currentSelectedSrc = opt.dataset.avatarImg;
-        });
-    });
+    avatarOptions.forEach(opt => opt.addEventListener("click", () => setSelectedAvatar(opt.dataset.avatarImg)));
+    closeProfileModalBtn?.addEventListener("click", (e) => { e.preventDefault(); profileModal.classList.remove("show"); });
+    profileModal.addEventListener("click", (e) => { if (e.target === profileModal) profileModal.classList.remove("show"); });
 
-    closeProfileBtn?.addEventListener("click", (e) => {
+    profileForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        profileModal.classList.remove("show");
-    });
-    profileModal.addEventListener("click", (e) => {
-        if (e.target === profileModal) profileModal.classList.remove("show");
-    });
-
-    profileForm?.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const userId = localStorage.getItem("user_id");
-        const fName  = document.getElementById("profileFirstName").value.trim();
-        const lName  = document.getElementById("profileLastName").value.trim();
-
+        const userId = getUserId();
+        const fName = profileFirstName?.value.trim() || "";
+        const lName = profileLastName?.value.trim() || "";
         if (!fName || !lName) return showCustomAlert("Please fill in all required fields.");
-        if (!userId)          return showCustomAlert("Session expired. Please log in again.");
+        if (!userId) return showCustomAlert("Session expired. Please log in again.");
 
-        const avatarFilename = currentSelectedSrc.split("/").pop();
+        const avatarFilename = getAvatarFilename();
+        const payload = { first_name: fName, last_name: lName, avatar: avatarFilename };
         const saveBtn = profileForm.querySelector('button[type="submit"]');
         if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
 
         try {
-            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
+            /* PUT is the canonical update method used by the current users API. */
+            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
                 method: "PUT",
-                body: JSON.stringify({
-                    first_name: fName,
-                    last_name: lName,
-                    avatar: avatarFilename
-                })
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify(payload)
             });
 
-            const serverFirst  = updatedUser?.first_name || fName;
-            const serverLast   = updatedUser?.last_name  || lName;
-            const serverAvatar = updatedUser?.avatar     || avatarFilename;
+            const serverFirst = updatedUser?.first_name || fName;
+            const serverLast = updatedUser?.last_name || lName;
+            const serverAvatar = updatedUser?.avatar || avatarFilename;
+            const serverUsername = updatedUser?.username || profileUsername?.value || "";
+            const displayName = `${serverFirst} ${serverLast}`.trim();
+            const avatarSrc = `../images/${serverAvatar}`;
 
-            localStorage.setItem("user_display_name", `${serverFirst} ${serverLast}`);
-            localStorage.setItem("full_name",         `${serverFirst} ${serverLast}`);
-            localStorage.setItem(getScopedAvatarKey(), `../images/${serverAvatar}`);
+            // Save to local storage so it persists during the session
+            localStorage.setItem("user_display_name", displayName);
+            localStorage.setItem("full_name", displayName);
+            localStorage.setItem("first_name", serverFirst);
+            localStorage.setItem("last_name", serverLast);
+            if (serverUsername) localStorage.setItem("username", serverUsername);
+            localStorage.setItem(`user_avatar_src_${userId}`, avatarSrc);
+            localStorage.setItem("avatar", serverAvatar);
 
-            const displayNameEl = document.getElementById("userDisplayName");
-            if (displayNameEl) displayNameEl.textContent = `${serverFirst} ${serverLast}`;
+            try { if (typeof ESakaUX !== "undefined" && ESakaUX.avatar?.set) ESakaUX.avatar.set(avatarSrc); } catch (_) {}
 
-            const avatarBox = document.querySelector(".user-info .avatar");
-            if (avatarBox) {
-                avatarBox.innerHTML = `<img src="../images/${serverAvatar}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
-                avatarBox.style.background = "transparent";
-            }
+            const nameEls = document.querySelectorAll("#userDisplayName, #userDisplayUsername, #aewDashboardGreeting");
+            nameEls.forEach(el => {
+                if (el.id === "userDisplayUsername") el.textContent = serverUsername ? `@${serverUsername}` : "";
+                else if (el.id === "aewDashboardGreeting") el.textContent = `Mabuhay, ${displayName}!`;
+                else el.textContent = displayName;
+            });
+
+            const avatarEls = document.querySelectorAll(".user-info .avatar, #userDisplayInitials");
+            avatarEls.forEach(el => {
+                el.innerHTML = `<img src="${avatarSrc}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+                el.style.background = "transparent";
+            });
 
             profileModal.classList.remove("show");
             showCustomAlert("Profile updated and saved successfully!");
-
-        } catch (err) {
-            console.error("Update error:", err);
-            showCustomAlert(err.message || "Failed to update profile.");
+        } catch (error) {
+            console.error("Update error:", error);
+            showCustomAlert(error?.message || "Failed to update profile.");
         } finally {
             if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; }
         }
@@ -4045,7 +4135,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function downloadPdf(root, filename, title, signatureInfo = {}) {
-        if (!root) { alert("There is no report content to export."); return; }
+        if (!root) { showToast("There is no report content to export."); return; }
         try {
             await loadJsPDF();
             const info = reportCycleInfo();
@@ -4074,7 +4164,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             modal.style.display = "flex";
         } catch (error) {
             console.error("PDF preview could not be opened", error);
-            alert("Could not open the PDF preview. Please refresh the dashboard and try again.");
+            showToast("Could not open the PDF preview. Please refresh the dashboard and try again.");
         }
     }
 
@@ -4146,7 +4236,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function showSummaryExportConfirmation(type) {
         const source = document.getElementById("municipalSummaryContent");
-        if (!source || !source.innerText.trim()) { alert("The summary has not loaded yet. Please wait for it to finish loading."); return; }
+        if (!source || !source.innerText.trim()) { showToast("The summary has not loaded yet. Please wait for it to finish loading."); return; }
         const modal = ensureSummaryExportConfirmationModal();
         const info = reportCycleInfo();
         const from = document.getElementById("summaryPeriodStart")?.value || "All Time";
@@ -4236,7 +4326,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const source = document.getElementById("municipalSummaryContent");
 
         if (!source || !source.innerText.trim()) {
-            alert("The summary has not loaded yet. Please wait for it to finish loading.");
+            showToast("The summary has not loaded yet. Please wait for it to finish loading.");
             return;
         }
 
@@ -4245,8 +4335,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const model = getMunicipalSummaryExportModel(signatureInfo);
 
         const root = document.createElement("div");
-        root.style.cssText =
-            "width:100%;font-family:Arial,sans-serif;color:#262626;font-size:10px;line-height:1.35;";
+        root.style.cssText = "width:100%;font-family:Arial,sans-serif;color:#262626;font-size:10px;line-height:1.35;";
 
         const makeSection = (headingText, rows, isCertification = false) => {
             const section = document.createElement("section");
@@ -4254,8 +4343,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const heading = document.createElement("h3");
             heading.textContent = headingText;
-            heading.style.cssText =
-                "font-size:11px;font-weight:700;color:#0B382A;margin:8px 0 5px;padding-bottom:4px;border-bottom:1px solid #EAB308;";
+            heading.style.cssText = "font-size:11px;font-weight:700;color:#0B382A;margin:8px 0 5px;padding-bottom:4px;border-bottom:1px solid #EAB308;";
             section.appendChild(heading);
 
             if (isCertification) {
@@ -4265,98 +4353,32 @@ document.addEventListener("DOMContentLoaded", async () => {
                 section.appendChild(certEl);
             } else {
                 const table = document.createElement("table");
-                table.style.cssText =
-                    "width:100%;border-collapse:collapse;font-size:8px;margin:5px 0 9px;";
+                table.style.cssText = "width:100%;border-collapse:collapse;font-size:8px;margin:5px 0 9px;";
 
                 (rows || []).forEach((row, rowIndex) => {
                     const tr = document.createElement("tr");
-
                     row.forEach(value => {
-                        const cell = document.createElement(
-                            rowIndex === 0 ? "th" : "td"
-                        );
-
+                        const cell = document.createElement(rowIndex === 0 ? "th" : "td");
                         cell.textContent = cleanExportText(value);
-                        cell.style.cssText =
-                            `border:1px solid #BFBFBF;padding:4px;text-align:left;vertical-align:top;` +
-                            (
-                                rowIndex === 0
-                                    ? "background:#0B382A;color:#FFFFFF;font-weight:700;"
-                                    : rowIndex % 2 === 0
-                                        ? "background:#EEF4F0;color:#262626;"
-                                        : "background:#FFFFFF;color:#262626;"
-                            );
-
+                        cell.style.cssText = `border:1px solid #BFBFBF;padding:4px;text-align:left;vertical-align:top;` + (rowIndex === 0 ? "background:#0B382A;color:#FFFFFF;font-weight:700;" : rowIndex % 2 === 0 ? "background:#EEF4F0;color:#262626;" : "background:#FFFFFF;color:#262626;");
                         tr.appendChild(cell);
                     });
-
                     table.appendChild(tr);
                 });
-
                 section.appendChild(table);
             }
-
             root.appendChild(section);
         };
 
-        const kpiGrid = document.createElement("div");
-        kpiGrid.className = "summary-kpi-grid";
-        kpiGrid.style.cssText =
-            "display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0 12px;";
-
-        model.metrics.slice(1, 7).forEach(row => {
-            const card = document.createElement("div");
-            card.className = "summary-kpi-card";
-            card.style.cssText =
-                "border:1px solid #0B382A;border-left:4px solid #EAB308;padding:7px;background:#FFFFFF;min-height:48px;";
-
-            const label = document.createElement("div");
-            label.className = "summary-kpi-label";
-            label.textContent = row[0] || "Metric";
-            label.style.cssText = "font-size:7px;color:#0B382A;font-weight:700;";
-
-            const value = document.createElement("strong");
-            value.className = "summary-kpi-value";
-            value.textContent = row[1] || "—";
-            value.style.cssText =
-                "display:block;font-size:13px;color:#0B382A;margin:3px 0;";
-
-            const sub = document.createElement("small");
-            sub.className = "summary-kpi-subtext";
-            sub.textContent = row[2] || "";
-            sub.style.cssText = "font-size:6px;color:#595959;";
-
-            card.append(label, value, sub);
-            kpiGrid.appendChild(card);
-        });
-
-        const kpiHeading = document.createElement("h3");
-        kpiHeading.textContent = "KPI Dashboard";
-        kpiHeading.style.cssText =
-            "font-size:11px;font-weight:700;color:#0B382A;margin:7px 0 4px;";
-
-        root.append(kpiHeading, kpiGrid);
+        // ❌ REMOVED: kpiGrid creation and appending
 
         model.reportSections
-            .filter(section => section.key !== "kpis")
+            .filter(section => section.key !== "kpis") // Keeps the filter just in case
             .forEach(section => {
-                makeSection(
-                    section.title,
-                    section.rows,
-                    section.key === "certification"
-                );
+                makeSection(section.title, section.rows, section.key === "certification");
             });
 
-        await downloadPdf(
-            root,
-            `municipal_summary_${from}_${to}.pdf`,
-            model.title,
-            {
-                ...signatureInfo,
-                municipality: model.municipality,
-                reportingPeriod: `${from} to ${to}`
-            }
-        );
+        await downloadPdf(root, `municipal_summary_${from}_${to}.pdf`, model.title, { ...signatureInfo, municipality: model.municipality, reportingPeriod: `${from} to ${to}` });
     }
 
     function getMunicipalSummaryExportModel(signatureInfo = {}) {
@@ -4366,112 +4388,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         const to = document.getElementById("summaryPeriodEnd")?.value || "All Time";
         const intents = getMunicipalSummaryIntentRows();
 
-        const title =
-            signatureInfo.title ||
-            localStorage.getItem("municipal_export_report_title") ||
-            "Municipal Summary Report";
-
-        const municipality =
-            signatureInfo.municipality ||
-            info.municipality ||
-            currentSummaryData?.municipality ||
-            "Guagua";
-
+        const title = signatureInfo.title || localStorage.getItem("municipal_export_report_title") || "Municipal Summary Report";
+        const municipality = signatureInfo.municipality || info.municipality || currentSummaryData?.municipality || "Guagua";
         const preparedBy = signatureInfo.preparedBy || info.name || "";
         const position = signatureInfo.position || info.role || "";
         const generated = new Date().toLocaleString("en-PH");
 
-        const metricCards = Array.from(
-            source?.querySelectorAll(
-                ".summary-kpi-grid > .summary-kpi-card, .summary-seven-grid > *"
-            ) || []
-        ).slice(0, 6);
+        // ❌ REMOVED: metricCards logic
 
-        const metrics = [["Metric", "Value", "Details"]];
-
-        metricCards.forEach(card => {
-            const pick = selector =>
-                card.querySelector(selector)?.innerText?.trim() || "";
-
-            metrics.push([
-                cleanExportText(
-                    pick(".summary-kpi-label, .summary-seven-label, .kpi-label, h3, h4") ||
-                    "Key Metric"
-                ),
-                cleanExportText(
-                    pick(".summary-kpi-value, .summary-seven-value, .kpi-value, strong, .value") ||
-                    "—"
-                ),
-                cleanExportText(
-                    pick(".summary-kpi-subtext, .summary-seven-subtext, .kpi-subtext, small, p")
-                )
-            ]);
-        });
-
-        const totalPlanned = intents.reduce(
-            (sum, row) => sum + (Number(row.plannedVolume) || 0),
-            0
-        );
-
-        const totalActual = intents.reduce(
-            (sum, row) => sum + (Number(row.actualVolume) || 0),
-            0
-        );
-
-        const uniqueFarmers = new Set(
-            intents
-                .map(row => row.farmer)
-                .filter(value => value && value !== "—")
-        ).size;
-
-        const harvestedCount = intents.filter(
-            row => String(row.status).toLowerCase().includes("harvested")
-        ).length;
-
-        const harvestRate = intents.length
-            ? Math.round(harvestedCount / intents.length * 100)
-            : 0;
-
-        const pendingReports = Number(
-            currentSummaryData?.pending_report_count ??
-            currentSummaryData?.pending_reports ??
-            0
-        );
-
-        if (metrics.length === 1) {
-            metrics.push(
-                ["Total Intents", String(intents.length), "Planting intent records"],
-                ["Total Volume", `${totalPlanned} kg`, "Planned volume"],
-                ["Unique Farmers", String(uniqueFarmers), "Distinct farmers represented"],
-                ["Pending Reports", String(pendingReports), "Reports awaiting review"],
-                ["Harvested Volume", `${totalActual} kg`, "Actual harvest volume recorded"],
-                ["Harvest Rate", `${harvestRate}%`, `${harvestedCount} harvested intents`]
-            );
-        }
-
-        while (metrics.length < 7) {
-            metrics.push([
-                `Metric ${metrics.length}`,
-                "—",
-                "Not supplied by summary data"
-            ]);
-        }
+        const totalPlanned = intents.reduce((sum, row) => sum + (Number(row.plannedVolume) || 0), 0);
+        const totalActual = intents.reduce((sum, row) => sum + (Number(row.actualVolume) || 0), 0);
+        const uniqueFarmers = new Set(intents.map(row => row.farmer).filter(value => value && value !== "—")).size;
+        const harvestedCount = intents.filter(row => String(row.status).toLowerCase().includes("harvested")).length;
+        const harvestRate = intents.length ? Math.round(harvestedCount / intents.length * 100) : 0;
+        const pendingReports = Number(currentSummaryData?.pending_report_count ?? currentSummaryData?.pending_reports ?? 0);
 
         const groupBy = keyFn => {
             const map = new Map();
-
             intents.forEach(row => {
                 const key = String(keyFn(row) || "Unknown").trim() || "Unknown";
                 const item = map.get(key) || { count: 0, volume: 0 };
-
                 item.count += 1;
                 item.volume += Number(row.plannedVolume) || 0;
                 map.set(key, item);
             });
-
-            return [...map.entries()].sort(
-                (a, b) => b[1].volume - a[1].volume || a[0].localeCompare(b[0])
-            );
+            return [...map.entries()].sort((a, b) => b[1].volume - a[1].volume || a[0].localeCompare(b[0]));
         };
 
         const commodityRows = [["Commodity", "Count", "Planned Volume"]];
@@ -4485,126 +4426,45 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         const statusOrder = ["NOT PLANTED", "PLANTED", "HARVESTED", "MEDIATING"];
-        const statusLabels = {
-            "NOT PLANTED": "Not Planted",
-            "PLANTED": "Planted",
-            "HARVESTED": "Harvested",
-            "MEDIATING": "Mediating"
-        };
-
+        const statusLabels = { "NOT PLANTED": "Not Planted", "PLANTED": "Planted", "HARVESTED": "Harvested", "MEDIATING": "Mediating" };
         const statusMap = new Map();
-
         intents.forEach(row => {
             const key = String(row.status || "Not Planted").toUpperCase();
             const item = statusMap.get(key) || { count: 0, volume: 0 };
-
             item.count += 1;
             item.volume += Number(row.plannedVolume) || 0;
             statusMap.set(key, item);
         });
 
         const statusRows = [["Finalized Status", "Count", "Planned Volume"]];
-
         statusOrder.forEach(key => {
             const value = statusMap.get(key) || { count: 0, volume: 0 };
-            statusRows.push([
-                statusLabels[key],
-                value.count,
-                `${value.volume} kg`
-            ]);
+            statusRows.push([statusLabels[key], value.count, `${value.volume} kg`]);
+        });
+        [...statusMap.entries()].filter(([key]) => !statusOrder.includes(key)).forEach(([key, value]) => {
+            statusRows.push([key, value.count, `${value.volume} kg`]);
         });
 
-        [...statusMap.entries()]
-            .filter(([key]) => !statusOrder.includes(key))
-            .forEach(([key, value]) => {
-                statusRows.push([key, value.count, `${value.volume} kg`]);
-            });
-
-        const shortfall = totalPlanned > 0
-            ? Math.round((totalPlanned - totalActual) / totalPlanned * 100)
-            : 0;
-
-        const yieldRows = [
-            ["Measure", "Value"],
-            ["Expected", `${totalPlanned} kg`],
-            ["Actual", `${totalActual} kg`],
-            ["Shortfall", totalPlanned > 0 ? `${shortfall}%` : "Not calculable"]
-        ];
+        const shortfall = totalPlanned > 0 ? Math.round((totalPlanned - totalActual) / totalPlanned * 100) : 0;
+        const yieldRows = [["Measure", "Value"], ["Expected", `${totalPlanned} kg`], ["Actual", `${totalActual} kg`], ["Shortfall", totalPlanned > 0 ? `${shortfall}%` : "Not calculable"]];
 
         const dateRange = field => {
-            const values = intents
-                .map(row => row.raw?.[field])
-                .filter(Boolean)
-                .map(raw => new Date(raw))
-                .filter(date => !Number.isNaN(date.getTime()))
-                .sort((a, b) => a - b);
-
+            const values = intents.map(row => row.raw?.[field]).filter(Boolean).map(raw => new Date(raw)).filter(date => !Number.isNaN(date.getTime())).sort((a, b) => a - b);
             if (!values.length) return ["—", "—", "—"];
-
-            const fmt = date =>
-                typeof formatDate === "function"
-                    ? formatDate(date)
-                    : date.toLocaleDateString("en-PH");
-
-            return [
-                fmt(values[0]),
-                fmt(values[values.length - 1]),
-                `${Math.round(
-                    (values[values.length - 1] - values[0]) / 86400000
-                )} days`
-            ];
+            const fmt = date => typeof formatDate === "function" ? formatDate(date) : date.toLocaleDateString("en-PH");
+            return [fmt(values[0]), fmt(values[values.length - 1]), `${Math.round((values[values.length - 1] - values[0]) / 86400000)} days`];
         };
 
-        const windowRows = [
-            ["Milestone", "Earliest", "Latest", "Span"],
-            ["Planting", ...dateRange("planting_date")],
-            ["Harvest", ...dateRange("harvest_date")]
-        ];
-
-        const intentRows = [[
-            "Intent ID", "Report ID", "Report Title", "Farmer", "Commodity",
-            "Barangay", "Planned Volume (kg)", "Actual Harvest (kg)",
-            "Planned Planting", "Actual Planting", "Planned Harvest",
-            "Actual Harvest", "Finalized Status", "Report Status",
-            "Variance Type", "Variance Remark"
-        ]];
-
+        const windowRows = [["Milestone", "Earliest", "Latest", "Span"], ["Planting", ...dateRange("planting_date")], ["Harvest", ...dateRange("harvest_date")]];
+        
+        const intentRows = [["Intent ID", "Report ID", "Report Title", "Farmer", "Commodity", "Barangay", "Planned Volume (kg)", "Actual Harvest (kg)", "Planned Planting", "Actual Planting", "Planned Harvest", "Actual Harvest", "Finalized Status", "Report Status", "Variance Type", "Variance Remark"]];
         intents.forEach(row => {
-            intentRows.push([
-                row.intentId,
-                row.reportId,
-                row.reportTitle,
-                row.farmer,
-                row.commodity,
-                row.barangay,
-                row.plannedVolume,
-                row.actualVolume,
-                row.plannedPlanting,
-                row.actualPlanting,
-                row.plannedHarvest,
-                row.actualHarvest,
-                row.status,
-                row.reportStatus,
-                row.variance,
-                row.remark === "—" ? "" : row.remark
-            ]);
+            intentRows.push([row.intentId, row.reportId, row.reportTitle, row.farmer, row.commodity, row.barangay, row.plannedVolume, row.actualVolume, row.plannedPlanting, row.actualPlanting, row.plannedHarvest, row.actualHarvest, row.status, row.reportStatus, row.variance, row.remark === "—" ? "" : row.remark]);
         });
 
-        const varianceRows = [[
-            "Intent ID", "Planned Planting", "Actual Planting",
-            "Planned Harvest", "Actual Harvest", "Variance Type", "Remarks"
-        ]];
-
+        const varianceRows = [["Intent ID", "Planned Planting", "Actual Planting", "Planned Harvest", "Actual Harvest", "Variance Type", "Remarks"]];
         intents.forEach(row => {
-            varianceRows.push([
-                row.intentId,
-                row.plannedPlanting,
-                row.actualPlanting,
-                row.plannedHarvest,
-                row.actualHarvest,
-                row.variance,
-                row.remark === "—" ? "" : row.remark
-            ]);
+            varianceRows.push([row.intentId, row.plannedPlanting, row.actualPlanting, row.plannedHarvest, row.actualHarvest, row.variance, row.remark === "—" ? "" : row.remark]);
         });
 
         const insightRows = getMunicipalSummaryInsights();
@@ -4612,103 +4472,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         const metadata = [
             ["Reporting Period", `${from} to ${to}`],
             ["Coverage", municipality],
-            [
-                "Reports Included",
-                currentSummaryData?.report_count ??
-                new Set(
-                    intents
-                        .map(row => row.reportId)
-                        .filter(value => value !== "—")
-                ).size
-            ],
+            ["Reports Included", currentSummaryData?.report_count ?? new Set(intents.map(row => row.reportId).filter(value => value !== "—")).size],
             ["Generated", generated],
             ["Prepared by", preparedBy],
             ["Position", position]
         ];
 
         const reportSections = [
-            {
-                key: "kpis",
-                title: "02 | KPI DASHBOARD",
-                rows: metrics
-            },
-            {
-                key: "metadata",
-                title: "03 | REPORT METADATA",
-                rows: [["Field", "Value"], ...metadata]
-            },
-            {
-                key: "commodity",
-                title: "04 | BY COMMODITY",
-                rows: commodityRows
-            },
-            {
-                key: "barangay",
-                title: "05 | BY BARANGAY",
-                rows: barangayRows
-            },
-            {
-                key: "status",
-                title: "06 | BY FINALIZED STATUS",
-                rows: statusRows
-            },
-            {
-                key: "yield",
-                title: "07 | YIELD PERFORMANCE",
-                rows: yieldRows
-            },
-            {
-                key: "window",
-                title: "08 | PLANTING & HARVEST WINDOW",
-                rows: windowRows
-            },
-            {
-                key: "insights",
-                title: "09 | COMMON FINDINGS AND CYCLE INSIGHTS",
-                rows: insightRows
-            },
-            {
-                key: "intents",
-                title: `10 | INDIVIDUAL INTENT RECORDS (${intents.length})`,
-                rows: intentRows
-            },
-            {
-                key: "variance",
-                title: "11 | PLANTING, HARVEST, AND VARIANCE DETAILS",
-                rows: varianceRows
-            },
-            {
-                key: "certification",
-                title: "12 | CERTIFICATION BLOCK",
-                rows: [
-                    ["Field", "Details"],
-                    ["Prepared by", preparedBy || ""],
-                    ["Received by / Date", "Provincial Agriculture Office"]
-                ]
-            }
+            // ❌ REMOVED: { key: "kpis", title: "02 | KPI DASHBOARD", rows: metrics },
+            { key: "metadata", title: "03 | REPORT METADATA", rows: [["Field", "Value"], ...metadata] },
+            { key: "commodity", title: "04 | BY COMMODITY", rows: commodityRows },
+            { key: "barangay", title: "05 | BY BARANGAY", rows: barangayRows },
+            { key: "status", title: "06 | BY FINALIZED STATUS", rows: statusRows },
+            { key: "yield", title: "07 | YIELD PERFORMANCE", rows: yieldRows },
+            { key: "window", title: "08 | PLANTING & HARVEST WINDOW", rows: windowRows },
+            { key: "insights", title: "09 | COMMON FINDINGS AND CYCLE INSIGHTS", rows: insightRows },
+            { key: "intents", title: `10 | INDIVIDUAL INTENT RECORDS (${intents.length})`, rows: intentRows },
+            { key: "variance", title: "11 | PLANTING, HARVEST, AND VARIANCE DETAILS", rows: varianceRows },
+            { key: "certification", title: "12 | CERTIFICATION BLOCK", rows: [["Field", "Details"], ["Prepared by", preparedBy || ""], ["Received by / Date", "Provincial Agriculture Office"]] }
         ];
 
         return {
-            source,
-            from,
-            to,
-            title,
-            municipality,
-            preparedBy,
-            position,
-            generated,
-            intents,
-            metrics,
-            metadata,
-            commodityRows,
-            barangayRows,
-            statusRows,
-            yieldRows,
-            windowRows,
-            insightRows,
-            intentRows,
-            varianceRows,
-            reportSections
+            source, from, to, title, municipality, preparedBy, position, generated, intents,
+            // metrics, ❌ REMOVED
+            metadata, commodityRows, barangayRows, statusRows, yieldRows, windowRows, insightRows, intentRows, varianceRows, reportSections
         };
     }
 
@@ -4868,12 +4655,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         /* ---------------------------------------------------- OVERVIEW */
         const ov = newSheet("Overview", C.primary, "SUMMARY OVERVIEW", 4, [32, 34, 48, 14], false);
         let r = 5;
-        sectionHeading(ov, r, 4, "KEY METRICS");
-        r += 1;
-        const metricRows = (model.metrics || []).slice(1).map(m => [m[0], m[1], m[2] || ""]);
-        const mt = writeTable(ov, r, ["Metric", "Value", "Details"], metricRows, { align: { 1: "right" }, rowHeight: 22 });
-        r = mt.lastRow + 2;
-
+        
+        // ❌ REMOVED: KEY METRICS section
+        
         sectionHeading(ov, r, 4, "REPORT DETAILS");
         r += 1;
         const detailRows = [
@@ -4889,7 +4673,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const dt = writeTable(ov, r, ["Field", "Value"], detailRows, { rowHeight: 20 });
         r = dt.lastRow + 2;
 
-        const indexAnchorRow = r; // filled in after the other sheets exist
+        const indexAnchorRow = r;
 
         /* ---------------------------------------------------- INTENTS */
         const intentHeaders = [
@@ -5174,7 +4958,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const source = document.getElementById("municipalSummaryContent");
 
         if (!source || !source.innerText.trim()) {
-            alert("The summary has not loaded yet. Please wait for it to finish loading.");
+            showToast("The summary has not loaded yet. Please wait for it to finish loading.");
             return;
         }
 
@@ -5212,76 +4996,112 @@ document.addEventListener("DOMContentLoaded", async () => {
             setTimeout(() => URL.revokeObjectURL(url), 1500);
         } catch (error) {
             console.error("Summary workbook could not be built", error);
-            alert("Could not build the Excel file. Please refresh the dashboard and try again.");
+            showToast("Could not build the Excel file. Please refresh the dashboard and try again.");
         }
     }
 
     function ensureMunicipalStatusCards() {
         const header = document.getElementById("reportsMainHeader");
         if (!header || document.getElementById("municipalStatusCards")) return;
+
         const cards = document.createElement("div");
         cards.id = "municipalStatusCards";
-        cards.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:0 0 20px;";
+        cards.className = "municipal-status-grid";
+
         const definitions = [
-            {key:"pending",label:"Pending Reports",desc:"Awaiting municipal validation",countId:"reportCountPending",color:"#d97706",icon:"◷"},
-            {key:"revision",label:"Awaiting Revision",desc:"Returned to AEWs for updates",countId:"reportCountRevision",color:"#b45309",icon:"↻"},
-            {key:"provincial",label:"Sent to Provincial",desc:"Forwarded for provincial review",countId:"reportCountProvincial",color:"#2563eb",icon:"↗"},
-            {key:"approved",label:"Approved Reports",desc:"Approved by provincial office",countId:"reportCountApproved",color:"#15803d",icon:"✓"}
+            { key: "pending",    label: "Pending Reports",   desc: "Awaiting municipal validation", countId: "reportCountPending",    icon: "◷", colorClass: "pending" },
+            { key: "revision",   label: "Awaiting Revision", desc: "Returned to AEWs for updates",  countId: "reportCountRevision",   icon: "↻", colorClass: "revision" },
+            { key: "provincial", label: "Sent to Provincial",desc: "Forwarded for provincial review",countId: "reportCountProvincial", icon: "↗", colorClass: "provincial" },
+            { key: "approved",   label: "Approved Reports",  desc: "Approved by provincial office", countId: "reportCountApproved",   icon: "✓", colorClass: "approved" }
         ];
-        cards.innerHTML = definitions.map(item => `<button type="button" data-report-kpi="${item.key}" aria-pressed="false" style="display:flex;align-items:center;gap:14px;text-align:left;padding:17px 18px;background:#fff;border:1px solid #e1e8e2;border-left:4px solid ${item.color};border-radius:13px;box-shadow:0 4px 14px rgba(18,50,31,.06);cursor:pointer;min-height:94px;transition:transform .15s,box-shadow .15s;">
-          <span aria-hidden="true" style="width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:12px;background:${item.color}15;color:${item.color};font-size:24px;font-weight:800;">${item.icon}</span>
-          <span style="min-width:0;display:block;"><span style="display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#617067;">${item.label}</span><strong id="${item.countId}" style="display:block;font-size:27px;line-height:1.2;margin:4px 0;color:#172d22;">0</strong><span style="display:block;font-size:11px;color:#77847b;">${item.desc}</span></span>
-        </button>`).join("");
+
+        cards.innerHTML = definitions.map(item => `
+            <button type="button" class="status-kpi-card" data-report-kpi="${item.key}" aria-pressed="false">
+                <div class="status-kpi-header">
+                    <span class="status-kpi-label">${item.label}</span>
+                    <span class="status-kpi-icon ${item.colorClass}" aria-hidden="true">${item.icon}</span>
+                </div>
+                <strong id="${item.countId}" class="status-kpi-value">0</strong>
+                <span class="status-kpi-desc">${item.desc}</span>
+            </button>
+        `).join("");
+
         header.insertAdjacentElement("afterend", cards);
+
         if (typeof updateReportSummaryCards === "function") updateReportSummaryCards();
+
         const exportCopy = document.querySelector(".aew-summary-export-copy span");
         if (exportCopy) exportCopy.textContent = "Export the complete summary for the selected reporting period. No report selection is required.";
-        cards.querySelectorAll("button").forEach(button => {
-            button.addEventListener("mouseenter", () => { button.style.transform="translateY(-2px)"; button.style.boxShadow="0 8px 18px rgba(18,50,31,.10)"; });
-            button.addEventListener("mouseleave", () => { button.style.transform="none"; button.style.boxShadow="0 4px 14px rgba(18,50,31,.06)"; });
-        });
     }
 
-    function initReportAlignment() {
+        function initReportAlignment() {
         ensureMunicipalStatusCards();
+        
         const search = document.getElementById("reportSearchInput");
         search?.addEventListener("input", () => {
             searchTerm = search.value.trim().toLowerCase();
             Object.keys(paginationState).forEach(id => paginationState[id] = 1);
             refreshReportTables();
         });
+
         document.querySelectorAll("[data-report-kpi]").forEach(card => {
             const activate = () => {
                 const tab = card.dataset.reportKpi;
-                document.querySelectorAll("[data-report-kpi]").forEach(item => item.setAttribute("aria-pressed", String(item === card)));
-                const sections = {
-                    pending: ["pendingReportsView"],
-                    revision: ["awaitingRevisionView"],
-                    provincial: ["sentToProvincialView"],
-                    approved: ["sentToProvincialView"]
-                };
-                ["pendingReportsView","awaitingRevisionView","sentToProvincialView"].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.style.display = sections[tab].includes(id) ? "block" : "none";
+                
+                // Highlight the active card
+                document.querySelectorAll("[data-report-kpi]").forEach(item => {
+                    item.setAttribute("aria-pressed", String(item === card));
+                    item.classList.toggle("active", item === card);
                 });
-                if (tab === "approved") {
-                    currentSentToProvincialFilter = "approved";
-                    document.querySelectorAll("#sentToProvincialFilterPills .filter-pill").forEach(pill => pill.classList.toggle("active", pill.dataset.filter === "approved"));
-                    renderSentReports();
+
+                // Hide all views first
+                ["pendingReportsView", "awaitingRevisionView", "sentToProvincialView"].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = "none";
+                });
+
+                // Show the target view based on the clicked KPI card
+                if (tab === "pending") {
+                    document.getElementById("pendingReportsView").style.display = "block";
+                } else if (tab === "revision") {
+                    document.getElementById("awaitingRevisionView").style.display = "block";
                 } else if (tab === "provincial") {
+                    document.getElementById("sentToProvincialView").style.display = "block";
                     currentSentToProvincialFilter = "all";
                     document.querySelectorAll("#sentToProvincialFilterPills .filter-pill").forEach(pill => pill.classList.toggle("active", pill.dataset.filter === "all"));
                     renderSentReports();
+                } else if (tab === "approved") {
+                    document.getElementById("sentToProvincialView").style.display = "block";
+                    currentSentToProvincialFilter = "approved";
+                    document.querySelectorAll("#sentToProvincialFilterPills .filter-pill").forEach(pill => pill.classList.toggle("active", pill.dataset.filter === "approved"));
+                    renderSentReports();
                 }
+
+                // Update search placeholder
                 const searchInput = document.getElementById("reportSearchInput");
-                if (searchInput) searchInput.placeholder = `Search ${tab === "revision" ? "revision" : tab === "provincial" ? "provincial" : tab} reports...`;
+                if (searchInput) {
+                    searchInput.placeholder = `Search ${tab === "revision" ? "revision" : tab === "provincial" ? "provincial" : tab} reports...`;
+                }
             };
+
             card.addEventListener("click", activate);
-            card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } });
+            card.addEventListener("keydown", e => { 
+                if (e.key === "Enter" || e.key === " ") { 
+                    e.preventDefault(); 
+                    activate(); 
+                } 
+            });
         });
+
+        const defaultCard = document.querySelector('[data-report-kpi="pending"]');
+        if (defaultCard) {
+            defaultCard.click();
+        }
+
         document.getElementById("exportSummaryPdfBtn")?.addEventListener("click", () => showSummaryExportConfirmation("pdf"));
         document.getElementById("exportSummaryXlsxBtn")?.addEventListener("click", () => showSummaryExportConfirmation("xlsx"));
         ["exportSelectedPdfBtn", "exportSelectedXlsxBtn"].forEach(id => document.getElementById(id)?.remove());
+        
         const meta = document.getElementById("reportCycleUserMeta");
         if (meta) {
             const info = reportCycleInfo();
@@ -5292,3 +5112,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.addEventListener("DOMContentLoaded", initReportAlignment);
 })();
+
+
+/* ============================================================
+   eSaka UX INTEGRATION  (shared module: assets/js/esaka-ux.js)
+   Replaces the earlier "UX fix pack" (it created a duplicate profile menu).
+   Toasts, scoped-avatar cleanup, unsaved-changes popup: all in the module.
+============================================================ */
+ESakaUX.configure({
+    refresh: {
+        "reports": ["loadPendingReports", "loadAwaitingRevision", "loadSentToProvincial"],
+        "summary": ["loadMunicipalSummary"],
+        "map": ["loadMunicipalityMapData"]
+    }
+});

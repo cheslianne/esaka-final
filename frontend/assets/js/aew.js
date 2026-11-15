@@ -25,12 +25,11 @@ function getAuthToken() {
     return "cookie-session";
 }
 
-function getAuthHeaders() {
+function getAuthHeaders(includeContentType = true, extra = {}) {
     const token = getAuthToken();
-    const headers = { "Content-Type": "application/json" };
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
+    const headers = { ...extra };
+    if (includeContentType) headers["Content-Type"] = "application/json";
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     return headers;
 }
 
@@ -104,6 +103,7 @@ const reportsPerPage = 10;
 
 // Report State
 let currentReportTab = "pending";
+let REPORT_SEARCH_TERM = "";
 const REPORT_TAB_FILTERS = {
     pending: "all",
     flagged: "all",
@@ -287,14 +287,15 @@ function formatRole(role) {
 ============================================================ */
 
 async function setupUserProfile() {
-    const storedName =
+    const userId = localStorage.getItem("user_id");
+    
+    let storedName =
         localStorage.getItem("user_display_name") ||
         localStorage.getItem("full_name") ||
         localStorage.getItem("name") ||
         localStorage.getItem("username");
 
     const storedRole = localStorage.getItem("role");
-    const userId = localStorage.getItem("user_id");
     
     const storedAvatar = userId ? localStorage.getItem(`user_avatar_src_${userId}`) : null;
     const validAvatar = /^..\/images\/(?:[1-9]|1[0-2])\.png$/.test(storedAvatar || "")
@@ -325,13 +326,33 @@ async function setupUserProfile() {
         try {
             const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
             
-            if (user && user.avatar) {
-                const dbAvatarSrc = `../images/${user.avatar}`;
-                localStorage.setItem(`user_avatar_src_${userId}`, dbAvatarSrc);
+            if (user) {
+                const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ");
                 
-                if (initEl) {
-                    initEl.innerHTML = `<img src="${dbAvatarSrc}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
-                    initEl.style.background = "transparent";
+                if (fullName) {
+                    localStorage.setItem("user_display_name", fullName);
+                    localStorage.setItem("full_name", fullName);
+                    
+                    if (nameEl) nameEl.textContent = fullName;
+                    
+                    const greetingEl = document.getElementById("aewDashboardGreeting");
+                    if (greetingEl) {
+                        greetingEl.textContent = `Mabuhay, ${fullName}!`;
+                    }
+                }
+                
+                if (user.role && roleEl) {
+                    roleEl.textContent = formatRole(user.role);
+                }
+
+                if (user.avatar) {
+                    const dbAvatarSrc = `../images/${user.avatar}`;
+                    localStorage.setItem(`user_avatar_src_${userId}`, dbAvatarSrc);
+                    
+                    if (initEl) {
+                        initEl.innerHTML = `<img src="${dbAvatarSrc}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
+                        initEl.style.background = "transparent";
+                    }
                 }
             }
         } catch (error) {
@@ -522,12 +543,17 @@ function initSignout() {
     if (!signoutBtn) return;
 
     signoutBtn.addEventListener("click", function() {
+        const userId = localStorage.getItem("user_id"); 
+        if (userId) {
+            localStorage.removeItem(`user_avatar_src_${userId}`); 
+        }
         localStorage.removeItem("access_token");
         localStorage.removeItem("token");
         localStorage.removeItem("full_name");
         localStorage.removeItem("name");
         localStorage.removeItem("username");
         localStorage.removeItem("role");
+        localStorage.removeItem("user_id"); 
         window.location.href = "../index.html";
     });
 }
@@ -1301,11 +1327,11 @@ function initFarmerSubviews() {
             const email = document.getElementById("regEmail")?.value?.trim() || "";
 
             if (!rsbsaId || !municipality || !barangay || !firstName || !lastName || !sex || !birthdate || !phone || !email) {
-                alert("Please complete all required fields.");
+                showToast("Please complete all required fields.");
                 return;
             }
             if (!/^\d{2}-\d{3}-\d{2}-\d{3}-\d{6}$/.test(rsbsaId)) {
-                alert("Farmer ID must follow the 16-digit RSBSA format: 00-000-00-000-000000.");
+                showToast("Farmer ID must follow the 16-digit RSBSA format: 00-000-00-000-000000.");
                 return;
             }
 
@@ -1339,7 +1365,7 @@ function initFarmerSubviews() {
                 console.log("Confirmation modal shown.");
             } else {
                 console.error("ERROR: confirmFarmerModal was not found.");
-                alert("Confirmation window could not be opened.");
+                showToast("Confirmation window could not be opened.");
             }
         });
         console.log("Submit handler attached to form.");
@@ -1353,7 +1379,7 @@ function initFarmerSubviews() {
         confirmSaveBtn.addEventListener("click", async function() {
             const farmerData = window._pendingFarmer;
             if (!farmerData) {
-                alert("No farmer data to save.");
+                showToast("No farmer data to save.");
                 return;
             }
             console.log("Saving farmer:", farmerData);
@@ -1399,7 +1425,7 @@ function initFarmerSubviews() {
             } catch (error) {
                 console.error("Error adding farmer:", error);
                 document.getElementById("confirmFarmerModal")?.classList.remove("show");
-                alert("Failed to add farmer.\n\n" + (error.message || "Check FastAPI server."));
+                showToast("Failed to add farmer.\n\n" + (error.message || "Check FastAPI server."));
             } finally {
                 this.disabled = false;
                 this.textContent = "Confirm & Save";
@@ -1454,7 +1480,7 @@ function initFarmerSubviews() {
             }
 
             if (!currentActiveFarmer) {
-                alert("No farmer selected.");
+                showToast("No farmer selected.");
                 return;
             }
 
@@ -1464,14 +1490,14 @@ function initFarmerSubviews() {
             const email = getValue("manEmail");
 
 if (!email) {
-    alert("Please enter an email address.");
+    showToast("Please enter an email address.");
     return;
 }
 
 const gmailPattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
 
 if (!gmailPattern.test(email)) {
-    alert("Please enter a valid Gmail address. Example: juan@gmail.com");
+    showToast("Please enter a valid Gmail address. Example: juan@gmail.com");
     return;
 }
 
@@ -1502,10 +1528,10 @@ if (!gmailPattern.test(email)) {
                 if (cancelBtn) cancelBtn.style.display = "none";
 
                 await fetchFarmers();
-                alert("Farmer updated successfully.");
+                showToast("Farmer updated successfully.");
             } catch (error) {
                 console.error("Update farmer error:", error);
-                alert("Failed to update farmer.\n\n" + (error.message || "Check FastAPI server."));
+                showToast("Failed to update farmer.\n\n" + (error.message || "Check FastAPI server."));
             }
         });
     }
@@ -1514,7 +1540,7 @@ if (!gmailPattern.test(email)) {
     if (deleteBtn) {
         deleteBtn.addEventListener("click", function() {
             if (!currentActiveFarmer) {
-                alert("No farmer selected.");
+                showToast("No farmer selected.");
                 return;
             }
             document.getElementById("deleteFarmerModal")?.classList.add("show");
@@ -1545,7 +1571,7 @@ if (!gmailPattern.test(email)) {
                 if (manSubview) manSubview.classList.add("hidden-element");
                 if (listSubview) listSubview.classList.remove("hidden-element");
 
-                alert("Farmer deleted successfully.");
+                showToast("Farmer deleted successfully.");
 
             } catch (error) {
                 console.error("Delete farmer error:", error);
@@ -1985,14 +2011,14 @@ function initPlantingIntent() {
 
 async function submitPlantingIntentStatus(intent) {
     if (!intent) {
-        alert("No planting intent selected.");
+        showToast("No planting intent selected.");
         return;
     }
 
     const intentId = intent.planting_intent_id;
 
     if (!intentId) {
-        alert("Planting Intent ID not found.");
+        showToast("Planting Intent ID not found.");
         return;
     }
 
@@ -2037,12 +2063,12 @@ async function submitPlantingIntentStatus(intent) {
         openPlantingIntentDetails(intent);
 
         await loadReports();
-        alert("Planting intent has been finalized.");
+        showToast("Planting intent has been finalized.");
 
     } catch (error) {
         console.error("Submit planting intent error:", error);
 
-        alert("Failed to submit planting intent.\n\n" + (error.message || "Please try again."));
+        showToast("Failed to submit planting intent.\n\n" + (error.message || "Please try again."));
 
     } finally {
         if (submitBtn) {
@@ -2057,14 +2083,14 @@ async function submitPlantingIntentStatus(intent) {
 
 async function deletePlantingIntent(intent) {
     if (!intent) {
-        alert("No planting intent selected.");
+        showToast("No planting intent selected.");
         return;
     }
 
     const status = (intent.status || "DRAFT").toUpperCase();
 
     if (status !== "DRAFT") {
-        alert("Only Draft planting intents can be deleted.");
+        showToast("Only Draft planting intents can be deleted.");
         return;
     }
 
@@ -2095,12 +2121,12 @@ async function deletePlantingIntent(intent) {
 
         window.currentSelectedPlantingIntent = null;
 
-        alert("Planting intent deleted successfully.");
+        showToast("Planting intent deleted successfully.");
 
     } catch (error) {
         console.error("Delete planting intent error:", error);
 
-        alert("Failed to delete planting intent.\n\n" + (error.message || "Please try again."));
+        showToast("Failed to delete planting intent.\n\n" + (error.message || "Please try again."));
     }
 }
 
@@ -2110,13 +2136,13 @@ async function deletePlantingIntent(intent) {
 
 async function pullPlantingIntent(intent) {
     if (!intent) {
-        alert("No planting intent selected.");
+        showToast("No planting intent selected.");
         return;
     }
     
     const finalizedStatus = (intent.finalized_status || "NOT PLANTED").toUpperCase();
     if (finalizedStatus !== "NOT PLANTED") {
-        alert(
+        showToast(
             `Cannot revert this planting intent to DRAFT.\n\n` +
             `Finalized status: ${finalizedStatus}\n\n` +
             `Once the crop is ${finalizedStatus.toLowerCase()}, the intent is locked. ` +
@@ -2130,7 +2156,7 @@ async function pullPlantingIntent(intent) {
     const intentId = intent.planting_intent_id;
 
     if (!intentId) {
-        alert("Planting Intent ID not found.");
+        showToast("Planting Intent ID not found.");
         return;
     }
 
@@ -2167,12 +2193,12 @@ async function pullPlantingIntent(intent) {
 
         openPlantingIntentDetails(intent);
 
-        alert("Planting intent reverted to draft successfully.");
+        showToast("Planting intent reverted to draft successfully.");
 
     } catch (error) {
         console.error("Pull planting intent error:", error);
 
-        alert("Failed to revert planting intent to DRAFT.\n\n" + (error.message || "Please try again."));
+        showToast("Failed to revert planting intent to DRAFT.\n\n" + (error.message || "Please try again."));
     }
 }
 
@@ -2856,7 +2882,7 @@ function createPlantingIntentRow(intent, type) {
                         reason = note ? `${baseMessage}\n\n${note}` : baseMessage;
                     }
 
-                    alert("Invalid Status Change\n\n" + reason);
+                    showToast("Invalid Status Change\n\n" + reason);
                     menu.style.display = 'none';
                     return;
                 }
@@ -2891,7 +2917,7 @@ function openPlantingIntentDetails(intent) {
 
     if (!details) {
         console.error("❌ plantingIntentDetailsSubview NOT FOUND in DOM!");
-        alert("Details view not found. Please refresh the page.");
+        showToast("Details view not found. Please refresh the page.");
         return;
     }
 
@@ -3127,7 +3153,7 @@ function openPlantingIntentDetails(intent) {
     } catch (err) {
         console.error("❌ Error populating details view:", err);
         console.error("Stack:", err.stack);
-        alert("Error opening details: " + err.message);
+        showToast("Error opening details: " + err.message);
     }
 }
 
@@ -3167,7 +3193,7 @@ async function findReportIdForIntent(intentId) {
 async function togglePlantingIntentEditMode() {
     const intent = window.currentSelectedPlantingIntent;
     if (!intent) {
-        alert("No planting intent selected.");
+        showToast("No planting intent selected.");
         return;
     }
 
@@ -3368,7 +3394,7 @@ async function cancelPlantingIntentEdit() {
 async function savePlantingIntentChanges() {
     const intent = window.currentSelectedPlantingIntent;
     if (!intent) {
-        alert("No planting intent selected.");
+        showToast("No planting intent selected.");
         return;
     }
 
@@ -3383,26 +3409,26 @@ async function savePlantingIntentChanges() {
     const rawRemarks = document.getElementById("detailRemarks")?.value || "";
 
     if (!rawCommodity || !rawCommodity.trim()) {
-        alert("Please select a Commodity.");
+        showToast("Please select a Commodity.");
         document.getElementById("detailCommodity")?.focus();
         return;
     }
 
     const volumeValue = String(rawVolume).replace(/,/g, "").replace(/kg/gi, "").trim();
     if (!volumeValue || isNaN(Number(volumeValue)) || Number(volumeValue) <= 0) {
-        alert("Please enter a valid volume.");
+        showToast("Please enter a valid volume.");
         document.getElementById("detailVolume")?.focus();
         return;
     }
 
     if (!rawPlantingDate) {
-        alert("Please select a Planting Date.");
+        showToast("Please select a Planting Date.");
         document.getElementById("detailPlantingDate")?.focus();
         return;
     }
 
     if (!rawHarvestDate) {
-        alert("Please select a Harvest Date.");
+        showToast("Please select a Harvest Date.");
         document.getElementById("detailHarvestDate")?.focus();
         return;
     }
@@ -3422,7 +3448,7 @@ async function savePlantingIntentChanges() {
         const token = getAuthToken();
 
         if (!intent.planting_intent_id) {
-            alert("Cannot save: Planting Intent ID is missing.");
+            showToast("Cannot save: Planting Intent ID is missing.");
             return;
         }
 
@@ -3530,7 +3556,7 @@ async function savePlantingIntentChanges() {
         setValue("detailRemarks", intent.remarks || "");
         setValue("detailComment", intent.comment || "");
 
-        alert("Planting Intent updated successfully!");
+        showToast("Planting Intent updated successfully!");
 
         const listView = document.getElementById("plantingIntentListSubview");
         const detailsView = document.getElementById("plantingIntentDetailsSubview");
@@ -3582,7 +3608,7 @@ async function savePlantingIntentChanges() {
         const cancelBtn = document.getElementById("cancelEditPlantingIntentBtn");
         if (cancelBtn) cancelBtn.remove();
 
-        alert("Failed to update planting intent.\n\n" + 
+        showToast("Failed to update planting intent.\n\n" + 
               (error.message || error.name || "Unknown error. Check the Console for details."));
     }
 }
@@ -3596,7 +3622,7 @@ async function savePlantingIntentChanges() {
 async function submitPlantingIntent() {
     const form = document.getElementById("submitPlantIntentForm");
     if (!form) {
-        alert("Planting Intent form not found.");
+        showToast("Planting Intent form not found.");
         return;
     }
 
@@ -3610,39 +3636,39 @@ async function submitPlantingIntent() {
     const remarks = document.getElementById("piRemarks")?.value || "";
 
     if (!farmerName || farmerName === "Select Farmer") {
-        alert("Please select a Farmer.");
+        showToast("Please select a Farmer.");
         return;
     }
     if (!farmerId) {
-        alert("Farmer ID is required.");
+        showToast("Farmer ID is required.");
         return;
     }
     if (!plantingDate) {
-        alert("Please select Planting Date.");
+        showToast("Please select Planting Date.");
         return;
     }
     if (!harvestDate) {
-        alert("Please select Harvest Date.");
+        showToast("Please select Harvest Date.");
         return;
     }
     if (!commodity) {
-        alert("Please enter Commodity.");
+        showToast("Please enter Commodity.");
         return;
     }
     if (!volume) {
-        alert("Please enter Volume.");
+        showToast("Please enter Volume.");
         return;
     }
 
     const parsedFarmerId = Number(farmerId);
     if (!Number.isInteger(parsedFarmerId)) {
-        alert("Farmer ID must be a valid number.");
+        showToast("Farmer ID must be a valid number.");
         return;
     }
 
     const parsedVolume = Number(volume);
     if (isNaN(parsedVolume) || parsedVolume <= 0) {
-        alert("Volume must be a valid positive number.");
+        showToast("Volume must be a valid positive number.");
         return;
     }
 
@@ -3682,7 +3708,7 @@ async function submitPlantingIntent() {
     } catch (error) {
         console.error("Create planting intent error:", error);
         handleAuthError(error);
-        alert("Failed to submit planting intent.\n\n" + (error.message || "Please check the FastAPI server."));
+        showToast("Failed to submit planting intent.\n\n" + (error.message || "Please check the FastAPI server."));
     }
 }
 
@@ -3773,7 +3799,7 @@ function showSuccessModal({
     const iconEl = modal?.querySelector("div[style*='border-radius: 50%']");
 
     if (!modal || !titleEl || !messageEl || !closeBtn) {
-        alert(message.replace(/<[^>]*>/g, ""));
+        showToast(message.replace(/<[^>]*>/g, ""));
         onClose && onClose();
         return;
     }
@@ -3854,6 +3880,7 @@ function initReporting() {
 
     initReportTabs();         
     initReportDateFilters(); 
+    initReportSearch();
 
     setActiveReportTab("pending");
 
@@ -3940,18 +3967,18 @@ function initReporting() {
                 this.textContent.toLowerCase().includes("resubmit");
 
             if (intents.length === 0) {
-                alert("Please add at least one planting intent.");
+                showToast("Please add at least one planting intent.");
                 return;
             }
 
             if (!title) {
-                alert("Please enter a Report Title.");
+                showToast("Please enter a Report Title.");
                 document.getElementById("reportTitleInput")?.focus();
                 return;
             }
 
             if (!notes) {
-                alert("Please enter notes / remarks.");
+                showToast("Please enter notes / remarks.");
                 document.getElementById("reportNotesInput")?.focus();
                 return;
             }
@@ -3999,7 +4026,7 @@ function initReporting() {
         editReportBtn.addEventListener("click", function () {
             const reportId = this.dataset.reportId;
             if (!reportId) {
-                alert("Report ID not found.");
+                showToast("Report ID not found.");
                 return;
             }
 
@@ -4008,7 +4035,7 @@ function initReporting() {
             const isFlagged = status.includes("FLAGGED");
 
             if (!isFlagged) {
-                alert("Only flagged reports can be edited.");
+                showToast("Only flagged reports can be edited.");
                 return;
             }
 
@@ -4052,7 +4079,7 @@ function initReporting() {
         resubmitBtn.addEventListener("click", async function () {
             const reportId = this.dataset.reportId;
             if (!reportId) {
-                alert("Report ID not found.");
+                showToast("Report ID not found.");
                 return;
             }
 
@@ -4297,7 +4324,7 @@ function renderFinalizedIntents(intents) {
                     reason = `Hindi pwedeng i-transition mula ${currentStatus} papuntang ${newStatus}.`;
                 }
                 
-                alert("⚠️ Invalid Status Change\n\n" + reason);
+                showToast("⚠️ Invalid Status Change\n\n" + reason);
                 menu.style.display = 'none';
                 return;
             }
@@ -4307,7 +4334,7 @@ function renderFinalizedIntents(intents) {
                 return String(i.planting_intent_id) === String(intentId);
             });
             if (!intent) {
-                alert("Planting intent not found. Please refresh the page.");
+                showToast("Planting intent not found. Please refresh the page.");
                 return;
             }
             handleFinalizedStatusChange(intent, currentStatus, newStatus, pill);
@@ -4421,7 +4448,7 @@ async function updateFinalizedIntentStatus(intentId, newStatus, extraPayload = {
 
     } catch (error) {
         console.error("Failed to update status:", error);
-        alert("Failed to update status.\n\n" + error.message);
+        showToast("Failed to update status.\n\n" + error.message);
         renderPlantingIntentsTable();
     }
 }
@@ -4547,21 +4574,6 @@ async function loadReports() {
                     intent_count: r.intent_count || 0
                 };
             });
-
-            const returnedReports = submittedReports.filter(function(report) {
-                const status = String(report.status || '').toUpperCase().split('.').pop();
-                return status === 'SUBMITTED_MUNICIPAL_FLAGGED' ||
-                       status === 'SUBMITTED_PROVINCIAL_FLAGGED' ||
-                       status === 'SUBMITTED_REGIONAL_FLAGGED' ||
-                       status === 'REVISION_REQUIRED';
-            });
-            if (returnedReports.length > 0) {
-                showSuccessModal({
-                    title: "Report Returned for Revision",
-                    message: `${returnedReports.length} report${returnedReports.length === 1 ? " has" : "s have"} been returned by the validator. Please review the remarks and resubmit.`,
-                    confirmText: "View Flagged Reports"
-                });
-            }
 
             console.log("Municipal-level submitted reports:", submittedReports.length);
 
@@ -5010,7 +5022,7 @@ function renderIncludedPlantingIntents(report) {
         const hasHarvestVar  = isIntentDateVariance(intent.harvest_date,  intent.actual_harvest_date);
         const hasComment = !!(intent.comment_snapshot && String(intent.comment_snapshot).trim());
 
-        let varianceCell = `<span style="color:#BBB; font-style:italic; font-size:11.5px;">—</span>`;
+                let varianceCell = `<span style="color:#9CA3AF; font-style:italic; font-size:11.5px;">—</span>`;
         if (hasPlantingVar || hasHarvestVar) {
             const labels = [];
             if (hasPlantingVar) labels.push("Planting");
@@ -5018,12 +5030,12 @@ function renderIncludedPlantingIntents(report) {
             varianceCell = `<span style="
                 display:inline-block;
                 padding: 3px 10px;
-                background: #FFFBEB;
-                border: 1px solid #FCD34D;
+                background: #F3F4F6;
+                border: 1px solid #D1D5DB;
                 border-radius: 999px;
                 font-size: 11px;
                 font-weight: 700;
-                color: #92400E;
+                color: #4B5563;
                 white-space: nowrap;
             ">⚠️ ${labels.join(" + ")}</span>`;
         }
@@ -5075,7 +5087,6 @@ function renderIncludedPlantingIntents(report) {
 
 /* ═══════════════════════════════════════════════════════════
    SEPARATE VARIANCE REMARKS PANEL
-   One card per intent that has a variance remark
 ═══════════════════════════════════════════════════════════ */
 function renderVarianceRemarksPanel(intents) {
     const panel = document.getElementById("varianceRemarksPanel");
@@ -5092,12 +5103,15 @@ function renderVarianceRemarksPanel(intents) {
         return hasPlantingVar || hasHarvestVar || hasComment || hasCommentField;
     });
 
-    // Update badges
+    // Update badges (Neutral styling instead of yellow)
     if (countEl) countEl.textContent = String(withRemarks.length);
 
     if (badgeEl) {
         if (withRemarks.length > 0) {
             badgeEl.style.display = "inline-block";
+            badgeEl.style.background = "#F3F4F6";
+            badgeEl.style.color = "#4B5563";
+            badgeEl.style.border = "1px solid #D1D5DB";
             badgeEl.textContent = withRemarks.length === 1
                 ? "1 date variance remark"
                 : `${withRemarks.length} date variance remarks`;
@@ -5106,7 +5120,6 @@ function renderVarianceRemarksPanel(intents) {
         }
     }
 
-    // Show / hide panel
     if (withRemarks.length === 0) {
         panel.style.display = "none";
         body.innerHTML = "";
@@ -5114,7 +5127,6 @@ function renderVarianceRemarksPanel(intents) {
     }
     panel.style.display = "block";
 
-    // Render each intent as a remark card
     body.innerHTML = withRemarks.map(function (intent) {
         const intentId = intent.planting_intent_id || "—";
         const farmer   = intent.farmer_name || "N/A";
@@ -5127,7 +5139,6 @@ function renderVarianceRemarksPanel(intents) {
         const hasPlantingVar = isIntentDateVariance(intent.planting_date, intent.actual_planting_date);
         const hasHarvestVar  = isIntentDateVariance(intent.harvest_date,  intent.actual_harvest_date);
 
-        // Build planned vs actual pairs for each variance type
         const plantingDates = hasPlantingVar ? {
             label: "Planting",
             planned: formatPlantingDate(intent.planting_date),
@@ -5146,35 +5157,34 @@ function renderVarianceRemarksPanel(intents) {
         if (plantingDates) diffLabels.push(plantingDates.label);
         if (harvestDates)  diffLabels.push(harvestDates.label);
 
+        // CHANGED: Neutral gray badge instead of yellow
         const varianceTag = diffLabels.length > 0
             ? `<span style="
                 display:inline-block;
                 padding: 3px 10px;
-                background: #FFFBEB;
-                border: 1px solid #FCD34D;
+                background: #F3F4F6;
+                border: 1px solid #D1D5DB;
                 border-radius: 999px;
                 font-size: 11px;
                 font-weight: 700;
-                color: #92400E;
+                color: #4B5563;
                 white-space: nowrap;
                 margin-left: 8px;
             ">⚠️ ${diffLabels.join(" + ")}</span>`
             : "";
 
-        // Build the "planned → actual" preview rows
         const datePreviewRows = [];
         if (plantingDates) datePreviewRows.push(renderVarianceDateRow(plantingDates));
         if (harvestDates)  datePreviewRows.push(renderVarianceDateRow(harvestDates));
 
+        // CHANGED: Off-white background, standard border, removed left amber border
         return `
             <div style="
                 padding: 14px 18px;
-                background: #FFFBEB;
-                border: 1.5px solid #FCD34D;
-                border-left: 4px solid #D97706;
+                background: #F9FAF9;
+                border: 1px solid var(--border);
                 border-radius: 10px;
             ">
-                <!-- Header: ID + Farmer + Commodity + Variance Tag -->
                 <div style="
                     display: flex;
                     flex-wrap: wrap;
@@ -5185,8 +5195,8 @@ function renderVarianceRemarksPanel(intents) {
                     <span style="
                         font-size: 12px;
                         font-weight: 800;
-                        color: #92400E;
-                        background: #FEF3C7;
+                        color: var(--muted);
+                        background: #E5E7EB;
                         padding: 2px 8px;
                         border-radius: 6px;
                     ">#${escapeHtml(String(intentId))}</span>
@@ -5202,7 +5212,6 @@ function renderVarianceRemarksPanel(intents) {
                     ${varianceTag}
                 </div>
 
-                <!-- Planned vs Actual preview -->
                 ${datePreviewRows.length > 0 ? `
                     <div style="
                         display: grid;
@@ -5214,13 +5223,12 @@ function renderVarianceRemarksPanel(intents) {
                     </div>
                 ` : ""}
 
-                <!-- The remark -->
                 ${remarkText ? `
                     <div style="
                         background: #FFFFFF;
-                        border-left: 3px solid #D97706;
+                        border: 1px solid var(--border-light);
                         padding: 10px 14px;
-                        border-radius: 0 6px 6px 0;
+                        border-radius: 8px;
                         font-size: 13px;
                         color: var(--ink);
                         line-height: 1.55;
@@ -5230,7 +5238,7 @@ function renderVarianceRemarksPanel(intents) {
                         <div style="
                             font-size: 10px;
                             font-weight: 700;
-                            color: #92400E;
+                            color: var(--muted);
                             text-transform: uppercase;
                             letter-spacing: 0.06em;
                             margin-bottom: 4px;
@@ -5264,22 +5272,23 @@ function getDayDiff(plannedDate, actualDate) {
 function renderVarianceDateRow(varianceInfo) {
     const diff = varianceInfo.diffDays;
     let diffLabel = "";
-    let diffColor = "#6c757d";
+    let diffColor = "var(--muted)";
 
     if (diff !== null && diff !== 0) {
         if (diff > 0) {
             diffLabel = `${diff} day${diff === 1 ? "" : "s"} late`;
-            diffColor = "#D97706";
+            diffColor = "#B45309"; // Muted amber for late
         } else {
             diffLabel = `${Math.abs(diff)} day${Math.abs(diff) === 1 ? "" : "s"} early`;
-            diffColor = "#2980B9";
+            diffColor = "#1D4ED8"; // Muted blue for early
         }
     }
 
+    // CHANGED: Standard white background and neutral borders
     return `
         <div style="
             background: #FFFFFF;
-            border: 1px solid #FCD34D;
+            border: 1px solid var(--border-light);
             border-radius: 8px;
             padding: 8px 12px;
             font-size: 12px;
@@ -5287,7 +5296,7 @@ function renderVarianceDateRow(varianceInfo) {
             <div style="
                 font-size: 10px;
                 font-weight: 700;
-                color: #92400E;
+                color: var(--muted);
                 text-transform: uppercase;
                 letter-spacing: 0.06em;
                 margin-bottom: 4px;
@@ -5304,7 +5313,7 @@ function renderVarianceDateRow(varianceInfo) {
                 <div style="
                     margin-top: 4px;
                     padding-top: 4px;
-                    border-top: 1px dashed #FCD34D;
+                    border-top: 1px dashed var(--border-light);
                     font-size: 11px;
                     color: ${diffColor};
                     font-weight: 700;
@@ -5404,7 +5413,11 @@ function renderReportAttachmentList() {
         item.className = "report-file-item";
 
         let thumb;
-        if (file.type.startsWith("image/")) {
+        // Handle existing server-side attachments
+        if (file.is_existing) {
+            thumb = document.createElement("div");
+            thumb.textContent = isReportPdf(file) ? "PDF" : "FILE";
+        } else if (file.type && file.type.startsWith("image/")) {
             const url = URL.createObjectURL(file);
             reportAttachmentUrls.push(url);
             thumb = document.createElement("img");
@@ -5422,14 +5435,29 @@ function renderReportAttachmentList() {
         name.className = "report-file-name";
         name.textContent = file.name;
         name.title = file.name;
+        
         const size = document.createElement("div");
         size.className = "report-file-size";
-        size.textContent = formatReportFileSize(file.size);
+        size.textContent = file.is_existing ? "Previously uploaded" : formatReportFileSize(file.size);
+        
         meta.append(name, size);
 
         const actions = document.createElement("div");
         actions.className = "report-file-actions";
-        [["Preview", "preview"], ["Replace", "replace"], ["Remove", "remove danger"]].forEach(([label, action]) => {
+        
+        const buttons = [];
+        
+        if (file.is_existing) {
+            buttons.push(["View", "view"]);
+            buttons.push(["Replace", "replace"]);
+            buttons.push(["Remove", "remove danger"]);
+        } else {
+            buttons.push(["Preview", "preview"]);
+            buttons.push(["Replace", "replace"]);
+            buttons.push(["Remove", "remove danger"]);
+        }
+
+        buttons.forEach(([label, action]) => {
             const button = document.createElement("button");
             button.type = "button";
             button.className = "btn-outline-report " + (action.includes("danger") ? "danger" : "");
@@ -5516,8 +5544,15 @@ function initReportAttachments() {
         const file = reportAttachmentFiles[index];
         if (!file) return;
 
-        if (button.dataset.action === "preview") {
-            previewReportFile(file);
+        if (button.dataset.action === "preview" || button.dataset.action === "view") {
+            if (file.is_existing) {
+                // Open the server file in a new tab
+                const reportId = window.currentEditingReportId;
+                const url = `${API_BASE_URL}/api/raw-plant-reports/${reportId}/attachments/${file.stored_name}`;
+                window.open(url, "_blank");
+            } else {
+                previewReportFile(file);
+            }
         } else if (button.dataset.action === "replace") {
             reportReplaceIndex = index;
             replaceInput?.click();
@@ -5983,11 +6018,11 @@ function initIntentPicker() {
         const from = dateFrom?.value || "";
         const to = dateTo?.value || "";
         if (!from || !to) {
-            alert("Please select both a start and end date.");
+            showToast("Please select both a start and end date.");
             return;
         }
         if (from > to) {
-            alert("Start date must be before or equal to the end date.");
+            showToast("Start date must be before or equal to the end date.");
             return;
         }
         INTENT_PICKER.customFrom = from;
@@ -6335,7 +6370,31 @@ function setActiveReportTab(tab) {
         panel.classList.toggle("hidden-element", panel.dataset.tab !== tab);
     });
 
+    updateReportSearchPlaceholder(tab);
     renderReportTabPanel(tab);
+}
+
+/* ============================================================
+   REPORT SEARCH
+============================================================ */
+
+function updateReportSearchPlaceholder(tab) {
+    const input = document.getElementById("reportSearchInput");
+    if (!input) return;
+    const label = tab === "flagged" ? "flagged" : tab === "approved" ? "approved" : "pending";
+    input.placeholder = "Search " + label + " reports...";
+}
+
+function initReportSearch() {
+    const input = document.getElementById("reportSearchInput");
+    if (!input) return;
+
+    input.addEventListener("input", function () {
+        REPORT_SEARCH_TERM = input.value.trim().toLowerCase();
+        renderReportTabPanel(currentReportTab);
+    });
+
+    updateReportSearchPlaceholder(currentReportTab);
 }
 
 /* ============================================================
@@ -6346,80 +6405,91 @@ function initReportDateFilters() {
     const rows = document.querySelectorAll(".report-date-filter");
     if (!rows.length) return;
 
+    const pad = (n) => String(n).padStart(2, "0");
+    const toISO = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+
     rows.forEach(function (row) {
         const tab = row.dataset.filterTab;
         if (!tab) return;
 
-        const rangeBox = row.querySelector(".report-date-range");
         const startInput = row.querySelector(".report-date-start");
         const endInput = row.querySelector(".report-date-end");
         const applyBtn = row.querySelector(".report-date-apply");
         const clearBtn = row.querySelector(".report-date-clear");
         const presets = row.querySelectorAll(".report-date-presets .filter-pill");
 
-        const saved = REPORT_TAB_CUSTOM_RANGES[tab];
-        if (saved) {
-            if (saved.from && startInput) startInput.value = saved.from;
-            if (saved.to && endInput) endInput.value = saved.to;
+        // Show the range currently in effect so the user always knows what they are viewing.
+        function syncInputs(period) {
+            if (!startInput || !endInput) return;
+            if (period === "custom") {
+                const c = REPORT_TAB_CUSTOM_RANGES[tab];
+                startInput.value = (c && c.from) || "";
+                endInput.value = (c && c.to) || "";
+                return;
+            }
+            const r = getReportPeriodRange(period);
+            startInput.value = r ? toISO(r.from) : "";
+            endInput.value = r ? toISO(r.to) : "";
+        }
+
+        function setActivePill(period) {
+            presets.forEach(function (p) {
+                p.classList.toggle("active", (p.dataset.period || "all") === period);
+            });
+        }
+
+        function applyCustom() {
+            const from = startInput?.value || "";
+            const to = endInput?.value || "";
+
+            if (!from || !to) {
+                showToast("Please select both a start and end date.");
+                return;
+            }
+            if (from > to) {
+                showToast("Start date must be before or equal to the end date.");
+                return;
+            }
+
+            REPORT_TAB_CUSTOM_RANGES[tab] = { from, to };
+            REPORT_TAB_FILTERS[tab] = "custom";
+            setActivePill("custom");
+            renderReportTabPanel(tab);
         }
 
         presets.forEach(function (pill) {
             pill.addEventListener("click", function () {
                 const period = pill.dataset.period || "all";
 
-                presets.forEach(function (p) {
-                    p.classList.toggle("active", p === pill);
-                });
-
                 if (period === "custom") {
-                    rangeBox?.classList.remove("hidden-element");
-                    if (startInput && !startInput.value) {
-                        const r = getReportPeriodRange("month");
-                        if (r) {
-                            startInput.value = r.from.toISOString().slice(0, 10);
-                            endInput.value = r.to.toISOString().slice(0, 10);
-                        }
-                    }
-                } else {
-                    rangeBox?.classList.add("hidden-element");
-                    REPORT_TAB_CUSTOM_RANGES[tab] = { from: null, to: null };
+                    // Keep the range box where it is; apply whatever is typed in it.
+                    if (startInput?.value && endInput?.value) applyCustom();
+                    else { setActivePill("custom"); startInput?.focus(); }
+                    return;
                 }
 
+                REPORT_TAB_CUSTOM_RANGES[tab] = { from: null, to: null };
                 REPORT_TAB_FILTERS[tab] = period;
+                setActivePill(period);
+                syncInputs(period);
                 renderReportTabPanel(tab);
             });
         });
 
-        applyBtn?.addEventListener("click", function () {
-            const from = startInput?.value || "";
-            const to = endInput?.value || "";
-
-            if (!from || !to) {
-                alert("Please select both a start and end date.");
-                return;
-            }
-            if (from > to) {
-                alert("Start date must be before or equal to the end date.");
-                return;
-            }
-
-            REPORT_TAB_CUSTOM_RANGES[tab] = { from, to };
-            REPORT_TAB_FILTERS[tab] = "custom";
-            renderReportTabPanel(tab);
-        });
+        applyBtn?.addEventListener("click", applyCustom);
 
         clearBtn?.addEventListener("click", function () {
-            if (startInput) startInput.value = "";
-            if (endInput) endInput.value = "";
             REPORT_TAB_CUSTOM_RANGES[tab] = { from: null, to: null };
             REPORT_TAB_FILTERS[tab] = "all";
-
-            presets.forEach(function (p) {
-                p.classList.toggle("active", p.dataset.period === "all");
-            });
-            rangeBox?.classList.add("hidden-element");
+            setActivePill("all");
+            syncInputs("all");
             renderReportTabPanel(tab);
         });
+
+        // Initial state
+        const initial = REPORT_TAB_FILTERS[tab] || "all";
+        setActivePill(initial);
+        syncInputs(initial);
     });
 }
 
@@ -6479,7 +6549,13 @@ function renderReportTabPanel(tab) {
     const tbody = document.getElementById(tbodyMap[tab]);
     if (!tbody) return;
 
-    if (filtered.length === 0) {
+    const rows = filtered.map(function (report) {
+        return createReportTabRow(report, tab);
+    }).filter(function (row) {
+        return !REPORT_SEARCH_TERM || row.textContent.toLowerCase().includes(REPORT_SEARCH_TERM);
+    });
+
+    if (rows.length === 0) {
         const friendly = {
             pending: "No pending reports in this period. Try changing the filter or submitting a new report.",
             flagged: "No flagged reports in this period. Great — no pending revisions.",
@@ -6488,7 +6564,7 @@ function renderReportTabPanel(tab) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" style="padding:30px; text-align:center; color:#999;">
-                    ${friendly[tab] || "No reports."}
+                    ${REPORT_SEARCH_TERM ? "No reports match your search." : (friendly[tab] || "No reports.")}
                 </td>
             </tr>
         `;
@@ -6497,8 +6573,8 @@ function renderReportTabPanel(tab) {
 
     tbody.innerHTML = "";
 
-    filtered.forEach(function (report) {
-        tbody.appendChild(createReportTabRow(report, tab));
+    rows.forEach(function (row) {
+        tbody.appendChild(row);
     });
 }
 
@@ -6690,19 +6766,19 @@ async function saveReport(status) {
     const intents = window.selectedReportIntents || [];
 
     if (intents.length === 0) {
-        alert("Please add at least one planting intent.");
+        showToast("Please add at least one planting intent.");
         return;
     }
 
     const title = document.getElementById("reportTitleInput")?.value?.trim() || "";
     if (!title) {
-        alert("Please enter a Report Title.");
+        showToast("Please enter a Report Title.");
         return;
     }
 
     const notes = document.getElementById("reportNotesInput")?.value?.trim() || "";
     if (!notes) {
-        alert("Please enter notes / remarks.");
+        showToast("Please enter notes / remarks.");
         return;
     }
 
@@ -6730,7 +6806,7 @@ async function saveReport(status) {
         const intentsChanged = JSON.stringify(originalIntentIds) !== JSON.stringify(currentIntentIds);
 
         if (!titleChanged && !notesChanged && !intentsChanged) {
-            alert("No changes made. Please modify the report before resubmitting.");
+            showToast("No changes made. Please modify the report before resubmitting.");
             return;
         }
     }
@@ -6811,7 +6887,7 @@ async function saveReport(status) {
             if (uploadErrors.length > 0) {
                 console.warn("Some uploads failed:", uploadErrors);
                 setTimeout(() => {
-                    alert(
+                    showToast(
                         "Report saved, but some attachments failed to upload:\n\n" +
                         uploadErrors.join("\n")
                     );
@@ -6878,7 +6954,7 @@ async function saveReport(status) {
                 });
             }
         } else {
-            alert("Failed to save report.\n\n" + (error.message || "Please try again."));
+            showToast("Failed to save report.\n\n" + (error.message || "Please try again."));
         }
     } finally {
         if (submitButton) submitButton.disabled = false;
@@ -6945,7 +7021,7 @@ async function openSubmittedReportDetails(reportId) {
         
     } catch (error) {
         console.error("Failed to load report details:", error);
-        alert("Failed to load report details.\n\n" + error.message);
+        showToast("Failed to load report details.\n\n" + error.message);
     }
 }
 
@@ -6967,7 +7043,7 @@ async function loadReportForEditing(reportId) {
         
     } catch (error) {
         console.error("Failed to load report:", error);
-        alert("Unable to load report details.\n\n" + error.message);
+        showToast("Unable to load report details.\n\n" + error.message);
     }
 }
 
@@ -7040,8 +7116,25 @@ function populateReportForm(report) {
     });
     
     renderSelectedReportIntents();
-    
     populateReportIntentSelect();
+
+    const attachments = report.attachments || report.files || [];
+    
+    if (Array.isArray(attachments) && attachments.length > 0) {
+        const existingFiles = attachments.map(att => {
+            const fileName = typeof att === 'string' ? att : (att.filename || att.file_name || "Attachment");
+            const storedName = typeof att === 'object' ? (att.stored_name || null) : null;
+            
+            const mockFile = new File([""], fileName, { type: "application/octet-stream" });
+            mockFile.stored_name = storedName; 
+            mockFile.is_existing = true;
+            return mockFile;
+        });
+
+        setReportAttachments(existingFiles);
+    } else {
+        setReportAttachments([]);
+    }
 }
 
 
@@ -7756,12 +7849,12 @@ function openHarvestModal({ intent, onConfirm }) {
         const volumeValue = Number(volumeInput.value);
 
         if (!dateValue) {
-            alert("Please select the actual harvest date.");
+            showToast("Please select the actual harvest date.");
             dateInput.focus();
             return;
         }
         if (!volumeValue || volumeValue <= 0) {
-            alert("Please enter a valid harvest volume (greater than 0).");
+            showToast("Please enter a valid harvest volume (greater than 0).");
             volumeInput.focus();
             return;
         }
@@ -7770,7 +7863,7 @@ function openHarvestModal({ intent, onConfirm }) {
         const commentValue = (commentInput.value || "").trim();
 
         if (isVariance && !commentValue) {
-            alert(`This is ${dateValue < plannedHarvestIso ? "earlier" : "later"} than the planned harvest date (${formatFriendly(plannedHarvestIso)}).\n\nPlease explain why.`);
+            showToast(`This is ${dateValue < plannedHarvestIso ? "earlier" : "later"} than the planned harvest date (${formatFriendly(plannedHarvestIso)}).\n\nPlease explain why.`);
             commentInput.focus();
             return;
         }
@@ -7943,7 +8036,7 @@ function openActualDateModal({ title, message, fieldLabel, fieldId, intent, onCo
         const dateValue = input.value;
 
         if (!dateValue) {
-            alert("Please select a date.");
+            showToast("Please select a date.");
             input.focus();
             return;
         }
@@ -7952,7 +8045,7 @@ function openActualDateModal({ title, message, fieldLabel, fieldId, intent, onCo
         const commentValue = (commentInput.value || "").trim();
 
         if (isVariance && !commentValue) {
-            alert(`This is ${dateValue < plannedDateIso ? "earlier" : "later"} than the planned ${transitionLabel} date (${formatFriendly(plannedDateIso)}).\n\nPlease explain why.`);
+            showToast(`This is ${dateValue < plannedDateIso ? "earlier" : "later"} than the planned ${transitionLabel} date (${formatFriendly(plannedDateIso)}).\n\nPlease explain why.`);
             commentInput.focus();
             return;
         }
@@ -8029,6 +8122,8 @@ function initOfftakeRequest() {
 
     initOfftakeLocationCascade();
     fetchOfftakeRequests();
+    loadAewBuyers();
+    bindOfftakeBuyerAutofill();
 
     document.getElementById("createOfftakeBtn")?.addEventListener("click", function() {
         currentOfftakeRequest = null;
@@ -8048,7 +8143,7 @@ function initOfftakeRequest() {
         const farmerId = document.getElementById("offtakeFarmerId");
 
         if (!farmerSelect || !farmerSelect.value) {
-            alert("Please select a farmer.");
+            showToast("Please select a farmer.");
             return;
         }
         if (farmerId) farmerId.value = getFarmerRsbsaId(farmerSelect.value);
@@ -8321,17 +8416,17 @@ function getOfftakeValue(ids) {
 }
 
 function validateOfftakeForm(data) {
-    if (!data.farmer_name) { alert("Please enter Farmer Name."); return false; }
-    if (!data.farmer_id) { alert("Please enter Farmer ID."); return false; }
-    if (!/^\d+$/.test(data.farmer_id)) { alert("Farmer ID must be a valid whole number."); return false; }
-    if (!data.commodity) { alert("Please enter Commodity."); return false; }
-    if (!data.quantity) { alert("Please enter Quantity."); return false; }
+    if (!data.farmer_name) { showToast("Please enter Farmer Name."); return false; }
+    if (!data.farmer_id) { showToast("Please enter Farmer ID."); return false; }
+    if (!/^\d+$/.test(data.farmer_id)) { showToast("Farmer ID must be a valid whole number."); return false; }
+    if (!data.commodity) { showToast("Please enter Commodity."); return false; }
+    if (!data.quantity) { showToast("Please enter Quantity."); return false; }
     var quantityValue = data.quantity.replace(/,/g, "").trim();
-    if (!/^\d+(\.\d+)?$/.test(quantityValue)) { alert("Quantity must be a valid number."); return false; }
-    if (!data.selling_price) { alert("Please enter Selling Price."); return false; }
+    if (!/^\d+(\.\d+)?$/.test(quantityValue)) { showToast("Quantity must be a valid number."); return false; }
+    if (!data.selling_price) { showToast("Please enter Selling Price."); return false; }
     var sellingPriceValue = data.selling_price.replace(/,/g, "").replace(/₱/g, "").trim();
-    if (!/^\d+(\.\d+)?$/.test(sellingPriceValue)) { alert("Selling Price must be a valid number."); return false; }
-    if (!data.harvest_date) { alert("Please select Harvest Date."); return false; }
+    if (!/^\d+(\.\d+)?$/.test(sellingPriceValue)) { showToast("Selling Price must be a valid number."); return false; }
+    if (!data.harvest_date) { showToast("Please select Harvest Date."); return false; }
     for (const [field, label] of [
         ["offtakeRegion", "Region"],
         ["offtakeProvince", "Province"],
@@ -8340,7 +8435,7 @@ function validateOfftakeForm(data) {
         ["offtakeStreet", "Street/Purok/Sitio"]
     ]) {
         if (!getOfftakeValue([field])) {
-            alert(`Please enter ${label} for the delivery location.`);
+            showToast(`Please enter ${label} for the delivery location.`);
             document.getElementById(field)?.focus();
             return false;
         }
@@ -8373,7 +8468,7 @@ function populateOfftakeReview(data) {
     setReviewValue(["reviewSellingPrice", "confirmSellingPrice", "reviewOfftakeSellingPrice"], values.selling_price);
     setReviewValue(["reviewHarvestDate", "confirmHarvestDate", "reviewOfftakeHarvestDate"], values.harvest_date);
     setReviewValue(["reviewCommodityPhoto", "confirmCommodityPhoto", "reviewOfftakeCommodityPhoto"], values.commodity_photo);
-    setReviewValue(["reviewBuyer", "confirmBuyer", "reviewOfftakeBuyer"], values.buyer);
+    setReviewValue(["reviewBuyer", "confirmBuyer", "confirmBuyerName", "reviewOfftakeBuyer"], values.buyer);
     setReviewValue(["reviewDeliveryLocation", "confirmLocation", "confirmDeliveryLocation", "reviewOfftakeDeliveryLocation"], values.delivery_location);
 }
 
@@ -8452,7 +8547,7 @@ function setOfftakeValue(ids, value) {
 
 async function submitOfftakeRequest() {
     if (!currentOfftakeRequest) {
-        alert("No Offtake Request data found.");
+        showToast("No Offtake Request data found.");
         return;
     }
 
@@ -8506,7 +8601,7 @@ async function submitOfftakeRequest() {
     } catch (error) {
         console.error("Create Offtake Request error:", error);
         handleAuthError(error);
-        alert("Failed to submit Offtake Request.\n\n" + (error.message || "Please check the FastAPI server."));
+        showToast("Failed to submit Offtake Request.\n\n" + (error.message || "Please check the FastAPI server."));
     } finally {
         if (sendOfftakeBtn) {
             sendOfftakeBtn.disabled = false;
@@ -9056,7 +9151,9 @@ function renderFairPriceCommodityCards(selectedCommodity, forecastFocus, selecte
             if (!card) return;
             const select = document.getElementById("fairPriceCommodity");
             if (!select) return;
-            select.value = card.dataset.fairPriceCommodity;
+            const clicked = normalizeFairPriceCommodity(card.dataset.fairPriceCommodity);
+            const current = normalizeFairPriceCommodity(select.value || "all");
+            select.value = current === clicked ? "all" : card.dataset.fairPriceCommodity;
             renderFairPriceDashboard();
         });
         host.dataset.bound = "true";
@@ -10458,11 +10555,10 @@ function renderMarketForecastTable(container, forecasts, priceType) {
     container.innerHTML = html;
     bindForecastToggleHandlers(container, toggleMarketForecastYear, toggleMarketForecastMonth);
 
-    const firstYear = container.querySelector(".forecast-year-content");
-
-    if (firstYear) {
-        firstYear.style.maxHeight = firstYear.scrollHeight + "px";
-    }
+    container.querySelectorAll(".forecast-year-content").forEach(function (panel) {
+        panel.style.maxHeight = "none";
+        panel.style.overflow = "visible";
+    });
 
     const countDiv = document.createElement("div");
 
@@ -10486,27 +10582,13 @@ function renderMarketForecastTable(container, forecasts, priceType) {
 
 function toggleMarketForecastYear(headerElement) {
     const content = headerElement.nextElementSibling;
-
     const arrow = headerElement.querySelector("span:last-child");
-
     if (!content) return;
-
-    if (content.style.maxHeight && content.style.maxHeight !== '0px') {
-        content.style.maxHeight = '0px';
-        content.style.display = 'none';
-
-        if (arrow) {
-            arrow.style.transform = "rotate(0deg)";
-        }
-    } else {
-        content.style.display = 'block';
-        content.style.maxHeight = content.scrollHeight + "px";
-
-        if (arrow) {
-            arrow.style.transform = "rotate(180deg)";
-        }
-    }
-
+    const isOpen = content.style.display !== "none";
+    content.style.maxHeight = "none";      // a fixed max-height clipped expanded months
+    content.style.overflow = "visible";
+    content.style.display = isOpen ? "none" : "block";
+    if (arrow) arrow.style.transform = isOpen ? "rotate(-90deg)" : "rotate(0deg)";
 }
 
 window.toggleMarketForecastYear = toggleMarketForecastYear;
@@ -10517,27 +10599,13 @@ window.toggleMarketForecastYear = toggleMarketForecastYear;
 
 function toggleMarketForecastMonth(headerElement) {
     const content = headerElement.nextElementSibling;
-
     const arrow = headerElement.querySelector("span:last-child");
-
     if (!content) return;
-
-    if (content.style.display === "none" || content.style.display === "") {
-        content.style.display = "block";
-
-        if (arrow) {
-            arrow.style.transform = "rotate(90deg)";
-        }
-    } else {
-        content.style.display = "none";
-
-        if (arrow) {
-            arrow.style.transform = "rotate(0deg)";
-        }
-    }
-
-    window.toggleMarketForecastMonth = toggleMarketForecastMonth;
+    const isOpen = content.style.display !== "none" && content.style.display !== "";
+    content.style.display = isOpen ? "none" : "block";
+    if (arrow) arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(90deg)";
 }
+window.toggleMarketForecastMonth = toggleMarketForecastMonth;
 
 /* ============================================================
    HISTORICAL MARKET PRICES
@@ -10829,7 +10897,7 @@ async function deleteHistoricalMarketPrice(marketPriceId, label, button) {
             button.disabled = false;
             button.textContent = "Remove";
         }
-        window.alert(`Could not remove the record: ${error.message}`);
+        showToast(`Could not remove the record: ${error.message}`);
     }
 }
 
@@ -10922,6 +10990,15 @@ function renderMarketPriceDashboard() {
     if (title) title.textContent = `${commodityName} ${level.toLowerCase()} price trend`;
 
     renderMarketPriceChart(MARKET_PRICE_FORECASTS_DATA, commodity, priceType, period);
+
+    // The projection lists must follow the commodity filter too.
+    const scopedForecasts = commodity === "all"
+        ? MARKET_PRICE_FORECASTS_DATA
+        : MARKET_PRICE_FORECASTS_DATA.filter(function (f) {
+            return normalizeFairPriceCommodity(f.commodity) === normalizeFairPriceCommodity(commodity);
+        });
+    renderWholesaleForecasts(scopedForecasts);
+    renderRetailForecasts(scopedForecasts);
 }
 
 /* ============================================================
@@ -11243,7 +11320,7 @@ function updateAEWNotifications(mapResult) {
 
     renderAEWNotifications(alerts);
     if (notificationDot) {
-        notificationDot.style.display = alerts.length > 0 ? "block" : "none";
+        refreshAEWNotificationDot();
     }
 }
 
@@ -11289,8 +11366,9 @@ function connectAEWNotificationStream() {
 
 function renderAEWNotifications(alerts) {
     const notificationList = document.getElementById("notificationList");
-
     if (!notificationList) return;
+
+    window.__aewAlertIds = alerts.map(a => `${a.municipality}|${a.commodity}|${a.status}`.toLowerCase());
 
     if (!alerts.length) {
         showNoNotifications();
@@ -11299,22 +11377,33 @@ function renderAEWNotifications(alerts) {
 
     notificationList.innerHTML = "";
 
-    alerts.forEach(alert => {
+    alerts.forEach(alertData => {
+        const id = `${alertData.municipality}|${alertData.commodity}|${alertData.status}`.toLowerCase();
         const item = document.createElement("div");
-        item.className = "notification-item";
+        item.className = "notification-item esaka-clickable";
+        item.dataset.notificationId = id;
+        item.dataset.view = "map";
+        item.setAttribute("role", "button");
+        item.setAttribute("tabindex", "0");
         item.style.padding = "12px 18px";
         item.style.borderBottom = "1px solid var(--border-light)";
         item.style.fontSize = "13px";
+        if (ESakaUX.notificationStore.isRead(id)) item.classList.add("is-read");
 
         const details = document.createElement("div");
         details.style.display = "grid";
         details.style.gap = "4px";
         [
-            ["Municipality", alert.municipality],
-            ["Commodity", alert.commodity],
-            ["Status", alert.status]
+            ["Municipality", alertData.municipality],
+            ["Commodity", alertData.commodity],
+            ["Status", alertData.status]
         ].forEach(([label, value]) => {
             const row = document.createElement("div");
+            if (label === "Municipality") {
+                const dot = document.createElement("span");
+                dot.className = "esaka-unread-dot";
+                row.appendChild(dot);
+            }
             const fieldLabel = document.createElement("strong");
             fieldLabel.textContent = `${label}: `;
             const fieldValue = document.createElement("span");
@@ -11323,15 +11412,38 @@ function renderAEWNotifications(alerts) {
 
             if (label === "Status") {
                 fieldValue.style.fontWeight = "700";
-                fieldValue.style.color = alert.status === "DEFICIT" ? "#D97706" : "#C0392B";
+                fieldValue.style.color = alertData.status === "DEFICIT" ? "#D97706" : "#C0392B";
             }
-
             details.appendChild(row);
         });
         item.appendChild(details);
 
+        const open = (event) => {
+            event.stopPropagation();   // keep the bell from re-toggling the dropdown
+            ESakaUX.notificationStore.markRead(id);
+            item.classList.add("is-read");
+            refreshAEWNotificationDot();
+            document.getElementById("notificationDropdown")?.classList.remove("show");
+            ESakaUX.goToView("map");
+            setTimeout(() => {
+                const coords = municipalityCoordinates[alertData.municipality];
+                if (coords && typeof mapInstance !== "undefined" && mapInstance) mapInstance.setView(coords, 12);
+            }, 250);
+        };
+        item.addEventListener("click", open);
+        item.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(event); }
+        });
+
         notificationList.appendChild(item);
     });
+}
+
+function refreshAEWNotificationDot() {
+    const dot = document.getElementById("notificationDot");
+    if (!dot) return;
+    const unread = (window.__aewAlertIds || []).filter(id => !ESakaUX.notificationStore.isRead(id)).length;
+    dot.style.display = unread > 0 ? "block" : "none";
 }
 
 
@@ -11360,213 +11472,129 @@ function showNoNotifications() {
    PROFILE DROPDOWN & SIGN OUT LOGIC
 ============================================================ */
 document.addEventListener("DOMContentLoaded", () => {
-    const openProfileBtn  = document.getElementById("openProfileBtn");
+    const openProfileBtn = document.getElementById("openProfileBtn");
     const profileDropdown = document.getElementById("profileDropdown");
     const menuEditProfile = document.getElementById("menuEditProfile");
-    const menuSignOut     = document.getElementById("menuSignOut");
-    const profileModal    = document.getElementById("profileModal");
+    const menuSignOut = document.getElementById("menuSignOut");
+    const profileModal = document.getElementById("profileModal");
+    const profileForm = document.getElementById("profileForm");
 
     if (!openProfileBtn || !profileDropdown) return;
 
     openProfileBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        const isOpen = profileDropdown.style.display === "block";
-        profileDropdown.style.display = isOpen ? "none" : "block";
+        profileDropdown.style.display = profileDropdown.style.display === "block" ? "none" : "block";
     });
-
     document.addEventListener("click", (e) => {
-        if (!profileDropdown.contains(e.target) && !openProfileBtn.contains(e.target)) {
-            profileDropdown.style.display = "none";
-        }
+        if (!profileDropdown.contains(e.target) && !openProfileBtn.contains(e.target)) profileDropdown.style.display = "none";
     });
 
     menuSignOut?.addEventListener("click", async (e) => {
         e.stopPropagation();
         profileDropdown.style.display = "none";
-
-        const confirmed = await ESaka.confirm(
-            "Are you sure you want to sign out of eSaka?",
-            { title: "Sign Out Confirmation", confirmText: "Sign Out", danger: true }
-        );
-        
-        if (confirmed) {
-            localStorage.clear();
-            window.location.href = "../index.html";
-        }
+        const confirmed = await ESaka.confirm("Are you sure you want to sign out of eSaka?", { title: "Sign Out Confirmation", confirmText: "Sign Out", danger: true });
+        if (confirmed) { localStorage.clear(); window.location.href = "../index.html"; }
     });
 
-    menuEditProfile?.addEventListener("click", async (e) => {
-        e.stopPropagation();
+    const showProfileError = (message) => {
+        const modal = document.getElementById("customAlertModal");
+        const text = document.getElementById("customAlertText");
+        if (text) text.textContent = message;
+        if (modal) modal.classList.add("show");
+        else showToast(message);
+    };
+
+    const openProfile = async (e) => {
+        e?.stopPropagation();
         profileDropdown.style.display = "none";
-
         if (!profileModal) return;
-
         const userId = localStorage.getItem("user_id");
-        if (!userId) {
-            alert("Session expired. Please log in again.");
-            return;
-        }
-
+        if (!userId) return showProfileError("Session expired. Please log in again.");
         try {
-            const user = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, { method: "GET" });
-
-            document.getElementById("profileFirstName").value = user.first_name || "";
-            document.getElementById("profileLastName").value  = user.last_name  || "";
-            document.getElementById("profileUsername").value  = user.username   || "";
-
-            let avatarFile = user.avatar;
+            const user = await apiRequest(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, { method: "GET" });
+            document.getElementById("profileFirstName").value = user?.first_name || "";
+            document.getElementById("profileLastName").value = user?.last_name || "";
+            document.getElementById("profileUsername").value = user?.username || "";
+            let avatarFile = user?.avatar;
             if (!avatarFile) {
                 const saved = localStorage.getItem(`user_avatar_src_${userId}`);
                 if (saved) avatarFile = saved.split("/").pop();
             }
-            const currentSelectedSrc = avatarFile ? `../images/${avatarFile}` : "../images/1.png";
-
+            const src = avatarFile ? `../images/${avatarFile}` : "../images/1.png";
             let matched = false;
-            document.querySelectorAll(".avatar-option").forEach((opt) => {
-                const isMatch = opt.dataset.avatarImg === currentSelectedSrc;
-                opt.classList.toggle("selected", isMatch);
-                if (isMatch) matched = true;
+            document.querySelectorAll(".avatar-option").forEach(opt => {
+                const yes = opt.dataset.avatarImg === src;
+                opt.classList.toggle("selected", yes);
+                if (yes) matched = true;
             });
-            if (!matched) {
-                const firstOpt = document.querySelector(".avatar-option");
-                if (firstOpt) firstOpt.classList.add("selected");
-            }
-
+            if (!matched) document.querySelector(".avatar-option")?.classList.add("selected");
             profileModal.classList.add("show");
         } catch (err) {
             console.error("Failed to load profile:", err);
-            alert("Could not load profile data. Please try again.");
+            showProfileError(err?.message || "Could not load profile data. Please try again.");
+        }
+    };
+
+    menuEditProfile?.addEventListener("click", openProfile);
+
+    profileForm?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const userId = localStorage.getItem("user_id");
+        const fName = document.getElementById("profileFirstName")?.value.trim() || "";
+        const lName = document.getElementById("profileLastName")?.value.trim() || "";
+        const selectedAvatar = document.querySelector(".avatar-option.selected");
+        const avatarFilename = selectedAvatar?.dataset.avatarImg?.split("/").pop() || "1.png";
+        if (!fName || !lName || !userId) return showProfileError(!userId ? "Session expired. Please log in again." : "Please fill in all required fields.");
+
+        const saveBtn = profileForm.querySelector('button[type="submit"]');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
+        try {
+            const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify({ first_name: fName, last_name: lName, avatar: avatarFilename })
+            });
+            const first = updatedUser?.first_name || fName;
+            const last = updatedUser?.last_name || lName;
+            const avatar = updatedUser?.avatar || avatarFilename;
+            const username = updatedUser?.username || document.getElementById("profileUsername")?.value || "";
+            const display = `${first} ${last}`.trim();
+            localStorage.setItem("user_display_name", display);
+            localStorage.setItem("full_name", display);
+            localStorage.setItem(`user_avatar_src_${userId}`, `../images/${avatar}`);
+            if (username) localStorage.setItem("username", username);
+            await setupUserProfile();
+            const nameEl = document.getElementById("userDisplayName"); if (nameEl) nameEl.textContent = display;
+            const usernameEl = document.getElementById("userDisplayUsername"); if (usernameEl) usernameEl.textContent = username ? `@${username}` : "";
+            const greetingEl = document.getElementById("aewDashboardGreeting"); if (greetingEl) greetingEl.textContent = `Mabuhay, ${display}!`;
+            const avatarEl = document.getElementById("userDisplayInitials");
+            if (avatarEl) { avatarEl.innerHTML = `<img src="../images/${avatar}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`; avatarEl.style.background = "transparent"; }
+            profileModal.classList.remove("show");
+            showProfileError("Profile updated successfully!");
+        } catch (err) {
+            console.error("Update error:", err);
+            showProfileError("Failed to update profile: " + (err?.message || "Unknown error"));
+        } finally {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; }
         }
     });
 
-    const profileForm = document.getElementById("profileForm");
-    if (profileForm) {
-        profileForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-
-            const userId = localStorage.getItem("user_id");
-            const fName  = document.getElementById("profileFirstName").value.trim();
-            const lName  = document.getElementById("profileLastName").value.trim();
-            const selectedAvatar = document.querySelector(".avatar-option.selected");
-            const avatarFilename = selectedAvatar ? selectedAvatar.dataset.avatarImg.split("/").pop() : "1.png";
-
-            if (!fName || !lName || !userId) {
-                alert("Please fill in all required fields.");
-                return;
-            }
-
-            const saveBtn = profileForm.querySelector('button[type="submit"]');
-            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
-
-            try {
-                const updatedUser = await apiRequest(`${API_BASE_URL}/api/users/${userId}`, {
-                    method: "PUT",
-                    body: JSON.stringify({ first_name: fName, last_name: lName, avatar: avatarFilename })
-                });
-
-                await setupUserProfile();
-
-                const serverFirst  = updatedUser?.first_name || fName;
-                const serverLast   = updatedUser?.last_name  || lName;
-                const serverAvatar = updatedUser?.avatar     || avatarFilename;
-
-                localStorage.setItem(`user_avatar_src_${userId}`, `../images/${serverAvatar}`);
-                localStorage.setItem("user_display_name", `${serverFirst} ${serverLast}`);
-                localStorage.setItem("full_name", `${serverFirst} ${serverLast}`);
-
-                const nameEl = document.getElementById("userDisplayName");
-                if (nameEl) nameEl.textContent = `${serverFirst} ${serverLast}`;
-
-                const greetingEl = document.getElementById("aewDashboardGreeting");
-                if (greetingEl) greetingEl.textContent = `Mabuhay, ${serverFirst}!`;
-
-                const avatarBox = document.getElementById("userDisplayInitials");
-                if (avatarBox) {
-                    avatarBox.innerHTML = `<img src="../images/${serverAvatar}" alt="Avatar" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">`;
-                    avatarBox.style.background = "transparent";
-                }
-
-                profileModal.classList.remove("show");
-
-                const alertModal = document.getElementById("customAlertModal");
-                if (alertModal) {
-                    document.getElementById("customAlertText").textContent = "Profile updated successfully!";
-                    alertModal.classList.add("show");
-                }
-            } catch (err) {
-                console.error("Update error:", err);
-                alert("Failed to update profile: " + (err.message || "Unknown error"));
-            } finally {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Save Changes"; }
-            }
-        });
-    }
-
-    document.getElementById("closeProfileModalBtn")?.addEventListener("click", () => profileModal.classList.remove("show"));
-    document.getElementById("closeCustomAlertBtn")?.addEventListener("click", () => document.getElementById("customAlertModal").classList.remove("show"));
-    
-    profileModal?.addEventListener("click", (e) => { 
-        if (e.target === profileModal) profileModal.classList.remove("show"); 
-    });
-
-    document.querySelectorAll(".avatar-option").forEach(opt => {
-        opt.addEventListener("click", () => {
-            document.querySelectorAll(".avatar-option").forEach(el => el.classList.remove("selected"));
-            opt.classList.add("selected");
-        });
-    });
+    document.getElementById("closeProfileModalBtn")?.addEventListener("click", () => profileModal?.classList.remove("show"));
+    document.getElementById("closeCustomAlertBtn")?.addEventListener("click", () => document.getElementById("customAlertModal")?.classList.remove("show"));
+    profileModal?.addEventListener("click", e => { if (e.target === profileModal) profileModal.classList.remove("show"); });
+    document.querySelectorAll(".avatar-option").forEach(opt => opt.addEventListener("click", () => {
+        document.querySelectorAll(".avatar-option").forEach(el => el.classList.remove("selected"));
+        opt.classList.add("selected");
+    }));
 });
 
 /* ============================================================
-   DELIVERY LOCATION CASCADE
+   DELIVERY LOCATION CASCADE (API-BASED)
 ============================================================ */
 
-const OFFTAKE_LOCATION_DATA = {
-    "Region III (Central Luzon)": {
-        provinces: {
-            "Pampanga": Object.keys(BARANGAYS_BY_MUNICIPALITY),
-        }
-    }
-};
+const PSGC_API_BASE = "https://psgc.gitlab.io/api";
 
-function populateOfftakeRegionDropdown() {
-    const regionSel = document.getElementById("offtakeRegion");
-    if (!regionSel || regionSel.dataset.cascadeReady === "true") return;
-
-    regionSel.innerHTML = `<option value="" disabled selected>Select Region</option>`;
-    Object.keys(OFFTAKE_LOCATION_DATA).forEach((region) => {
-        const opt = document.createElement("option");
-        opt.value = region;
-        opt.textContent = region;
-        regionSel.appendChild(opt);
-    });
-    regionSel.dataset.cascadeReady = "true";
-}
-
-function resetOfftakeProvinceDropdown(placeholder = "Select Region first") {
-    const prov = document.getElementById("offtakeProvince");
-    if (!prov) return;
-    prov.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
-    prov.disabled = true;
-}
-
-function resetOfftakeMunicipalityDropdown(placeholder = "Select Province first") {
-    const muni = document.getElementById("offtakeMunicipality");
-    if (!muni) return;
-    muni.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
-    muni.disabled = true;
-}
-
-function resetOfftakeBarangayDropdown(placeholder = "Select Municipality first") {
-    const brgy = document.getElementById("offtakeBarangay");
-    if (!brgy) return;
-    brgy.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
-    brgy.disabled = true;
-}
-
-function initOfftakeLocationCascade() {
-    populateOfftakeRegionDropdown();
-
+async function initOfftakeLocationCascade() {
     const regionSel = document.getElementById("offtakeRegion");
     const provSel   = document.getElementById("offtakeProvince");
     const muniSel   = document.getElementById("offtakeMunicipality");
@@ -11575,53 +11603,430 @@ function initOfftakeLocationCascade() {
     if (!regionSel || !provSel || !muniSel || !brgySel) return;
     if (regionSel.dataset.cascadeBound === "true") return;
 
-    regionSel.addEventListener("change", function () {
-        const region = this.value;
-        const provinces = OFFTAKE_LOCATION_DATA[region]?.provinces || {};
+    // Helper to reset a dropdown
+    const resetDropdown = (selectEl, placeholder) => {
+        selectEl.innerHTML = `<option value="" disabled selected>${placeholder}</option>`;
+        selectEl.disabled = true;
+    };
 
-        provSel.innerHTML = `<option value="" disabled selected>Select Province</option>`;
-        Object.keys(provinces).forEach((prov) => {
+    // 1. Load Regions on Init
+    try {
+        regionSel.innerHTML = `<option value="" disabled selected>Loading regions...</option>`;
+        const response = await fetch(`${PSGC_API_BASE}/regions/`);
+        const regions = await response.json();
+        
+        regionSel.innerHTML = `<option value="" disabled selected>Select Region</option>`;
+        regions.sort((a, b) => a.name.localeCompare(b.name)).forEach(region => {
             const opt = document.createElement("option");
-            opt.value = prov;
-            opt.textContent = prov;
-            provSel.appendChild(opt);
+            opt.value = region.code; // Use API code as value
+            opt.textContent = region.name;
+            regionSel.appendChild(opt);
         });
-        provSel.disabled = Object.keys(provinces).length === 0;
+        regionSel.disabled = false;
+    } catch (error) {
+        console.error("Failed to load regions:", error);
+        regionSel.innerHTML = `<option value="" disabled selected>Error loading regions</option>`;
+    }
 
-        resetOfftakeMunicipalityDropdown("Select Province first");
-        resetOfftakeBarangayDropdown("Select Municipality first");
+    // 2. Region Changed -> Load Provinces
+    regionSel.addEventListener("change", async function () {
+        const regionCode = this.value;
+        resetDropdown(provSel, "Loading provinces...");
+        resetDropdown(muniSel, "Select Province first");
+        resetDropdown(brgySel, "Select Municipality first");
+
+        try {
+            const response = await fetch(`${PSGC_API_BASE}/regions/${regionCode}/provinces/`);
+            const provinces = await response.json();
+            
+            // NCR has no provinces, it has districts. We handle this fallback:
+            if (provinces.length === 0) {
+                provSel.innerHTML = `<option value="${regionCode}" selected>N/A (Direct to City)</option>`;
+                provSel.disabled = false;
+                
+                muniSel.innerHTML = `<option value="" disabled selected>Loading cities...</option>`;
+                muniSel.disabled = false;
+                
+                const muniResponse = await fetch(`${PSGC_API_BASE}/regions/${regionCode}/cities-municipalities/`);
+                const municipalities = await muniResponse.json();
+                populateMunicipalities(municipalities, muniSel);
+            } else {
+                provSel.innerHTML = `<option value="" disabled selected>Select Province</option>`;
+                provinces.sort((a, b) => a.name.localeCompare(b.name)).forEach(province => {
+                    const opt = document.createElement("option");
+                    opt.value = province.code;
+                    opt.textContent = province.name;
+                    provSel.appendChild(opt);
+                });
+                provSel.disabled = false;
+            }
+        } catch (error) {
+            console.error("Failed to load provinces:", error);
+            resetDropdown(provSel, "Error loading provinces");
+        }
     });
 
-    provSel.addEventListener("change", function () {
-        const region = regionSel.value;
-        const province = this.value;
-        const municipalities = OFFTAKE_LOCATION_DATA[region]?.provinces?.[province] || [];
+    // 3. Province Changed -> Load Municipalities/Cities
+    provSel.addEventListener("change", async function () {
+        const provCode = this.value;
+        resetDropdown(muniSel, "Loading cities/municipalities...");
+        resetDropdown(brgySel, "Select Municipality first");
 
-        muniSel.innerHTML = `<option value="" disabled selected>Select Municipality/City</option>`;
-        municipalities.forEach((muni) => {
-            const opt = document.createElement("option");
-            opt.value = muni;
-            opt.textContent = muni;
-            muniSel.appendChild(opt);
-        });
-        muniSel.disabled = municipalities.length === 0;
-
-        resetOfftakeBarangayDropdown("Select Municipality first");
+        try {
+            const response = await fetch(`${PSGC_API_BASE}/provinces/${provCode}/cities-municipalities/`);
+            const municipalities = await response.json();
+            populateMunicipalities(municipalities, muniSel);
+        } catch (error) {
+            console.error("Failed to load municipalities:", error);
+            resetDropdown(muniSel, "Error loading cities");
+        }
     });
 
-    muniSel.addEventListener("change", function () {
-        const municipality = this.value;
-        const barangays = BARANGAYS_BY_MUNICIPALITY[municipality] || [];
-
-        brgySel.innerHTML = `<option value="" disabled selected>Select Barangay</option>`;
-        barangays.forEach((brgy) => {
+    function populateMunicipalities(municipalities, selectEl) {
+        selectEl.innerHTML = `<option value="" disabled selected>Select Municipality/City</option>`;
+        municipalities.sort((a, b) => a.name.localeCompare(b.name)).forEach(muni => {
             const opt = document.createElement("option");
-            opt.value = brgy;
-            opt.textContent = brgy;
-            brgySel.appendChild(opt);
+            opt.value = muni.code;
+            opt.textContent = muni.name;
+            selectEl.appendChild(opt);
         });
-        brgySel.disabled = barangays.length === 0;
+        selectEl.disabled = false;
+    }
+
+    // 4. Municipality Changed -> Load Barangays
+    muniSel.addEventListener("change", async function () {
+        const muniCode = this.value;
+        resetDropdown(brgySel, "Loading barangays...");
+
+        try {
+            const response = await fetch(`${PSGC_API_BASE}/cities-municipalities/${muniCode}/barangays/`);
+            const barangays = await response.json();
+            
+            brgySel.innerHTML = `<option value="" disabled selected>Select Barangay</option>`;
+            barangays.sort((a, b) => a.name.localeCompare(b.name)).forEach(brgy => {
+                const opt = document.createElement("option");
+                opt.value = brgy.code;
+                opt.textContent = brgy.name;
+                brgySel.appendChild(opt);
+            });
+            brgySel.disabled = false;
+        } catch (error) {
+            console.error("Failed to load barangays:", error);
+            resetDropdown(brgySel, "Error loading barangays");
+        }
     });
 
     regionSel.dataset.cascadeBound = "true";
+}
+
+// ============================================================
+// FORM RESET & DATA COLLECTION
+// ============================================================
+
+function resetOfftakeForm() {
+    var possibleFormIds = ["offtakeRequestForm", "submitOfftakeForm", "createOfftakeForm"];
+    for (var i = 0; i < possibleFormIds.length; i++) {
+        var form = document.getElementById(possibleFormIds[i]);
+        if (form) {
+            form.reset();
+            break;
+        }
+    }
+    
+    // Reset the dropdowns to their initial state
+    const regionSel = document.getElementById("offtakeRegion");
+    const provSel   = document.getElementById("offtakeProvince");
+    const muniSel   = document.getElementById("offtakeMunicipality");
+    const brgySel   = document.getElementById("offtakeBarangay");
+
+    if (regionSel) regionSel.value = "";
+    if (provSel) {
+        provSel.innerHTML = `<option value="" disabled selected>Select Region first</option>`;
+        provSel.disabled = true;
+    }
+    if (muniSel) {
+        muniSel.innerHTML = `<option value="" disabled selected>Select Province first</option>`;
+        muniSel.disabled = true;
+    }
+    if (brgySel) {
+        brgySel.innerHTML = `<option value="" disabled selected>Select Municipality first</option>`;
+        brgySel.disabled = true;
+    }
+
+    currentOfftakeRequest = null;
+}
+
+function collectOfftakeFormData() {
+    // Helper to get the TEXT of the selected option instead of the API code
+    const getText = (id) => {
+        const el = document.getElementById(id);
+        if (!el || !el.selectedIndex) return "";
+        const opt = el.options[el.selectedIndex];
+        // If it's the placeholder option, return empty string
+        return opt.value === "" ? "" : opt.textContent;
+    };
+
+    const deliveryLocation = [
+        ["Region", getText("offtakeRegion")],
+        ["Province", getText("offtakeProvince")],
+        ["Municipality/City", getText("offtakeMunicipality")],
+        ["Barangay", getText("offtakeBarangay")],
+        ["Street/Purok/Sitio", getOfftakeValue(["offtakeStreet"])],
+        ["Landmark", getOfftakeValue(["offtakeLandmark"])]
+    ].filter(([, value]) => value && value !== "N/A (Direct to City)")
+        .map(([label, value]) => `${label}: ${value}`)
+        .join(", ");
+
+    return {
+        farmer_name: getOfftakeValue(["offtakeFarmerName", "farmerName", "offtakeFarmer"]),
+        farmer_id: getOfftakeValue(["offtakeFarmerId", "farmerId", "offtakeFarmerID"]),
+        commodity: getOfftakeValue(["offtakeCommodity", "commodity"]),
+        quantity: getOfftakeValue(["offtakeQty", "offtakeQuantity", "quantity"]),
+        selling_price: getOfftakeValue(["offtakePrice", "offtakeSellingPrice", "sellingPrice"]),
+        harvest_date: getOfftakeValue(["offtakeHarvestDate", "harvestDate"]),
+        commodity_photo: getOfftakeValue(["offtakeCommodityPhoto", "commodityPhoto"]),
+        buyer: getOfftakeValue(["offtakeBuyer", "buyer"]),
+        delivery_location: deliveryLocation
+    };
+}
+
+// ============================================================
+// POPULATE FORM FOR EDITING (When user clicks "Edit Details")
+// ============================================================
+async function populateOfftakeForm(data) {
+    setOfftakeValue(["offtakeFarmerName", "farmerName", "offtakeFarmer"], data.farmer_name);
+    setOfftakeValue(["offtakeFarmerId", "farmerId", "offtakeFarmerID"], data.rsbsa_id || data.farmer_id);
+    setOfftakeValue(["offtakeCommodity", "commodity"], data.commodity);
+    setOfftakeValue(["offtakeQuantity", "quantity"], data.quantity);
+    setOfftakeValue(["offtakeSellingPrice", "sellingPrice"], data.selling_price);
+    setOfftakeValue(["offtakeHarvestDate", "harvestDate"], data.harvest_date);
+    setOfftakeValue(["offtakeCommodityPhoto", "commodityPhoto"], data.commodity_photo);
+    setOfftakeValue(["offtakeBuyer", "buyer"], data.buyer);
+
+    const locationParts = Object.fromEntries(
+        String(data.delivery_location || "")
+            .split(/,\s*(?=[^,]+:\s)/)
+            .map(part => {
+                const separator = part.indexOf(":");
+                return separator === -1
+                    ? ["", ""]
+                    : [part.slice(0, separator).trim(), part.slice(separator + 1).trim()];
+            })
+    );
+
+    const regionSel = document.getElementById("offtakeRegion");
+    const provSel   = document.getElementById("offtakeProvince");
+    const muniSel   = document.getElementById("offtakeMunicipality");
+    const brgySel   = document.getElementById("offtakeBarangay");
+
+    // Helper to match the text name back to the API code
+    const findAndSelectOption = (selectEl, targetText) => {
+        if (!selectEl || !targetText) return false;
+        for (let i = 0; i < selectEl.options.length; i++) {
+            if (selectEl.options[i].textContent.trim() === targetText.trim()) {
+                selectEl.selectedIndex = i;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // 1. Set Region
+    if (regionSel && locationParts["Region"]) {
+        const regionFound = findAndSelectOption(regionSel, locationParts["Region"]);
+        if (regionFound) {
+            // Trigger the change event to load provinces from API
+            regionSel.dispatchEvent(new Event("change", { bubbles: true }));
+
+            // 2. Set Province (Wait for API fetch to populate the dropdown)
+            setTimeout(() => {
+                if (provSel && locationParts["Province"] && locationParts["Province"] !== "N/A (Direct to City)") {
+                    const provFound = findAndSelectOption(provSel, locationParts["Province"]);
+                    if (provFound) {
+                        provSel.dispatchEvent(new Event("change", { bubbles: true }));
+
+                        // 3. Set Municipality (Wait for API fetch)
+                        setTimeout(() => {
+                            if (muniSel && locationParts["Municipality/City"]) {
+                                const muniFound = findAndSelectOption(muniSel, locationParts["Municipality/City"]);
+                                if (muniFound) {
+                                    muniSel.dispatchEvent(new Event("change", { bubbles: true }));
+
+                                    // 4. Set Barangay (Wait for API fetch)
+                                    setTimeout(() => {
+                                        if (brgySel && locationParts["Barangay"]) {
+                                            findAndSelectOption(brgySel, locationParts["Barangay"]);
+                                        }
+                                    }, 500); // 500ms delay for barangay API
+                                }
+                            }
+                        }, 500); // 500ms delay for municipality API
+                    }
+                }
+            }, 500); // 500ms delay for province API
+        }
+    }
+
+    setOfftakeValue(["offtakeStreet"], locationParts["Street/Purok/Sitio"]);
+    setOfftakeValue(["offtakeLandmark"], locationParts["Landmark"]);
+}
+
+function setOfftakeValue(ids, value) {
+    for (var i = 0; i < ids.length; i++) {
+        var element = document.getElementById(ids[i]);
+        if (element) {
+            element.value = value || "";
+            return;
+        }
+    }
+}
+
+
+/* ============================================================
+   eSaka UX INTEGRATION  (shared module: assets/js/esaka-ux.js)
+   Replaces the earlier "UX fix pack".
+============================================================ */
+
+/* #4 Re-fetch a tab's data every time its sidebar tab is clicked.
+   (market-prices already reloads itself in initMarketPriceDashboard.) */
+ESakaUX.configure({
+    refresh: {
+        "dashboard": ["loadAewDashboard"],
+        "farmers": ["fetchFarmers"],
+        "planting-intent": ["fetchPlantingIntents"],
+        "offtake-request": ["fetchOfftakeRequests", "loadAewBuyers"],
+        "fair-prices": ["loadForecastResults"],
+        "map": ["loadMunicipalityMapData"],
+        "reports": ["loadReports"]
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+    refreshAEWNotificationDot();
+});
+
+/* #7 Offtake: buyer dropdown that auto-fills commodity + delivery location.
+   Buyers come from the verified-buyer list.  Check the console line
+   "[eSaka] buyer record keys" once to confirm which location fields exist. */
+async function loadAewBuyers() {
+    const select = document.getElementById("offtakeBuyer");
+    if (!select) return;
+    const previous = select.value;
+    try {
+        const data = await apiRequest(`${API_BASE_URL}/api/buyer-status/verified`, { method: "GET" });
+        allBuyers = (Array.isArray(data) ? data : []).filter(function (b) {
+            return !b.is_archived && String(b.status || "").toLowerCase() !== "archived";
+        });
+        if (allBuyers[0]) console.debug("[eSaka] buyer record keys:", Object.keys(allBuyers[0]));
+        select.innerHTML = '<option value="">Select Buyer</option>';
+        allBuyers.forEach(function (b) {
+            const opt = document.createElement("option");
+            opt.value = b.organization || "";
+            opt.textContent = b.organization || "Unnamed buyer";
+            select.appendChild(opt);
+        });
+        if (previous) select.value = previous;
+    } catch (error) {
+        console.warn("Could not load buyers:", error);
+        select.innerHTML = '<option value="">Buyers unavailable</option>';
+    }
+}
+
+function buyerCommodityList(buyer) {
+    if (!buyer) return [];
+    let list = [];
+    if (Array.isArray(buyer.commodities)) list = buyer.commodities;
+    else if (typeof buyer.commodities === "string") list = buyer.commodities.split(",");
+    else if (buyer.commodity || buyer.preferred_commodity) list = [buyer.commodity || buyer.preferred_commodity];
+    else if (typeof buyer.message === "string") {
+        const m = buyer.message.match(/^Commodities of interest:[ \t]*([^\r\n]*)/im);
+        if (m) list = m[1].split(",");
+    }
+    return list.map(function (s) { return String(s).trim(); }).filter(Boolean);
+}
+
+function esakaNormText(value) {
+    return String(value || "").toLowerCase().replace(/\bfruit\b/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+async function esakaSelectByText(select, text, timeoutMs) {
+    const wanted = esakaNormText(text);
+    if (!select || !wanted) return false;
+    const started = Date.now();
+    while (Date.now() - started < (timeoutMs || 5000)) {
+        if (!select.disabled) {
+            const opt = Array.from(select.options).find(function (o) {
+                const t = esakaNormText(o.textContent);
+                return o.value && (t === wanted || t.includes(wanted) || wanted.includes(t));
+            });
+            if (opt) {
+                select.value = opt.value;
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+                return true;
+            }
+        }
+        await new Promise(function (r) { setTimeout(r, 120); });
+    }
+    return false;
+}
+
+async function fillOfftakeLocationFromBuyer(buyer) {
+    const loc = {
+        region: buyer.region || buyer.region_name,
+        province: buyer.province || buyer.province_name,
+        municipality: buyer.municipality || buyer.municipality_name || buyer.city,
+        barangay: buyer.barangay || buyer.barangay_name,
+        street: buyer.street || buyer.street_address || buyer.address_line,
+        landmark: buyer.landmark
+    };
+    const free = buyer.delivery_location || buyer.preferred_delivery_location || buyer.address || "";
+    const structured = !!(loc.region || loc.province || loc.municipality || loc.barangay);
+
+    if (loc.region) await esakaSelectByText(document.getElementById("offtakeRegion"), loc.region);
+    if (loc.province) await esakaSelectByText(document.getElementById("offtakeProvince"), loc.province);
+    if (loc.municipality) await esakaSelectByText(document.getElementById("offtakeMunicipality"), loc.municipality);
+    if (loc.barangay) await esakaSelectByText(document.getElementById("offtakeBarangay"), loc.barangay);
+
+    const street = document.getElementById("offtakeStreet");
+    if (street) {
+        if (loc.street) street.value = loc.street;
+        else if (!structured && free) street.value = free;
+    }
+    const landmark = document.getElementById("offtakeLandmark");
+    if (landmark && loc.landmark) landmark.value = loc.landmark;
+    return structured || !!free;
+}
+
+function bindOfftakeBuyerAutofill() {
+    const select = document.getElementById("offtakeBuyer");
+    if (!select || select.dataset.autofillBound) return;
+    select.dataset.autofillBound = "1";
+
+    select.addEventListener("change", async function () {
+        const buyer = allBuyers.find(function (b) { return (b.organization || "") === select.value; });
+        if (!buyer) return;
+
+        const commoditySelect = document.getElementById("offtakeCommodity");
+        const wanted = buyerCommodityList(buyer);
+        let filled = null;
+        if (commoditySelect) {
+            for (const name of wanted) {
+                const target = esakaNormText(name);
+                const opt = Array.from(commoditySelect.options).find(function (o) {
+                    return o.value && esakaNormText(o.value) === target;
+                });
+                if (opt) {
+                    commoditySelect.value = opt.value;
+                    commoditySelect.dispatchEvent(new Event("change", { bubbles: true }));
+                    filled = opt.value;
+                    break;
+                }
+            }
+        }
+        const locationFilled = await fillOfftakeLocationFromBuyer(buyer);
+
+        if (filled && wanted.length > 1) showToast(`${buyer.organization} requests ${wanted.join(", ")}. Filled in ${filled}.`, "info");
+        else if (!filled && !locationFilled) showToast("No commodity or delivery location on record for this buyer. Please fill them in.", "warning");
+        else if (locationFilled) showToast("Commodity and delivery location filled from buyer. Please confirm them.", "success");
+    });
 }

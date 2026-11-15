@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../assets/js/config.js"></script>
 <script src="../assets/js/ui-feedback.js"></script>
+  <script src="../assets/js/esaka-ux.js"></script>
 <script src="../assets/js/app-enhancements.js" defer></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1195,85 +1196,81 @@
 
 .form-field-full { grid-column: 1 / -1; }
 
-/* ===== REPORTS SUMMARY CARDS (Provincial) ===== */
-.summary-cards {
+/* ===== MUNICIPAL-STYLE KPI STATUS CARDS (Provincial) ===== */
+.municipal-status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
-  margin-bottom: 22px;
+  margin: 0 0 24px;
 }
-
-.summary-cards .summary-card {
+.status-kpi-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: all .2s ease;
+  box-shadow: 0 1px 3px rgba(11,56,42,.04);
+}
+.status-kpi-card:hover {
+  border-color: var(--green);
+  box-shadow: 0 4px 12px rgba(11,56,42,.08);
+  transform: translateY(-1px);
+}
+.status-kpi-card.active {
+  border-color: var(--green);
+  background: #F8FBF9;
+  box-shadow: 0 0 0 1px var(--green), 0 4px 12px rgba(11,56,42,.08);
+}
+.status-kpi-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  border-radius: var(--radius-md);
-  background: var(--white);
-  border: 1.5px solid var(--border);
-  border-left: 5px solid var(--border);
-  box-shadow: 0 1px 4px rgba(46, 42, 34, 0.04);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-  margin-bottom: 0;
+  justify-content: space-between;
 }
-
-.summary-cards .summary-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 16px rgba(46, 42, 34, 0.10);
+.status-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
 }
-
-.summary-cards .summary-icon {
-  font-size: 24px;
-  width: 46px;
-  height: 46px;
+.status-kpi-icon {
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #F6F2E8;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.summary-cards .summary-info h3 {
-  font-size: 11.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  margin: 0 0 4px;
-  line-height: 1.3;
-}
-
-.summary-cards .summary-count {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--ink);
-  margin: 0;
+  border-radius: 6px;
+  font-size: 14px;
   line-height: 1;
 }
-
-.summary-cards .summary-label {
-  font-size: 10.5px;
-  font-weight: 600;
-  color: #A09888;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.status-kpi-icon.pending    { background: #FEF3C7; color: #92400E; }
+.status-kpi-icon.revision   { background: #FEE2E2; color: #991B1B; }
+.status-kpi-icon.provincial { background: #DBEAFE; color: #1E40AF; }
+.status-kpi-icon.approved   { background: #DCFCE7; color: #14532D; }
+.status-kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1;
+  margin-top: 2px;
 }
-
-/* Color coding */
-.summary-cards .summary-card.reports-pending  { border-left-color: #D97706; }
-.summary-cards .summary-card.reports-returned { border-left-color: #C0392B; }
-.summary-cards .summary-card.reports-regional { border-left-color: #2980B9; }
-
-.summary-cards .summary-card.reports-pending .summary-icon  { background: #FDF3E0; }
-.summary-cards .summary-card.reports-returned .summary-icon { background: #FCE8E6; }
-.summary-cards .summary-card.reports-regional .summary-icon { background: #E3F2FD; }
-
+.status-kpi-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
 
 /* AEW visual alignment: consistent dashboard header and summary export panel */
 .aew-style-header {
   min-height: 150px;
   padding: 26px 30px;
+  margin-bottom: 24px;
+  box-sizing: border-box;
   border: 1px solid rgba(15,61,46,.10);
   border-radius: 18px;
   background: linear-gradient(120deg,#fbfaf5 0%,#f4f8ef 58%,#e3f0e2 100%);
@@ -1450,6 +1447,196 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
   position: relative !important; 
 }
 
+
+/* ===== Report date filter (matches Municipal / AEW) ===== */
+.report-date-filter { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+.report-date-filter.in-header { width:auto; margin:0; }
+.report-date-presets { display:flex; background:#F3F5F4; padding:4px; border-radius:10px; gap:2px; flex-wrap:wrap; }
+.report-date-filter .report-date-presets .filter-pill { background:transparent !important; border:none !important; color:#5F6B66 !important; box-shadow:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; }
+.report-date-filter .report-date-presets .filter-pill:hover { background:rgba(0,0,0,.04) !important; color:var(--ink) !important; }
+.report-date-filter .report-date-presets .filter-pill.active { background:var(--primary,#0B382A) !important; border-color:var(--primary,#0B382A) !important; color:#FFFFFF !important; font-weight:700; }
+.report-date-range { display:flex; align-items:center; gap:8px; padding:8px 12px; background:#FFF; border:1.5px solid var(--border); border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.03); flex-wrap:wrap; }
+.report-date-range span { font-size:12px; color:var(--muted); font-weight:600; }
+.report-date-range input[type="date"] { padding:6px 10px; border:1.5px solid var(--border); border-radius:6px; font-size:12.5px; background:#FFF; color:var(--ink); outline:none; min-width:132px; }
+.report-date-range input[type="date"]:focus { border-color:var(--primary,#0B382A); box-shadow:0 0 0 3px rgba(11,56,42,.1); }
+@media (max-width:720px) { .report-date-filter { align-items:flex-start; width:100%; } }
+</style>
+
+<style id="esaka-ux-page-css">
+.profile-dropdown-item:hover{background-color:#F0F5F1 !important}
+#menuSignOut:hover{background-color:#FDE4E4 !important}
+</style>
+
+<style id="esaka-unified-dashboard-layout">
+/* ============================================================
+   eSAKA UNIFIED DASHBOARD LAYOUT
+   Shared shell for Municipal / Provincial / AEW / DA-RFO
+============================================================ */
+:root { --esaka-shell-max: 1440px; --esaka-shell-pad: 32px; }
+.topbar { height: 72px !important; min-height: 72px !important; padding: 0 32px !important; }
+.layout { width: 100% !important; min-height: calc(100vh - 72px) !important; }
+.sidebar { width: 250px !important; min-width: 250px !important; }
+.view { width: 100% !important; max-width: var(--esaka-shell-max) !important; margin: 0 auto !important; padding: 28px var(--esaka-shell-pad) 48px !important; }
+.view > .main-header { width: 100% !important; max-width: 100% !important; margin: 0 0 24px !important; }
+.main-header { min-height: 58px; }
+.main-header h1, .header-left h1 { margin: 0 !important; }
+.main-header p, .header-left p { margin-top: 6px !important; }
+.view > .card, .view > .dashboard-card, .view > .section-card, .view > .panel, .view > .table-card { width: 100%; }
+.aew-dashboard-grid, .da-dashboard-grid, .pc-overview-grid { width: 100%; }
+.aew-dashboard-columns, .da-dashboard-columns { width: 100%; }
+/* Keep detail/report subviews on the same shell without inheriting summary card clutter. */
+#individualDetailView, #reportDetailView, #report-details-view { width: 100%; }
+@media (max-width: 1100px) {
+  :root { --esaka-shell-pad: 24px; }
+  .view { padding-left: var(--esaka-shell-pad) !important; padding-right: var(--esaka-shell-pad) !important; }
+}
+@media (max-width: 700px) {
+  .topbar { padding: 0 16px !important; }
+  .view { padding: 20px 16px 36px !important; }
+  .main-header { min-height: auto; }
+}
+
+/* ============================================================
+   UNIFIED GREEN GRADIENT HEADER
+============================================================ */
+.unified-header {
+  min-height: 140px;
+  padding: 24px 32px;
+  border: 1px solid rgba(15,61,46,.10);
+  border-radius: 18px;
+  background: linear-gradient(120deg, #fbfaf5 0%, #f4f8ef 58%, #e3f0e2 100%);
+  box-shadow: 0 8px 28px rgba(31,54,39,.07);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Decorative background circle */
+.unified-header::after {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -80px;
+  top: -100px;
+  border-radius: 50%;
+  background: rgba(255, 171, 46, .12);
+  pointer-events: none;
+}
+
+.unified-header > * {
+  position: relative;
+  z-index: 2;
+}
+
+.unified-header h1 {
+  color: var(--primary, #0B382A);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px 0;
+}
+
+.unified-header p {
+  color: var(--muted, #5F6B64);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 650px;
+  margin: 0;
+}
+
+/* Common button / input styles inside the header */
+.unified-header .header-action-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   EXPORT BUTTON STYLES (Exact Match to Municipal)
+============================================================ */
+.export-btn.secondary { 
+  background: #f3f7f2; 
+  color: var(--primary); 
+  border-color: #d9e5db; 
+}
+.export-btn.secondary:hover { 
+  background: #e3eee7; 
+}
+
+.report-export-tools { 
+  display: flex; 
+  gap: 8px; 
+  align-items: center; 
+  flex-wrap: wrap; 
+}
+
+
+/* Summary export buttons: explicit colors (theme file may not define --primary / --tertiary) */
+.aew-summary-export-panel .export-btn { border:1px solid #d9e5db; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; line-height:1.2; transition:filter .15s ease, background .15s ease; }
+.aew-summary-export-panel .export-btn.primary { background:#0B382A !important; color:#FFFFFF !important; border-color:#0B382A !important; }
+.aew-summary-export-panel .export-btn.gold { background:#E3B341 !important; color:#211b04 !important; border-color:#E3B341 !important; }
+.aew-summary-export-panel .export-btn:hover { filter:brightness(1.08); }
+</style>
+
+<style id="esaka-report-summary-layout">
+/* Report Summary on the report detail screen: centered and narrower, not full span (same as DA-RFO) */
+#reportSummaryCardWrapper { width:100%; max-width:980px; margin:0 auto 24px !important; }
+#reportSummaryCardWrapper .summary-card { margin:0; }
+</style>
+<style id="esaka-variance-css">
+.variance-badge {
+  display:inline-block;
+  padding:3px 10px;
+  background:#FFFBEB;
+  border:1px solid #FCD34D;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  color:#92400E;
+  white-space:nowrap
+}
+.variance-count-badge {
+  display:inline-block;
+  min-width:22px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#D97706;
+  color:#FFF;
+  font-size:11px;
+  font-weight:700;
+  text-align:center
+}
+.variance-card {
+  padding:14px 18px;
+  background:#FFFBEB;
+  border:1.5px solid #FCD34D;
+  border-left:4px solid #D97706;
+  border-radius:10px
+}
+.variance-date-box {
+  background:#FFF;
+  border:1px solid #FCD34D;
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:12px
+}
+.variance-remark-box {
+  background:#FFF;
+  border-left:3px solid #D97706;
+  padding:10px 14px;
+  border-radius:0 6px 6px 0;
+  font-size:13px;
+  color:var(--ink);
+  line-height:1.55;
+  white-space:pre-wrap;
+  word-break:break-word
+}
 </style>
 </head>
 <body class="pc-modern">
@@ -1471,13 +1658,25 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
 
 
     <div class="topbar-right">
-  <div class="user-info" id="openProfileBtn" title="Click to edit profile" style="cursor: pointer;">
-    <div class="avatar" id="userDisplayInitials">--</div>
-    <div class="user-text">
-      <div class="user-name" id="userDisplayName">Loading...</div>
-      <div class="user-role" id="userDisplayRole">Loading...</div>
+  <div class="user-menu-wrapper" style="position:relative;">
+      <div class="user-info" id="openProfileBtn" title="Click for options" style="cursor:pointer;">
+        <div class="avatar" id="userDisplayInitials">--</div>
+        <div class="user-text">
+          <div class="user-name" id="userDisplayName">Loading...</div>
+          <div class="user-role" id="userDisplayRole">Loading...</div>
+        </div>
+      </div>
+      <div class="profile-dropdown-menu" id="profileDropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:180px;background:var(--white,#fff);border:1.5px solid var(--border,#dce4df);border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.15);z-index:3000;overflow:hidden;">
+        <button class="profile-dropdown-item" id="menuEditProfile" type="button" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;background:transparent;border:none;font-size:13.5px;font-weight:600;color:var(--ink,#20352a);cursor:pointer;text-align:left;">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          User Profile
+        </button>
+        <button class="profile-dropdown-item" id="menuSignOut" type="button" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;background:transparent;border:none;font-size:13.5px;font-weight:600;color:#C0392B;cursor:pointer;text-align:left;border-top:1px solid var(--border-light,#e6ece8);">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
+          Sign Out
+        </button>
+      </div>
     </div>
-  </div>
 </div>
   </div>
 
@@ -1500,10 +1699,6 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
         </button>
       </div>
 
-      <a class="signout" href="../index.html">
-        <svg viewBox="0 0 24 24"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
-        Sign Out
-      </a>
     </nav>
 
     <main class="main">
@@ -1582,15 +1777,15 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
 
       <!-- ===================== VIEW: Reports ===================== -->
       <section class="view active-view" id="view-reports">
-        <div class="main-header" id="reportsMainHeader">
+        <div class="main-header aew-style-header" id="reportsMainHeader">
           <div class="header-left">
             <h1>Reports</h1>
             <p>Review reports forwarded by Municipal Coordinators.</p>
           </div>
 
           <div class="header-actions">
-            <div class="search-box">
-              <svg viewBox="0 0 24 24">
+            <div class="search-box" style="background: #FFFFFF; border: 1px solid rgba(15,61,46,0.15); box-shadow: 0 2px 6px rgba(0,0,0,0.02);">
+              <svg viewBox="0 0 24 24" style="stroke: var(--muted);">
                 <circle cx="11" cy="11" r="7"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
@@ -1599,40 +1794,46 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
           </div>
         </div>
 
-        <!-- ===== REPORTS SUMMARY CARDS ===== -->
-  <div class="summary-cards reports-summary" id="reportSummaryCards">
-    <div class="summary-card reports-pending">
-      <div class="summary-info">
-        <h3>Pending Reports</h3>
-        <p class="summary-count" id="reportCountPending">0</p>
-        <span class="summary-label">Provincial Pending</span>
-      </div>
-    </div>
+    <!-- ===== MUNICIPAL-STYLE KPI STATUS CARDS ===== -->
+    <div class="municipal-status-grid" id="reportSummaryCards">
+      <button type="button" class="status-kpi-card active" data-report-kpi="pending" aria-pressed="true">
+        <div class="status-kpi-header">
+          <span class="status-kpi-label">Pending Reports</span>
+          <span class="status-kpi-icon pending" aria-hidden="true">◷</span>
+        </div>
+        <strong id="reportCountPending" class="status-kpi-value">0</strong>
+        <span class="status-kpi-desc">Provincial Pending</span>
+      </button>
 
-    <div class="summary-card reports-returned">
-      <div class="summary-info">
-        <h3>Returned to Municipal</h3>
-        <p class="summary-count" id="reportCountReturned">0</p>
-        <span class="summary-label">For Revision</span>
-      </div>
-    </div>
+      <button type="button" class="status-kpi-card" data-report-kpi="returned" aria-pressed="false">
+        <div class="status-kpi-header">
+          <span class="status-kpi-label">Returned to Municipal</span>
+          <span class="status-kpi-icon revision" aria-hidden="true">↻</span>
+        </div>
+        <strong id="reportCountReturned" class="status-kpi-value">0</strong>
+        <span class="status-kpi-desc">For Revision</span>
+      </button>
 
-    <div class="summary-card reports-regional">
-      <div class="summary-info">
-        <h3>Sent to Regional</h3>
-        <p class="summary-count" id="reportCountRegional">0</p>
-        <span class="summary-label">Forwarded to DA-RFO</span>
-      </div>
+      <button type="button" class="status-kpi-card" data-report-kpi="regional" aria-pressed="false">
+        <div class="status-kpi-header">
+          <span class="status-kpi-label">Sent to Regional</span>
+          <span class="status-kpi-icon provincial" aria-hidden="true">↗</span>
+        </div>
+        <strong id="reportCountRegional" class="status-kpi-value">0</strong>
+        <span class="status-kpi-desc">Forwarded to DA-RFO</span>
+      </button>
+
+      <button type="button" class="status-kpi-card" data-report-kpi="approved" aria-pressed="false">
+        <div class="status-kpi-header">
+          <span class="status-kpi-label">Approved Reports</span>
+          <span class="status-kpi-icon approved" aria-hidden="true">✓</span>
+        </div>
+        <strong id="reportCountApproved" class="status-kpi-value">0</strong>
+        <span class="status-kpi-desc">Approved by regional office</span>
+      </button>
     </div>
-  </div>
 
         <!-- PENDING REPORTS -->
-        <div class="pc-reports-filters" id="reportsQuickFilters">
-          <button class="filter-pill active" type="button" data-reports-filter="all">All Reports</button>
-          <button class="filter-pill" type="button" data-reports-filter="pending">Pending Provincial</button>
-          <button class="filter-pill" type="button" data-reports-filter="returned">Returned for Revision</button>
-          <button class="filter-pill" type="button" data-reports-filter="sent">Sent to Regional</button>
-        </div>
         <div id="pendingReportsView">
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
@@ -1641,14 +1842,31 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
                 <span class="count-badge" id="pendingCountBadge">0</span>
               </div>
 
-              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <div class="report-date-filter in-header" data-filter-tab="pending">
+                <div class="report-date-range">
+                  <input type="date" class="report-date-start" aria-label="Start date">
+                  <span>to</span>
+                  <input type="date" class="report-date-end" aria-label="End date">
+                  <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                  <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
+                </div>
+                <div class="report-date-presets">
+                  <button class="filter-pill" type="button" data-period="week">This Week</button>
+                  <button class="filter-pill" type="button" data-period="month">This Month</button>
+                  <button class="filter-pill" type="button" data-period="year">This Year</button>
+                  <button class="filter-pill active" type="button" data-period="all">All Time</button>
+                  <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
                 <button class="btn-outline-report" id="selectAllPendingBtn" type="button">
                   Select All
                 </button>
                 <button class="btn-primary" id="bulkApproveBtn" type="button" disabled>
                   Approve Selected &amp; Send to Regional
                 </button>
-              </div>
             </div>
 
             <div style="overflow-x:auto;">
@@ -1676,11 +1894,29 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
         </div>
 
         <!-- RETURNED TO MUNICIPAL -->
-        <div id="returnedToMunicipalView">
+        <div id="returnedToMunicipalView" style="display: none;">
           <div class="card">
-            <div class="text-section-title">
-              Returned to Municipal
-              <span class="count-badge muted" id="returnedToMunicipalCountBadge">0</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+              <div class="text-section-title" style="margin-bottom:0;">
+                Returned to Municipal
+                <span class="count-badge muted" id="returnedToMunicipalCountBadge">0</span>
+              </div>
+              <div class="report-date-filter in-header" data-filter-tab="returned">
+                <div class="report-date-range">
+                  <input type="date" class="report-date-start" aria-label="Start date">
+                  <span>to</span>
+                  <input type="date" class="report-date-end" aria-label="End date">
+                  <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                  <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
+                </div>
+                <div class="report-date-presets">
+                  <button class="filter-pill" type="button" data-period="week">This Week</button>
+                  <button class="filter-pill" type="button" data-period="month">This Month</button>
+                  <button class="filter-pill" type="button" data-period="year">This Year</button>
+                  <button class="filter-pill active" type="button" data-period="all">All Time</button>
+                  <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                </div>
+              </div>
             </div>
 
             <div style="overflow-x:auto;">
@@ -1704,7 +1940,7 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
         </div>
 
         <!-- SENT TO REGIONAL -->
-        <div id="sentToRegionalView">
+        <div id="sentToRegionalView" style="display: none;">
           <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
               <div class="text-section-title" style="margin-bottom:0;">
@@ -1712,12 +1948,24 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
                 <span class="count-badge muted" id="sentCountBadge">0</span>
               </div>
 
-              <div id="sentToRegionalFilterPills" style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="filter-pill active" data-filter="all" type="button">All</button>
-                <button class="filter-pill" data-filter="pending" type="button">Pending</button>
-                <button class="filter-pill" data-filter="approved" type="button">Approved</button>
+              <div class="report-date-filter in-header" data-filter-tab="sent">
+                <div class="report-date-range">
+                  <input type="date" class="report-date-start" aria-label="Start date">
+                  <span>to</span>
+                  <input type="date" class="report-date-end" aria-label="End date">
+                  <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                  <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
+                </div>
+                <div class="report-date-presets">
+                  <button class="filter-pill" type="button" data-period="week">This Week</button>
+                  <button class="filter-pill" type="button" data-period="month">This Month</button>
+                  <button class="filter-pill" type="button" data-period="year">This Year</button>
+                  <button class="filter-pill active" type="button" data-period="all">All Time</button>
+                  <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                </div>
               </div>
             </div>
+
 
             <div style="overflow-x:auto;">
               <table>
@@ -1842,7 +2090,10 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
 
             <!-- ==================== INCLUDED PLANTING INTENTS ==================== -->
             <div style="margin-top: 8px;">
-              <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px;">Included Planting Intents</div>
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">Included Planting Intents</div>
+                <div id="detailVarianceBadge" style="display:none; font-size: 11px; font-weight: 700; color: #92400E; background: #FEF3C7; padding: 4px 12px; border-radius: 999px; border: 1px solid #FCD34D;">Date variance remarks</div>
+              </div>
               <div style="overflow-x: auto;">
                 <table>
                   <thead>
@@ -1855,6 +2106,7 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
                       <th class="center-col" style="background: #FFF4E5;">📍 Actual Planting</th>
                       <th class="center-col" style="background: #F6F3EB;">📅 Planned Harvest</th>
                       <th class="center-col" style="background: #FFF4E5;">📍 Actual Harvest</th>
+                      <th class="center-col">Variance</th>
                       <th class="center-col">Harvest Status</th>
                     </tr>
                   </thead>
@@ -1865,6 +2117,14 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
               </div>
             </div>
             <!-- ==================== ADD NEW REMARK ==================== -->
+            <div id="varianceRemarksPanel" class="detail-section" style="display:none; margin-bottom: 24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <div style="font-size:11px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:.06em;">⚠️ DATE VARIANCE REMARKS</div>
+              <span id="varianceRemarksCount" class="variance-count-badge">0</span>
+            </div>
+            <div id="varianceRemarksBody" style="display:grid;gap:12px;"></div>
+          </div>
+
             <div class="notes-row notes-row-clean" style="margin-top: 16px;">
               <div class="notes-field">
                 <label>Add New Remark</label>
@@ -1901,15 +2161,14 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
           <p>Aggregated view of all reports across Pampanga municipalities for a selected period.</p>
         </div>
 
-        <div class="header-actions no-print">
-          <div class="period-picker">
+        <div class="header-actions no-print" style="background: rgba(255,255,255,0.7); padding: 12px; border-radius: 12px; border: 1px solid rgba(15,61,46,0.1);">
+          <div class="period-picker" style="border: none; background: transparent; padding: 0;">
             <label>From</label>
             <input type="date" id="summaryPeriodStart">
             <label>To</label>
             <input type="date" id="summaryPeriodEnd">
           </div>
-          <button class="btn-primary" id="applySummaryPeriodBtn" type="button">Apply Period</button>
-          <button class="btn-outline-report" id="printSummaryBtn" type="button">🖨 Print</button>
+          <button class="btn-primary" id="applySummaryPeriodBtn" type="button" style="box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Apply Period</button>
         </div>
       </div>
 
@@ -1925,14 +2184,11 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
       <div class="aew-summary-export-panel no-print" aria-label="Summary export options">
         <div class="aew-summary-export-copy">
           <strong>Export Summary</strong>
-          <span>Download the summary for the selected reporting period, or export reports selected in View Reports.</span>
+          <span>Download the summary for the selected reporting period.</span>
         </div>
         <div class="report-export-tools">
-          <label class="finalized-export-option">
-            <input type="checkbox" id="reportExportFinalizedOnly"> Finalized intents only
-          </label>
           <button class="export-btn primary" id="exportSummaryPdfBtn" type="button">Download Summary PDF</button>
-          <button class="export-btn gold" id="exportSummaryXlsxBtn" type="button">Export Summary Excel</button>
+          <button class="export-btn gold" id="exportSummaryXlsxBtn" type="button">Download Summary Excel</button>
         </div>
       </div>
 
@@ -1946,13 +2202,13 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
     </section>
 
     <!-- ===================== VIEW: Map ===================== -->
-<section class="view" id="view-map">
-  <div class="main-header">
-    <div class="header-left">
-      <h1>Regional Field Map</h1>
-      <p>Geospatial tracking of crop production clusters in Pampanga.</p>
-    </div>
-  </div>
+    <section class="view" id="view-map">
+      <div class="main-header aew-style-header">
+        <div class="header-left">
+          <h1>Regional Field Map</h1>
+          <p>Geospatial tracking of crop production clusters in Pampanga.</p>
+        </div>
+      </div>
 
   <div class="pc-map-layout">
 
@@ -2132,44 +2388,141 @@ body:has(#individualDetailView:not(.hidden-element)) .topbar {
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
   <script src="../assets/js/map-panel.js"></script>
+  <script src="../assets/js/report-summary-card.js"></script>
   <script src="../assets/js/provincial.js"></script>
   <script src="../assets/js/logout.js"></script>
   <script>
-(function() {
+/* Reports: search + date filter (DOM-based, re-applies after every re-render) */
+(function () {
+  const TABLES = {
+    pending:  { bodyId: 'pendingReportsBody',      dateCol: 5 },  // Planting Date
+    returned: { bodyId: 'returnedToMunicipalBody', dateCol: 4 },  // Returned At
+    sent:     { bodyId: 'sentToRegionalBody',      dateCol: 4 }   // Submitted / Approved At
+  };
+  const state = { pending: { period: 'all' }, returned: { period: 'all' }, sent: { period: 'all' } };
   const searchInput = document.getElementById('reportSearchInput');
-  if (!searchInput) return;
+  let searchTerm = '';
 
-  // IDs ng mga tbody sa Provincial page
-  const TABLE_BODIES = [
-    'pendingReportsBody',
-    'returnedToMunicipalBody',
-    'sentToRegionalBody'
-  ];
+  const pad = n => String(n).padStart(2, '0');
+  const toISO = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 
-  function filterTables() {
-    const query = searchInput.value.trim().toLowerCase();
-
-    TABLE_BODIES.forEach(id => {
-      const tbody = document.getElementById(id);
-      if (!tbody) return;
-
-      tbody.querySelectorAll('tr').forEach(row => {
-        if (row.querySelector('td[colspan]')) return;
-
-        const match = !query || row.innerText.toLowerCase().includes(query);
-        row.style.display = match ? '' : 'none';
-      });
-    });
+  function periodRange(period) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (period === 'week') {
+      const day = today.getDay();
+      const mon = new Date(today); mon.setDate(today.getDate() + (day === 0 ? -6 : 1 - day));
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6); sun.setHours(23, 59, 59, 999);
+      return { from: mon, to: sun };
+    }
+    if (period === 'month') return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999) };
+    if (period === 'year')  return { from: new Date(now.getFullYear(), 0, 1), to: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999) };
+    return null;
   }
 
-  searchInput.addEventListener('input', filterTables);
-  searchInput.addEventListener('keyup', filterTables);
+  function activeRange(key) {
+    const st = state[key];
+    if (st.period === 'all') return null;
+    if (st.period === 'custom') {
+      if (!st.from || !st.to) return null;
+      const [fy, fm, fd] = st.from.split('-').map(Number);
+      const [ty, tm, td] = st.to.split('-').map(Number);
+      return { from: new Date(fy, fm - 1, fd), to: new Date(ty, tm - 1, td, 23, 59, 59, 999) };
+    }
+    return periodRange(st.period);
+  }
 
-  document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      searchInput.value = '';
-      filterTables();
+  function applyFilters(key) {
+    const cfg = TABLES[key];
+    const tbody = document.getElementById(cfg.bodyId);
+    if (!tbody) return;
+    const range = activeRange(key);
+
+    observers[key] && observers[key].disconnect();
+    tbody.querySelectorAll('tr.filter-empty-row').forEach(r => r.remove());
+
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => !r.querySelector('td[colspan]'));
+    let visible = 0;
+    rows.forEach(row => {
+      let ok = !searchTerm || row.innerText.toLowerCase().includes(searchTerm);
+      if (ok && range) {
+        const cell = row.cells[cfg.dateCol];
+        const dt = cell ? new Date(cell.textContent.trim()) : null;
+        ok = !!dt && !isNaN(dt.getTime()) && dt >= range.from && dt <= range.to;
+      }
+      row.style.display = ok ? '' : 'none';
+      if (ok) visible++;
     });
+
+    if (rows.length && !visible) {
+      const tr = document.createElement('tr');
+      tr.className = 'filter-empty-row';
+      const cols = tbody.closest('table').querySelectorAll('thead th').length || 6;
+      tr.innerHTML = '<td colspan="' + cols + '" style="padding:30px; text-align:center; color:#999;">' +
+        (searchTerm ? 'No reports match your search.' : 'No reports in this period.') + '</td>';
+      tbody.appendChild(tr);
+    }
+    observers[key] && observers[key].observe(tbody, { childList: true });
+  }
+
+  const observers = {};
+  function applyAll() { Object.keys(TABLES).forEach(applyFilters); }
+
+  Object.keys(TABLES).forEach(key => {
+    const tbody = document.getElementById(TABLES[key].bodyId);
+    if (!tbody) return;
+    observers[key] = new MutationObserver(() => applyFilters(key));
+    observers[key].observe(tbody, { childList: true });
+  });
+
+  /* search */
+  if (searchInput) {
+    const onSearch = () => { searchTerm = searchInput.value.trim().toLowerCase(); applyAll(); };
+    searchInput.addEventListener('input', onSearch);
+    document.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', () => { searchInput.value = ''; onSearch(); }));
+  }
+
+  /* date filter UI */
+  document.querySelectorAll('.report-date-filter').forEach(row => {
+    const key = row.dataset.filterTab;
+    if (!TABLES[key]) return;
+    const startInput = row.querySelector('.report-date-start');
+    const endInput = row.querySelector('.report-date-end');
+    const presets = row.querySelectorAll('.report-date-presets .filter-pill');
+
+    const setActive = p => presets.forEach(b => b.classList.toggle('active', (b.dataset.period || 'all') === p));
+    const sync = p => {
+      if (p === 'custom') { startInput.value = state[key].from || ''; endInput.value = state[key].to || ''; return; }
+      const r = periodRange(p);
+      startInput.value = r ? toISO(r.from) : '';
+      endInput.value = r ? toISO(r.to) : '';
+    };
+    const notify = msg => (typeof showToast === 'function' ? showToast(msg) : alert(msg));
+    const applyCustom = () => {
+      const from = startInput.value, to = endInput.value;
+      if (!from || !to) { notify('Please select both a start and end date.'); return; }
+      if (from > to) { notify('Start date must be before or equal to the end date.'); return; }
+      state[key] = { period: 'custom', from, to };
+      setActive('custom');
+      applyFilters(key);
+    };
+
+    presets.forEach(btn => btn.addEventListener('click', () => {
+      const p = btn.dataset.period || 'all';
+      if (p === 'custom') {
+        if (startInput.value && endInput.value) applyCustom();
+        else { setActive('custom'); startInput.focus(); }
+        return;
+      }
+      state[key] = { period: p };
+      setActive(p); sync(p); applyFilters(key);
+    }));
+    row.querySelector('.report-date-apply').addEventListener('click', applyCustom);
+    row.querySelector('.report-date-clear').addEventListener('click', () => {
+      state[key] = { period: 'all' };
+      setActive('all'); sync('all'); applyFilters(key);
+    });
+    setActive('all'); sync('all');
   });
 })();
 </script>

@@ -80,6 +80,7 @@ def get_historical_data(commodity, price_type):
 
         print(f"Historical cutoff date: {cutoff_date}")
 
+        # Filter out NULLs and ZEROS directly in the SQL query
         result = db.execute(
             select(
                 MarketPrice.record_date,
@@ -87,7 +88,9 @@ def get_historical_data(commodity, price_type):
             )
             .where(
                 MarketPrice.commodity == commodity,
-                MarketPrice.record_date <= cutoff_date
+                MarketPrice.record_date <= cutoff_date,
+                price_column.isnot(None),
+                price_column > 0  # <--- THE CRITICAL FIX
             )
             .order_by(
                 MarketPrice.record_date.asc()

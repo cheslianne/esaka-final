@@ -12,7 +12,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"/>
   <link rel="stylesheet" href="../assets/css/base.css">
   <link rel="stylesheet" href="../assets/css/provincial-theme.css">
@@ -59,7 +59,7 @@
       -webkit-font-smoothing: antialiased;
     }
     a{ color:inherit; }
-    button, input, select, textarea{ font-family:'Inter', sans-serif; }
+    button, input, select, textarea{ font-family:'Plus Jakarta Sans', sans-serif; }
 
     .topbar{
       display:flex; align-items:center; justify-content:space-between;
@@ -90,7 +90,7 @@
       background:#C0392B; border-radius:50%; border:2px solid var(--cream);
     }
     .user-info{ display:flex; align-items:center; gap:10px; }
-    .user-text{ text-align:right; line-height:1.25; }
+    .user-text{ text-align:left; line-height:1.25; }
     .user-name{ font-size:14px; font-weight:700; color:var(--ink); }
     .user-role{ font-size:12px; font-weight:600; color:var(--gold); }
     .avatar{
@@ -169,9 +169,8 @@
     .da-kpi-amber::before{ background:#D97706; }
     .da-kpi-green::before{ background:#2E7D32; }
     .da-kpi-red::before{ background:#C0392B; }
-    .da-kpi-icon{
-      width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center;
-      font-size:24px; background:rgba(11,56,42,0.08); color:var(--primary); flex-shrink:0;
+     .da-kpi-icon {
+     display: none;
     }
     .da-kpi-amber .da-kpi-icon{ background:rgba(217,119,6,0.10); color:#B45309; }
     .da-kpi-green .da-kpi-icon{ background:rgba(46,125,50,0.10); color:#2E7D32; }
@@ -196,15 +195,101 @@
     .da-kpi-meta{ margin-top:7px; color:var(--muted); font-size:10px; }
     .da-priority-panel{ padding:20px 20px 18px; margin-bottom:18px; }
     .da-priority-panel h2{ margin-top:2px; }
-    .da-priority-panel p{ margin:4px 0 0; color:var(--muted); font-size:11px; }
-    .da-section-kicker{ display:block; color:#B7791F; font-size:9px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
-    .da-pending-pill{ display:inline-flex; align-items:center; gap:5px; padding:7px 10px; border-radius:999px; background:#FFF0D5; color:#8A5100; font-size:10px; font-weight:800; white-space:nowrap; }
-    .da-priority-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
-    .da-priority-item{ min-height:118px; display:flex; flex-direction:column; justify-content:space-between; padding:12px; border:1px solid var(--border-light); border-radius:12px; background:#FCFBF8; }
-    .da-priority-item strong{ color:var(--primary); font-size:11px; line-height:1.3; }
-    .da-priority-item p{ color:var(--muted); font-size:10px; line-height:1.35; margin:6px 0 8px; }
-    .da-priority-item footer{ display:flex; align-items:center; justify-content:space-between; color:var(--muted); font-size:9px; }
-    .da-priority-action{ border:0; border-radius:7px; background:var(--primary); color:#fff; padding:6px 8px; font-size:9px; cursor:pointer; }
+   .da-priority-panel p{ margin:4px 0 0; color:var(--muted); font-size:13px; line-height: 1.5; }
+    .da-section-kicker{ 
+  display: block; 
+  color: #B7791F; 
+  font-size: 11px; 
+  font-weight: 800; 
+  letter-spacing: .1em; 
+  text-transform: uppercase; 
+}
+.da-pending-pill{ 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 6px; 
+  padding: 7px 12px; 
+  border-radius: 999px; 
+  background: #FFF0D5; 
+  color: #8A5100; 
+  font-size: 12px; 
+  font-weight: 700; 
+  white-space: nowrap; 
+}
+    .da-priority-grid{ 
+  display: grid; 
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+  gap: 10px; 
+}
+/* ===== DASHBOARD: ACTIONS TO REVIEW (final layout) ===== */
+.da-priority-grid{ 
+  display: grid; 
+  grid-template-columns: repeat(3, minmax(0, 1fr)); 
+  gap: 16px; 
+}
+.da-priority-item{
+  min-height: 0; 
+  display: flex; 
+  flex-direction: row; 
+  align-items: center; 
+  justify-content: space-between;
+  gap: 16px; 
+  padding: 20px; 
+  background: #fff;
+  border: 1px solid var(--border); 
+  border-left: 5px solid var(--primary);
+  border-radius: 12px; 
+  box-shadow: 0 2px 10px rgba(11,56,42,.05);
+}
+.da-priority-item.type-supply_risk{ border-left-color: #C0392B; }
+.da-priority-item.type-revision_queue{ border-left-color: #EAB308; }
+.da-priority-item.type-regional_validation { border-left-color: #2E7D32; }
+
+.da-priority-body{ min-width: 0; flex: 1; }
+.da-priority-title{
+  display: block; 
+  font-size: 14px; 
+  font-weight: 800; 
+  line-height: 1.3;
+  color: var(--primary); 
+  letter-spacing: .04em; 
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.da-priority-desc{ 
+  margin: 0 0 10px 0; 
+  font-size: 13px; 
+  line-height: 1.5; 
+  color: var(--muted); 
+}
+.da-priority-meta{
+  display: block; 
+  font-size: 11px; 
+  font-weight: 700;
+  color: #B7791F; 
+  text-transform: uppercase; 
+  letter-spacing: .08em;
+}
+.da-priority-action{
+  flex-shrink: 0; 
+  border: 0; 
+  border-radius: 8px; 
+  background: var(--primary); 
+  color: #fff;
+  padding: 10px 18px; 
+  font-size: 12.5px; 
+  font-weight: 700; 
+  cursor: pointer; 
+  transition: background .2s ease;
+}
+.da-priority-action:hover{ background: var(--secondary); }
+
+@media (max-width: 1100px){ 
+  .da-priority-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } 
+}
+@media (max-width: 700px){ 
+  .da-priority-grid{ grid-template-columns: 1fr; } 
+}
     .da-supply-cards{ display:flex; flex-direction:column; gap:10px; }
     .da-supply-row{ padding:12px; border:1px solid var(--border-light); border-radius:11px; background:#FCFBF8; }
     .da-supply-row-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:11px; }
@@ -305,10 +390,12 @@
 .eyebrow{
   display:block;
   font-family:'Plus Jakarta Sans', sans-serif;
-  font-size:12px; font-weight:800;
-  letter-spacing:.16em; text-transform:uppercase;
+  font-size:14px; /* Dati 12px, ginawang 14px */
+  font-weight:800;
+  letter-spacing:.16em; 
+  text-transform:uppercase;
   color:#B7791F;
-  margin-bottom:6px;
+  margin-bottom:8px; /* Dagdagan nang konti para may breathing room */
 }
 .main-header h1,
 .header-left h1{
@@ -381,7 +468,7 @@
     #view-buyer-registry table{ width:100%; background:transparent; border-collapse:separate; border-spacing:0; margin-bottom:0; }
     #view-buyer-registry thead tr{ background:transparent; }
     #view-buyer-registry thead th{
-      text-align:left; font-family:'Inter', sans-serif; font-size:12px; font-weight:700;
+      text-align:left; font-family:'Plus Jakarta Sans', sans-serif; font-size:12px; font-weight:700;
       color:#6b6656; padding:12px 14px; letter-spacing:0.04em; text-transform:uppercase;
       border-bottom:1.5px solid #DFD8C6; background:transparent;
     }
@@ -390,7 +477,7 @@
     #view-buyer-registry thead th.center-col,
     #view-buyer-registry tbody td.center-col{ text-align:center; }
     #view-buyer-registry tbody td{
-      padding:14px 14px; font-family:'Inter', sans-serif; font-size:13.5px; font-weight:400;
+      padding:14px 14px; font-family:'Plus Jakarta Sans', sans-serif; font-size:13.5px; font-weight:400;
       vertical-align:middle; border-bottom:1px solid #ECE5D4; color:var(--ink); text-align:left;
     }
     #view-buyer-registry tbody tr:hover td{ background:#F3EEE4; }
@@ -398,7 +485,7 @@
     #view-buyer-registry .table-msg{ padding:30px; text-align:center; color:#999; }
     .row-action{
       display:inline-block; padding:5px 14px; border:1.5px solid var(--green);
-      border-radius:999px; font-family:'Inter', sans-serif; font-size:11.5px; font-weight:700;
+      border-radius:999px; font-family:'Plus Jakarta Sans', sans-serif; font-size:11.5px; font-weight:700;
       color:var(--green-dark); background:transparent; transition:all .2s ease; white-space:nowrap;
     }
     .clickable-row:hover .row-action{ background:var(--green); color:#fff; }
@@ -409,14 +496,14 @@
     }
     .detail-field-row{ display:flex; align-items:center; margin-bottom:16px; gap:16px; }
     .detail-field-label{
-      width:170px; font-family:'Inter', sans-serif; font-weight:700; font-size:12px;
+      width:170px; font-family:'Plus Jakarta Sans', sans-serif; font-weight:700; font-size:12px;
       color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;
     }
     .detail-pills-wrap{ display:flex; gap:8px; flex-wrap:wrap; }
     .review-details-card .pill{ background:var(--green-light); color:var(--green-dark); font-weight:600; }
     .message-field-wrap{ margin-top:22px; padding-top:18px; border-top:1px solid var(--border-light); }
     .message-field-wrap label{
-      display:block; font-family:'Inter', sans-serif; font-weight:700; font-size:12px;
+      display:block; font-family:'Plus Jakarta Sans', sans-serif; font-weight:700; font-size:12px;
       margin-bottom:8px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;
     }
     .message-field-wrap textarea{
@@ -441,12 +528,12 @@
       display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
       gap:12px; margin-top:14px; padding-top:16px; border-top:1px solid var(--border);
     }
-    .pagination-info{ font-family:'Inter', sans-serif; font-size:13px; color:var(--muted); }
+    .pagination-info{ font-family:'Plus Jakarta Sans', sans-serif; font-size:13px; color:var(--muted); }
     .pagination-controls{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
     .pg-btn{
       appearance:none; min-width:34px; height:30px; padding:0 12px;
       border:1px solid var(--border); border-radius:6px; background:transparent;
-      color:var(--muted); font-family:'Inter', sans-serif; font-size:12.5px; font-weight:600;
+      color:var(--muted); font-family:'Plus Jakarta Sans', sans-serif; font-size:12.5px; font-weight:600;
       cursor:pointer; transition:all .15s ease;
     }
     .pg-btn:hover:not(:disabled):not(.active){ background:var(--cream); border-color:var(--green); color:var(--ink); }
@@ -555,7 +642,7 @@
       font-family:'Plus Jakarta Sans', sans-serif; font-size:26px; font-weight:800;
       color:var(--green-dark); letter-spacing:-0.01em; margin:0;
     }
-    .header-left p{ font-family:'Inter', sans-serif; font-size:13px; font-weight:400; color:var(--muted); margin-top:4px; }
+    .header-left p{ font-family:'Plus Jakarta Sans', sans-serif; font-size:13px; font-weight:400; color:var(--muted); margin-top:4px; }
     .header-actions{ display:flex; align-items:center; gap:12px; }
 
     #view-reports .search-box{
@@ -564,25 +651,25 @@
     }
     #view-reports .search-box svg{ width:16px; height:16px; fill:none; stroke:var(--ink); stroke-width:2; }
     #view-reports .search-box input{
-      border:none; outline:none; font-family:'Inter', sans-serif; font-size:14px;
+      border:none; outline:none; font-family:'Plus Jakarta Sans', sans-serif; font-size:14px;
       width:100%; background:transparent; color:var(--ink);
     }
 
     .text-section-title{
-      font-family:'Inter', sans-serif; font-size:15px; font-weight:700; color:var(--ink);
+      font-family:'Plus Jakarta Sans', sans-serif; font-size:15px; font-weight:700; color:var(--ink);
       display:flex; align-items:center; gap:10px; margin-bottom:0;
     }
     .count-badge{
       display:inline-flex; align-items:center; justify-content:center; min-width:22px;
       height:22px; padding:0 8px; background:var(--green); color:#fff; border-radius:999px;
-      font-family:'Inter', sans-serif; font-size:11px; font-weight:700;
+      font-family:'Plus Jakarta Sans', sans-serif; font-size:11px; font-weight:700;
     }
     .count-badge.muted{ background:var(--muted); }
 
     #view-reports table{ width:100%; background:transparent; border-collapse:separate; border-spacing:0; margin-bottom:0; }
     #view-reports thead tr{ background:transparent; }
     #view-reports thead th{
-      text-align:left; font-family:'Inter', sans-serif; font-size:12px; font-weight:700;
+      text-align:left; font-family:'Plus Jakarta Sans', sans-serif; font-size:12px; font-weight:700;
       color:#6b6656; padding:12px 14px; letter-spacing:0.04em; text-transform:uppercase;
       border-bottom:1.5px solid #DFD8C6; background:transparent;
     }
@@ -591,7 +678,7 @@
     #view-reports thead th.center-col,
     #view-reports tbody td.center-col{ text-align:center; }
     #view-reports tbody td{
-      padding:14px 14px; font-family:'Inter', sans-serif; font-size:13.5px; font-weight:400;
+      padding:14px 14px; font-family:'Plus Jakarta Sans', sans-serif; font-size:13.5px; font-weight:400;
       vertical-align:middle; border-bottom:1px solid #ECE5D4; color:var(--ink); text-align:left;
     }
     #view-reports tbody tr:hover td{ background:#F3EEE4; }
@@ -601,7 +688,7 @@
 
     .status-pill{
       display:inline-block; padding:5px 14px; border-radius:999px;
-      font-family:'Inter', sans-serif; font-size:11.5px; font-weight:700;
+      font-family:'Plus Jakarta Sans', sans-serif; font-size:11.5px; font-weight:700;
       color:#FFFFFF !important; text-align:center; white-space:nowrap; letter-spacing:0.02em;
     }
     .status-pill.pending{ background-color:#D97706 !important; }
@@ -620,7 +707,7 @@
 
     .btn-primary{
       appearance:none; background:var(--green); color:#FFF; border:none;
-      font-family:'Inter', sans-serif; font-size:13.5px; font-weight:600;
+      font-family:'Plus Jakarta Sans', sans-serif; font-size:13.5px; font-weight:600;
       padding:10px 20px; border-radius:8px; cursor:pointer;
       display:inline-flex; align-items:center; gap:6px; transition:background 0.2s ease;
     }
@@ -633,11 +720,11 @@
       border-radius:10px; margin-bottom:24px;
     }
     .detail-info-label{
-      font-family:'Inter', sans-serif; font-size:11px; font-weight:700; color:#6b6656;
+      font-family:'Plus Jakarta Sans', sans-serif; font-size:11px; font-weight:700; color:#6b6656;
       text-transform:uppercase; letter-spacing:0.06em; margin-bottom:5px;
     }
     .detail-info-value{
-      font-family:'Inter', sans-serif; font-size:14px; font-weight:600;
+      font-family:'Plus Jakarta Sans', sans-serif; font-size:14px; font-weight:600;
       color:var(--ink); line-height:1.4;
     }
 
@@ -647,11 +734,11 @@
     }
     .notes-field{ flex:1; }
     .notes-field label{
-      display:block; font-family:'Inter', sans-serif; font-size:12px; font-weight:700;
+      display:block; font-family:'Plus Jakarta Sans', sans-serif; font-size:12px; font-weight:700;
       margin-bottom:8px; color:var(--ink); text-transform:uppercase; letter-spacing:0.04em;
     }
     .textarea-notes{
-      width:100%; min-height:90px; padding:12px 14px; font-family:'Inter', sans-serif;
+      width:100%; min-height:90px; padding:12px 14px; font-family:'Plus Jakarta Sans', sans-serif;
       font-size:13.5px; border:1.5px solid #CCC; border-radius:8px; background:#fff;
       color:var(--ink); outline:none; resize:vertical; transition:border-color 0.2s ease;
     }
@@ -819,6 +906,8 @@
     .summary-cards .summary-card.buyers-verified{ border-left-color:#2E7D32; }
     .summary-cards .summary-card.buyers-pending .summary-icon{ background:#FDF3E0; }
     .summary-cards .summary-card.buyers-verified .summary-icon{ background:#E6F4EA; }
+    .summary-cards .summary-card.buyers-blocklisted{ border-left-color:#C0392B; }
+.summary-cards .summary-card.buyers-blocklisted .summary-icon{ background:#FEE2E2; }
 
 
 /* ============================================================
@@ -930,6 +1019,7 @@ tbody td{ border-bottom:1px solid var(--border-light); }
 .status-pill.flagged{ background-color:#C0392B !important; }
 .status-pill.rfo{ background-color:#14532D !important; }
 .status-pill.draft{ background-color:#7A857F !important; }
+.status-pill.blocked{ background-color:#C0392B !important; }
 
 .sev-pill.high{ background:#C0392B; }
 .sev-pill.medium{ background:#EAB308; color:#3A2C00; }
@@ -1309,6 +1399,316 @@ input[type="checkbox"]{ accent-color:var(--primary); }
 
   </style>
 
+<style id="esaka-da-alignment">
+/* ===== Shared with Municipal / Provincial: KPI status cards ===== */
+.municipal-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 0 0 24px;
+}
+.status-kpi-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: all .2s ease;
+  box-shadow: 0 1px 3px rgba(11,56,42,.04);
+}
+.status-kpi-card:hover {
+  border-color: var(--green);
+  box-shadow: 0 4px 12px rgba(11,56,42,.08);
+  transform: translateY(-1px);
+}
+.status-kpi-card.active {
+  border-color: var(--green);
+  background: #F8FBF9;
+  box-shadow: 0 0 0 1px var(--green), 0 4px 12px rgba(11,56,42,.08);
+}
+.status-kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.status-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+}
+.status-kpi-icon {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+}
+.status-kpi-icon.pending    { background: #FEF3C7; color: #92400E; }
+.status-kpi-icon.revision   { background: #FEE2E2; color: #991B1B; }
+.status-kpi-icon.provincial { background: #DBEAFE; color: #1E40AF; }
+.status-kpi-icon.approved   { background: #DCFCE7; color: #14532D; }
+.status-kpi-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1;
+  margin-top: 2px;
+}
+.status-kpi-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+/* ===== Shared: report date filter + pagination ===== */
+/* ===== Report date filter (matches Municipal / AEW) ===== */
+.report-date-filter { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+.report-date-filter.in-header { width:auto; margin:0; }
+.report-date-presets { display:flex; background:#F3F5F4; padding:4px; border-radius:10px; gap:2px; flex-wrap:wrap; }
+.report-date-filter .report-date-presets .filter-pill { background:transparent !important; border:none !important; color:#5F6B66 !important; box-shadow:none; border-radius:8px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; }
+.report-date-filter .report-date-presets .filter-pill:hover { background:rgba(0,0,0,.04) !important; color:var(--ink) !important; }
+.report-date-filter .report-date-presets .filter-pill.active { background:var(--primary,#0B382A) !important; border-color:var(--primary,#0B382A) !important; color:#FFFFFF !important; font-weight:700; }
+.report-date-range { display:flex; align-items:center; gap:8px; padding:8px 12px; background:#FFF; border:1.5px solid var(--border); border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.03); flex-wrap:wrap; }
+.report-date-range span { font-size:12px; color:var(--muted); font-weight:600; }
+.report-date-range input[type="date"] { padding:6px 10px; border:1.5px solid var(--border); border-radius:6px; font-size:12.5px; background:#FFF; color:var(--ink); outline:none; min-width:132px; }
+.report-date-range input[type="date"]:focus { border-color:var(--primary,#0B382A); box-shadow:0 0 0 3px rgba(11,56,42,.1); }
+@media (max-width:720px) { .report-date-filter { align-items:flex-start; width:100%; } }
+.report-pagination { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:14px; color:var(--muted); font-size:12px; flex-wrap:wrap; }
+.report-pagination button,.export-btn { border:1px solid var(--border); background:#fff; color:var(--primary); border-radius:8px; padding:8px 12px; font-weight:700; cursor:pointer; }
+.report-pagination button:disabled { opacity:.4; cursor:not-allowed; }
+.btn-outline-report { display:inline-flex; align-items:center; justify-content:center; gap:6px; background:#fff; color:var(--primary); border:1.5px solid var(--border); border-radius:8px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; }
+.btn-outline-report:hover:not(:disabled) { background:#F3F7F2; border-color:var(--primary); }
+
+/* ===== Report Summary (detail view): centered and narrower, not full span ===== */
+#reportSummaryCardWrapper { width:100%; max-width:980px; margin:0 auto 24px !important; }
+#reportSummaryCardWrapper .summary-card { margin:0; }
+
+/* ===== Oversupply Threshold: form + configuration history ===== */
+.threshold-layout { display:grid; grid-template-columns:minmax(340px, 460px) minmax(0, 1fr); gap:24px; align-items:start; }
+.threshold-layout .threshold-card { width:100%; max-width:none; margin:0; }
+.threshold-history-card { background:#fff; border:1px solid var(--border); border-radius:20px; padding:24px; display:flex; flex-direction:column; gap:12px; min-width:0; }
+.threshold-history-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.threshold-history-sub { font-size:12.5px; color:var(--muted); line-height:1.5; margin:0; }
+.threshold-history-search { width:100%; max-width:none; }
+.threshold-history-list { display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+.th-item { border:1px solid var(--border-light); border-radius:12px; padding:12px 14px; background:#FBFCFB; display:flex; flex-direction:column; gap:8px; }
+.th-item-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+.th-commodity { font-weight:800; font-size:14px; color:var(--primary); }
+.th-when { font-size:11.5px; color:var(--muted); font-weight:600; white-space:nowrap; }
+.th-changes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.th-change { background:#fff; border:1px solid var(--border-light); border-radius:8px; padding:8px 10px; min-width:0; }
+.th-change-label { font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+.th-change-value { font-size:13px; font-weight:700; color:var(--ink); margin-top:2px; overflow-wrap:anywhere; }
+.th-change-value .th-old { color:var(--muted); font-weight:600; text-decoration:line-through; margin-right:4px; }
+.th-by { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+.th-by strong { color:var(--ink); font-weight:700; }
+.th-by .th-dot { width:22px; height:22px; border-radius:50%; background:var(--primary); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; flex:0 0 22px; }
+.th-empty { padding:26px 10px; text-align:center; color:#999; font-size:13px; }
+.threshold-history-note { font-size:11px; color:#92400E; background:#FEF3C7; border:1px solid #FCD34D; border-radius:8px; padding:8px 10px; line-height:1.5; }
+@media (max-width:1100px) { .threshold-layout { grid-template-columns:1fr; } }
+@media (max-width:520px) { .th-changes { grid-template-columns:1fr; } }
+
+/* ===== Explicit export button colors ===== */
+.aew-summary-export-panel .export-btn.primary { background:#0B382A !important; color:#FFFFFF !important; border-color:#0B382A !important; }
+.aew-summary-export-panel .export-btn.gold { background:#E3B341 !important; color:#211b04 !important; border-color:#E3B341 !important; }
+
+/* ===== ETL run logs: failure details dropdown ===== */
+/* Fixed column widths + every cell top-aligned with the same first-line height,
+   so Failed / Success / "no details" rows line up and expanding a row never shifts other cells. */
+.etl-table { table-layout:fixed; width:100%; min-width:820px; }
+.etl-td { text-align:left; padding:13px 14px; border-bottom:1px solid var(--border-light); vertical-align:top; }
+.etl-cell { display:flex; align-items:center; min-height:30px; min-width:0; }
+.etl-cell-text { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.etl-pill { display:inline-flex; align-items:center; height:24px; padding:0 12px; border-radius:999px; font-size:11.5px; font-weight:700; color:#FFFFFF; text-transform:uppercase; line-height:1; }
+.etl-fail { width:100%; min-width:0; }
+.etl-fail-toggle { box-sizing:border-box; height:30px; display:inline-flex; align-items:center; gap:6px; background:#FEF2F2; color:#991B1B; border:1px solid #FECACA; border-radius:8px; padding:0 10px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; line-height:1; }
+.etl-fail-toggle:hover { background:#FEE2E2; }
+.etl-fail-chevron { display:inline-block; transition:transform .22s ease; }
+.etl-fail.open .etl-fail-chevron { transform:rotate(180deg); }
+.etl-fail-body { display:grid; grid-template-rows:0fr; transition:grid-template-rows .22s ease; }
+.etl-fail.open .etl-fail-body { grid-template-rows:1fr; }
+.etl-fail-inner { overflow:hidden; min-height:0; min-width:0; }
+.etl-fail-text { overflow-wrap:anywhere; margin-top:8px; padding:10px 12px; background:#FFF; border:1px solid var(--border-light); border-left:3px solid #C0392B; border-radius:8px; font-size:12.5px; line-height:1.5; color:var(--ink); }
+@media (prefers-reduced-motion: reduce) { .etl-fail-body, .etl-fail-chevron { transition:none; } }
+</style>
+<style id="esaka-ux-page-css">
+.profile-dropdown-item:hover{background-color:#F0F5F1 !important}
+#menuSignOut:hover{background-color:#FDE4E4 !important}
+</style>
+<style id="esaka-unified-dashboard-layout">
+/* ============================================================
+   eSAKA UNIFIED DASHBOARD LAYOUT
+   Shared shell for Municipal / Provincial / AEW / DA-RFO
+============================================================ */
+:root { --esaka-shell-max: 1440px; --esaka-shell-pad: 32px; }
+.topbar { height: 72px !important; min-height: 72px !important; padding: 0 32px !important; }
+.layout { width: 100% !important; min-height: calc(100vh - 72px) !important; }
+.sidebar { width: 250px !important; min-width: 250px !important; }
+.view { width: 100% !important; max-width: var(--esaka-shell-max) !important; margin: 0 auto !important; padding: 28px var(--esaka-shell-pad) 48px !important; }
+.view > .main-header { width: 100% !important; max-width: 100% !important; margin: 0 0 24px !important; }
+.main-header { min-height: 58px; }
+.main-header h1, .header-left h1 { margin: 0 !important; }
+.main-header p, .header-left p { margin-top: 6px !important; }
+.view > .card, .view > .dashboard-card, .view > .section-card, .view > .panel, .view > .table-card { width: 100%; }
+.aew-dashboard-grid, .da-dashboard-grid, .pc-overview-grid { width: 100%; }
+.aew-dashboard-columns, .da-dashboard-columns { width: 100%; }
+/* Keep detail/report subviews on the same shell without inheriting summary card clutter. */
+#individualDetailView, #reportDetailView, #report-details-view { width: 100%; }
+@media (max-width: 1100px) {
+  :root { --esaka-shell-pad: 24px; }
+  .view { padding-left: var(--esaka-shell-pad) !important; padding-right: var(--esaka-shell-pad) !important; }
+}
+@media (max-width: 700px) {
+  .topbar { padding: 0 16px !important; }
+  .view { padding: 20px 16px 36px !important; }
+  .main-header { min-height: auto; }
+}
+
+/* ============================================================
+   UNIFIED GREEN GRADIENT HEADER
+============================================================ */
+.unified-header {
+  min-height: 140px;
+  padding: 24px 32px;
+  border: 1px solid rgba(15,61,46,.10);
+  border-radius: 18px;
+  background: linear-gradient(120deg, #fbfaf5 0%, #f4f8ef 58%, #e3f0e2 100%);
+  box-shadow: 0 8px 28px rgba(31,54,39,.07);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Decorative background circle */
+.unified-header::after {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -80px;
+  top: -100px;
+  border-radius: 50%;
+  background: rgba(255, 171, 46, .12);
+  pointer-events: none;
+}
+
+.unified-header > * {
+  position: relative;
+  z-index: 2;
+}
+
+.unified-header h1 {
+  color: var(--primary, #0B382A);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px 0;
+}
+
+.unified-header p {
+  color: var(--muted, #5F6B64);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 650px;
+  margin: 0;
+}
+
+/* Common button / input styles inside the header */
+.unified-header .header-action-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   EXPORT BUTTON STYLES (Exact Match to Municipal)
+============================================================ */
+.export-btn.secondary { 
+  background: #f3f7f2; 
+  color: var(--primary); 
+  border-color: #d9e5db; 
+}
+.export-btn.secondary:hover { 
+  background: #e3eee7; 
+}
+
+.report-export-tools { 
+  display: flex; 
+  gap: 8px; 
+  align-items: center; 
+  flex-wrap: wrap; 
+}
+
+
+/* Summary export buttons: explicit colors (theme file may not define --primary / --tertiary) */
+.aew-summary-export-panel .export-btn { border:1px solid #d9e5db; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; line-height:1.2; transition:filter .15s ease, background .15s ease; }
+.aew-summary-export-panel .export-btn.primary { background:#0B382A !important; color:#FFFFFF !important; border-color:#0B382A !important; }
+.aew-summary-export-panel .export-btn.gold { background:#E3B341 !important; color:#211b04 !important; border-color:#E3B341 !important; }
+.aew-summary-export-panel .export-btn:hover { filter:brightness(1.08); }
+.report-detail-export .export-btn.secondary { background:#f3f7f2 !important; color:#0B382A !important; border-color:#d9e5db !important; }
+</style>
+<style id="esaka-variance-css">
+.variance-badge {
+  display:inline-block;
+  padding:3px 10px;
+  background:#FFFBEB;
+  border:1px solid #FCD34D;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  color:#92400E;
+  white-space:nowrap
+}
+.variance-count-badge {
+  display:inline-block;
+  min-width:22px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#D97706;
+  color:#FFF;
+  font-size:11px;
+  font-weight:700;
+  text-align:center
+}
+.variance-card {
+  padding:14px 18px;
+  background:#FFFBEB;
+  border:1.5px solid #FCD34D;
+  border-left:4px solid #D97706;
+  border-radius:10px
+}
+.variance-date-box {
+  background:#FFF;
+  border:1px solid #FCD34D;
+  border-radius:8px;
+  padding:8px 12px;
+  font-size:12px
+}
+.variance-remark-box {
+  background:#FFF;
+  border-left:3px solid #D97706;
+  padding:10px 14px;
+  border-radius:0 6px 6px 0;
+  font-size:13px;
+  color:var(--ink);
+  line-height:1.55;
+  white-space:pre-wrap;
+  word-break:break-word
+}
+</style>
 </head>
 <body class="pc-modern">
 
@@ -1325,14 +1725,26 @@ input[type="checkbox"]{ accent-color:var(--primary); }
       </a>
     </div>
 
-    <div class="topbar-right">
-  <div class="user-info" id="openProfileBtn" title="Click to edit profile" style="cursor: pointer;">
-      <div class="avatar" id="userDisplayInitials">JD</div>
-      <div class="user-text">
-        <div class="user-name" id="userDisplayName">Juan Dela Cruz</div>
-        <div class="user-role" id="userDisplayRole">DA-RFO Officer</div>
-      </div>
+    <div class="user-menu-wrapper" style="position: relative;">
+  <div class="user-info" id="openProfileBtn" title="Click for options" style="cursor: pointer;">
+    <div class="avatar" id="userDisplayInitials">--</div>
+    <div class="user-text">
+      <div class="user-name" id="userDisplayName">Loading...</div>
+      <div class="user-role" id="userDisplayRole">Loading...</div>
+    </div>
   </div>
+
+  <div class="profile-dropdown-menu" id="profileDropdown" style="display: none; position: absolute; top: calc(100% + 8px); right: 0; width: 180px; background: #fff; border: 1.5px solid var(--border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 3000; overflow: hidden;">
+    <button class="profile-dropdown-item" id="menuEditProfile" type="button" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; background: transparent; border: none; font-size: 13.5px; font-weight: 600; color: var(--ink); cursor: pointer; text-align: left;">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      User Profile
+    </button>
+    <button class="profile-dropdown-item" id="menuSignOut" type="button" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; background: transparent; border: none; font-size: 13.5px; font-weight: 600; color: #C0392B; cursor: pointer; text-align: left; border-top: 1px solid var(--border-light);">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
+      Sign Out
+    </button>
+  </div>
+</div>
 </div>
   </div>
 
@@ -1378,10 +1790,6 @@ input[type="checkbox"]{ accent-color:var(--primary); }
         </button>
       </div>
 
-      <button class="signout" id="signoutBtn" type="button">
-        <svg viewBox="0 0 24 24"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
-        Sign Out
-      </button>
     </nav>
 
     <!-- MAIN CONTENT -->
@@ -1407,14 +1815,15 @@ input[type="checkbox"]{ accent-color:var(--primary); }
         </div>
 
         <div class="da-dashboard-grid">
-          <div class="card da-kpi da-kpi-primary"><div class="da-kpi-icon">♧</div><div class="da-kpi-info"><div class="da-kpi-label">Alerts</div><div class="da-kpi-value" id="daKpiAlerts">—</div><div class="da-kpi-meta" id="daKpiAlertBreakdown">High · Medium · Low</div></div></div>
-          <div class="card da-kpi da-kpi-amber"><div class="da-kpi-icon">▰</div><div class="da-kpi-info"><div class="da-kpi-label">Oversupply</div><div class="da-kpi-value" id="daKpiOversupply">—</div><div class="da-kpi-meta">Areas with excess supply</div></div></div>
-          <div class="card da-kpi da-kpi-slate"><div class="da-kpi-icon">▤</div><div class="da-kpi-info"><div class="da-kpi-label">Reports to review</div><div class="da-kpi-value" id="daKpiReports">—</div><div class="da-kpi-meta">Waiting for review</div></div></div>
-          <div class="card da-kpi da-kpi-red"><div class="da-kpi-icon">↻</div><div class="da-kpi-info"><div class="da-kpi-label">Data sync</div><div class="da-kpi-value" id="daKpiEtl">—</div><div class="da-kpi-meta">Failed syncs in last 10 runs</div></div></div>
+          <div class="card da-kpi da-kpi-primary"><div class="da-kpi-icon"></div><div class="da-kpi-info"><div class="da-kpi-label">Alerts</div><div class="da-kpi-value" id="daKpiAlerts">—</div><div class="da-kpi-meta" id="daKpiAlertBreakdown">High · Medium · Low</div></div></div>
+          <div class="card da-kpi da-kpi-amber"><div class="da-kpi-icon"></div><div class="da-kpi-info"><div class="da-kpi-label">Oversupply</div><div class="da-kpi-value" id="daKpiOversupply">—</div><div class="da-kpi-meta">Areas with excess supply</div></div></div>
+          <div class="card da-kpi da-kpi-slate"><div class="da-kpi-icon"></div><div class="da-kpi-info"><div class="da-kpi-label">Reports to review</div><div class="da-kpi-value" id="daKpiReports">—</div><div class="da-kpi-meta">Waiting for review</div></div></div>
+          <div class="card da-kpi da-kpi-red"><div class="da-kpi-icon"></div><div class="da-kpi-info"><div class="da-kpi-label">Data sync</div><div class="da-kpi-value" id="daKpiEtl">—</div><div class="da-kpi-meta">Failed syncs in last 10 runs</div></div></div>
         </div>
 
         <div class="card da-dashboard-card da-priority-panel">
-          <div class="da-panel-header"><div><span class="da-section-kicker">Actions</span><h2>Actions to review</h2><p>Items that need regional review.</p></div><span class="da-pending-pill"><span id="daActionCount">0</span> items pending</span></div>
+          <div class="da-panel-header"><div><span class="da-section-kicker">Regional Queue</span><h2>Actions to review</h2><p></p></div></span></div>
+          
           <div id="daActionsList" class="da-priority-grid"></div>
         </div>
 
@@ -1466,7 +1875,15 @@ input[type="checkbox"]{ accent-color:var(--primary); }
           <span class="summary-label">Approved</span>
         </div>
       </div>
+
+    <div class="summary-card buyers-blacklisted">
+    <div class="summary-info">
+      <h3>Blacklisted Buyers</h3>
+      <p class="summary-count" id="buyerCountBlacklisted">0</p>
+      <span class="summary-label">Restricted</span>
     </div>
+  </div>
+</div>
 
 
           <!-- PENDING REQUESTS -->
@@ -1492,27 +1909,49 @@ input[type="checkbox"]{ accent-color:var(--primary); }
           </div>
 
           <!-- VERIFIED BUYERS -->
-          <div class="card" style="margin-bottom:24px;">
-            <div class="text-section-title" style="margin-bottom:16px;">
-              All Verified Buyers
-            </div>
-            <div style="overflow-x:auto;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Organization</th>
-                    <th>Contact</th>
-                    <th>Email</th>
-                    <th class="center-col">Status</th>
-                  </tr>
-                </thead>
-                <tbody id="verifiedBuyersBody">
-                  <tr><td colspan="4" class="table-msg">Loading verified buyers...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+<div class="card" style="margin-bottom:24px;">
+  <div class="text-section-title" style="margin-bottom:16px;">
+    All Verified Buyers
+  </div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Organization</th>
+          <th>Contact</th>
+          <th>Email</th>
+          <th class="center-col">Status</th>
+        </tr>
+      </thead>
+      <tbody id="verifiedBuyersBody">
+        <tr><td colspan="4" class="table-msg">Loading verified buyers...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- BLOCKLISTED BUYERS (sourced from /api/buyer-status/rejected) -->
+<div class="card" style="margin-bottom:24px;">
+  <div class="text-section-title" style="margin-bottom:16px;">
+    Blacklisted Buyers
+  </div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Organization</th>
+          <th>Contact</th>
+          <th>Email</th>
+          <th class="center-col">Status</th>
+        </tr>
+      </thead>
+      <tbody id="rejectedBuyersBody">
+        <tr><td colspan="4" class="table-msg">Loading blacklisted buyers...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+   </div> 
 
         <!-- REVIEW DETAILS -->
         <div id="buyerReviewDetails" class="hidden-element">
@@ -1576,13 +2015,15 @@ input[type="checkbox"]{ accent-color:var(--primary); }
           <div class="map-title">
             <span class="map-card-title">Field Monitoring &amp; Geographic Clusters</span>
 
-            <div class="map-legend">
-              <span><i style="background:#C0392B;"></i> Surplus</span>
-              <span><i style="background:#2E7D32;"></i> Balanced</span>
-              <span><i style="background:#D97706;"></i> Deficit</span>
-              <span><i style="background:#6c757d;"></i> No Data</span>
-            </div>
-          </div>
+             <div class="map-legend">
+    <span><i style="background:#C0392B;"></i> Oversupply</span>
+    <span><i style="background:#1B4F72;"></i> Surplus</span>
+    <span><i style="background:#2E7D32;"></i> Balanced</span>
+    <span><i style="background:#c49102;"></i> Deficit</span>
+    <span><i style="background:#6c757d;"></i> No Data</span>
+</div>
+</div>
+
 
           <div class="map-filters-container">
             <select id="filterCommodity">
@@ -1601,14 +2042,15 @@ input[type="checkbox"]{ accent-color:var(--primary); }
 
       <!-- VIEW 3: Alert Threshold -->
       <section class="view" id="view-threshold">
-        <div class="main-header">
+        <div class="main-header aew-style-header">
           <div class="header-left">
-            <span class="eyebrow">Field Console</span>
             <h1>Oversupply Threshold</h1>
-            <p>Set target demand and the oversupply trigger per commodity.</p>
+            <p>Set target demand and the oversupply trigger per commodity. Every change is recorded in the configuration history.</p>
           </div>
         </div>
-        <div class="threshold-card">
+
+        <div class="threshold-layout">
+          <div class="threshold-card">
           <div class="threshold-card-title">Alert Threshold</div>
 
           <div class="form-group">
@@ -1642,6 +2084,27 @@ input[type="checkbox"]{ accent-color:var(--primary); }
           </div>
 
           <button class="btn-save-config" id="saveConfigBtn" type="button">Save Configuration</button>
+        </div>
+
+          <aside class="threshold-history-card" aria-label="Configuration history">
+            <div class="threshold-history-head">
+              <div class="threshold-card-title" style="margin-bottom:0;">Configuration History</div>
+              <span class="count-badge muted" id="thresholdHistoryCount">0</span>
+            </div>
+            <p class="threshold-history-sub">Audit trail of every threshold change: who made it, when, and what changed.</p>
+            <div class="search-box threshold-history-search">
+              <svg viewBox="0 0 24 24" style="stroke:var(--muted);">
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="thresholdHistorySearch" placeholder="Search user, commodity, date..." autocomplete="off">
+            </div>
+            <div class="threshold-history-list" id="thresholdHistoryList">
+              <div class="th-empty">Loading history...</div>
+            </div>
+            <div class="report-pagination" id="thresholdHistoryPagination"></div>
+            <div class="threshold-history-note" id="thresholdHistoryNote" hidden></div>
+          </aside>
         </div>
       </section>
 
@@ -1692,7 +2155,13 @@ input[type="checkbox"]{ accent-color:var(--primary); }
             ETL Pipeline Run Log
           </div>
           <div style="overflow-x:auto; border-radius:8px; border:1px solid var(--border); margin-top:8px;">
-            <table style="width:100%; border-collapse:separate; border-spacing:0; margin-bottom:0;">
+            <table class="etl-table" style="width:100%; border-collapse:separate; border-spacing:0; margin-bottom:0;">
+              <colgroup>
+                <col style="width:24%;">
+                <col style="width:22%;">
+                <col style="width:16%;">
+                <col style="width:38%;">
+              </colgroup>
               <thead>
                 <tr>
                   <th style="text-align:left; font-size:12px; font-weight:700; color:var(--muted); padding:12px 14px; letter-spacing:0.04em; text-transform:uppercase; border-bottom:1.5px solid var(--border); background:#f8f6f2;">Run Date/Time</th>
@@ -1794,7 +2263,7 @@ input[type="checkbox"]{ accent-color:var(--primary); }
           <div class="report-export-tools">
             <label class="finalized-export-option"><input type="checkbox" id="reportExportFinalizedOnly"> Finalized intents only</label>
             <button class="export-btn primary" id="exportSummaryPdfBtn" type="button">Download Summary PDF</button>
-            <button class="export-btn gold" id="exportSummaryXlsxBtn" type="button">Export Summary Excel</button>
+            <button class="export-btn gold" id="exportSummaryXlsxBtn" type="button">Download Summary Excel</button>
           </div>
         </div>
 
@@ -1814,16 +2283,15 @@ input[type="checkbox"]{ accent-color:var(--primary); }
 
         <div id="reportsListView">
 
-          <div class="main-header" id="reportsMainHeader">
+          <div class="main-header aew-style-header" id="reportsMainHeader">
             <div class="header-left">
-              <span class="eyebrow">Field Console</span>
               <h1>Reports</h1>
-              <p>Review reports from Provincial validation and issue final approval.</p>
+              <p>Review reports forwarded by Provincial Coordinators and issue final approval.</p>
             </div>
 
             <div class="header-actions">
-              <div class="search-box">
-                <svg viewBox="0 0 24 24">
+              <div class="search-box" style="background:#FFFFFF; border:1px solid rgba(15,61,46,0.15); box-shadow:0 2px 6px rgba(0,0,0,0.02);">
+                <svg viewBox="0 0 24 24" style="stroke:var(--muted);">
                   <circle cx="11" cy="11" r="7"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
@@ -1832,32 +2300,70 @@ input[type="checkbox"]{ accent-color:var(--primary); }
             </div>
           </div>
 
+          <!-- KPI STATUS CARDS (same pattern as Municipal / Provincial) -->
+          <div class="municipal-status-grid" id="reportSummaryCards">
+      <button type="button" class="status-kpi-card active" data-report-kpi="pending" aria-pressed="true">
+        <div class="status-kpi-header">
+          <span class="status-kpi-label">Pending Reports</span>
+          <span class="status-kpi-icon pending" aria-hidden="true">◷</span>
+        </div>
+        <strong id="reportCountPending" class="status-kpi-value">0</strong>
+        <span class="status-kpi-desc">Awaiting DA-RFO validation</span>
+      </button>
+      <button type="button" class="status-kpi-card" data-report-kpi="returned" aria-pressed="false">
+        <div class="status-kpi-header">
+          <span class="status-kpi-label">Returned to Provincial</span>
+          <span class="status-kpi-icon revision" aria-hidden="true">↻</span>
+        </div>
+        <strong id="reportCountReturned" class="status-kpi-value">0</strong>
+        <span class="status-kpi-desc">Flagged for revision</span>
+      </button>
+      <button type="button" class="status-kpi-card" data-report-kpi="approved" aria-pressed="false">
+        <div class="status-kpi-header">
+          <span class="status-kpi-label">Approved Reports</span>
+          <span class="status-kpi-icon approved" aria-hidden="true">✓</span>
+        </div>
+        <strong id="reportCountApproved" class="status-kpi-value">0</strong>
+        <span class="status-kpi-desc">Finalized by DA-RFO</span>
+      </button>
+          </div>
+
           <!-- PENDING REPORTS -->
           <div id="pendingReportsView">
-            <div class="card" style="margin-bottom:24px;">
+            <div class="card">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
-                <div class="text-section-title">
+                <div class="text-section-title" style="margin-bottom:0;">
                   Pending Reports
                   <span class="count-badge" id="pendingCountBadge">0</span>
                 </div>
-
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                  <button class="btn-outline-report" id="selectAllPendingBtn" type="button">
-                    Select All
-                  </button>
-                  <button class="btn-primary" id="bulkApproveBtn" type="button" disabled>
-                    Approve Selected & Finalize
-                  </button>
+                <div class="report-date-filter in-header" data-filter-tab="pending">
+                <div class="report-date-range">
+                  <input type="date" class="report-date-start" aria-label="Start date">
+                  <span>to</span>
+                  <input type="date" class="report-date-end" aria-label="End date">
+                  <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                  <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
                 </div>
+                <div class="report-date-presets">
+                  <button class="filter-pill" type="button" data-period="week">This Week</button>
+                  <button class="filter-pill" type="button" data-period="month">This Month</button>
+                  <button class="filter-pill" type="button" data-period="year">This Year</button>
+                  <button class="filter-pill active" type="button" data-period="all">All Time</button>
+                  <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                </div>
+              </div>
+              </div>
+
+              <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+                <button class="btn-outline-report" id="selectAllPendingBtn" type="button">Select All</button>
+                <button class="btn-primary" id="bulkApproveBtn" type="button" disabled>Approve Selected &amp; Finalize</button>
               </div>
 
               <div style="overflow-x:auto;">
                 <table>
                   <thead>
                     <tr>
-                      <th style="width:40px;">
-                        <input type="checkbox" id="selectAllCheckbox" aria-label="Select all pending reports">
-                      </th>
+                      <th style="width:40px;"><input type="checkbox" id="selectAllCheckbox" aria-label="Select all pending reports"></th>
                       <th class="center-col">Report ID</th>
                       <th>Title</th>
                       <th>Commodity</th>
@@ -1872,18 +2378,35 @@ input[type="checkbox"]{ accent-color:var(--primary); }
                   </tbody>
                 </table>
               </div>
-
+              <div class="report-pagination" id="pendingReportsPagination"></div>
             </div>
           </div>
 
           <!-- RETURNED TO PROVINCIAL -->
           <div id="returnedToProvincialView">
-            <div class="card" style="margin-bottom:24px;">
-              <div class="text-section-title" style="margin-bottom:16px;">
-                Returned to Provincial
-                <span class="count-badge muted" id="returnedToProvincialCountBadge">0</span>
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                <div class="text-section-title" style="margin-bottom:0;">
+                  Returned to Provincial
+                  <span class="count-badge muted" id="returnedToProvincialCountBadge">0</span>
+                </div>
+                <div class="report-date-filter in-header" data-filter-tab="returned">
+                <div class="report-date-range">
+                  <input type="date" class="report-date-start" aria-label="Start date">
+                  <span>to</span>
+                  <input type="date" class="report-date-end" aria-label="End date">
+                  <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                  <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
+                </div>
+                <div class="report-date-presets">
+                  <button class="filter-pill" type="button" data-period="week">This Week</button>
+                  <button class="filter-pill" type="button" data-period="month">This Month</button>
+                  <button class="filter-pill" type="button" data-period="year">This Year</button>
+                  <button class="filter-pill active" type="button" data-period="all">All Time</button>
+                  <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                </div>
               </div>
-
+              </div>
               <div style="overflow-x:auto;">
                 <table>
                   <thead>
@@ -1901,17 +2424,35 @@ input[type="checkbox"]{ accent-color:var(--primary); }
                   </tbody>
                 </table>
               </div>
+              <div class="report-pagination" id="returnedToProvincialPagination"></div>
             </div>
           </div>
 
           <!-- APPROVED REPORTS -->
           <div id="approvedReportsView">
-            <div class="card" style="margin-bottom:24px;">
-              <div class="text-section-title" style="margin-bottom:16px;">
-                Approved Reports
-                <span class="count-badge muted" id="approvedCountBadge">0</span>
+            <div class="card">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                <div class="text-section-title" style="margin-bottom:0;">
+                  Approved Reports
+                  <span class="count-badge muted" id="approvedCountBadge">0</span>
+                </div>
+                <div class="report-date-filter in-header" data-filter-tab="approved">
+                <div class="report-date-range">
+                  <input type="date" class="report-date-start" aria-label="Start date">
+                  <span>to</span>
+                  <input type="date" class="report-date-end" aria-label="End date">
+                  <button class="btn-outline-report report-date-apply" type="button" style="padding:5px 12px; font-size:12px;">Apply</button>
+                  <button class="btn-outline-report report-date-clear" type="button" style="padding:5px 12px; font-size:12px;">Clear</button>
+                </div>
+                <div class="report-date-presets">
+                  <button class="filter-pill" type="button" data-period="week">This Week</button>
+                  <button class="filter-pill" type="button" data-period="month">This Month</button>
+                  <button class="filter-pill" type="button" data-period="year">This Year</button>
+                  <button class="filter-pill active" type="button" data-period="all">All Time</button>
+                  <button class="filter-pill" type="button" data-period="custom">Custom Date</button>
+                </div>
               </div>
-
+              </div>
               <div style="overflow-x:auto;">
                 <table>
                   <thead>
@@ -1929,65 +2470,73 @@ input[type="checkbox"]{ accent-color:var(--primary); }
                   </tbody>
                 </table>
               </div>
+              <div class="report-pagination" id="approvedReportsPagination"></div>
             </div>
           </div>
+
         </div>
 
-        <!-- DETAIL SUBVIEW -->
         <div id="individualDetailView" class="hidden-element">
           <div class="main-header">
             <div class="header-left">
-              <span class="eyebrow">Field Console</span>
               <h1 id="detailReportTitle">Report Details</h1>
               <p id="detailReportSubtitle">—</p>
             </div>
           </div>
 
           <div class="card">
-            <!-- COMPACT INFO GRID -->
-            <div class="detail-info-grid">
+            <!-- ==================== REPORT INFO — COMPACT ==================== -->
+            <div style="
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+              gap: 20px 28px;
+              padding: 18px 20px;
+              background: #F6F3EB;
+              border-radius: 10px;
+              margin-bottom: 24px;
+            ">
               <div>
-                <div class="detail-info-label">Report ID</div>
-                <div class="detail-info-value" id="detailReportId">—</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Report ID</div>
+                <div id="detailReportId" style="font-size: 14px; font-weight: 700; color: var(--ink);">—</div>
               </div>
               <div>
-                <div class="detail-info-label">Municipality</div>
-                <div class="detail-info-value" id="detailReportMunicipality">—</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Municipality</div>
+                <div id="detailReportMunicipality" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
               </div>
               <div>
-                <div class="detail-info-label">Status</div>
-                <div class="detail-info-value" id="detailReportStatus">—</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Status</div>
+                <div id="detailReportStatus" style="font-size: 14px; color: var(--ink);">—</div>
               </div>
               <div>
-                <div class="detail-info-label">Submitted Date</div>
-                <div class="detail-info-value" id="detailReportDate">—</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Submitted Date</div>
+                <div id="detailReportDate" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
               </div>
               <div>
-                <div class="detail-info-label">Encoded By</div>
-                <div class="detail-info-value" id="detailReportEncodedBy">—</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Encoded By</div>
+                <div id="detailReportEncodedBy" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
               </div>
               <div>
-                <div class="detail-info-label">Est. Yield</div>
-                <div class="detail-info-value" id="detailReportYield">—</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Est. Yield</div>
+                <div id="detailReportYield" style="font-size: 14px; font-weight: 600; color: var(--ink);">—</div>
               </div>
               <div style="grid-column: 1 / -1;">
-                <div class="detail-info-label">Notes / Remarks</div>
-                <div class="detail-info-value" id="detailReportNotes" style="font-weight:500; line-height:1.5;">—</div>
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;">Notes / Remarks</div>
+                <div id="detailReportNotes" style="font-size: 14px; color: var(--ink); line-height: 1.5;">—</div>
               </div>
             </div>
 
-            <!-- ATTACHMENTS -->
+            <!-- ==================== ATTACHMENTS ==================== -->
             <div style="margin-bottom: 24px;">
-              <div class="detail-info-label" style="margin-bottom:6px;">Attachments</div>
-              <div id="detailReportAttachments" style="font-size:14px; color:var(--muted);">No attachments</div>
+              <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;">Attachments</div>
+              <div id="detailReportAttachments" style="font-size: 14px; color: var(--muted);">No attachments</div>
             </div>
 
-            <!-- REPORT SUMMARY CARD (FROZEN SNAPSHOT) -->
+            <!-- ==================== REPORT SUMMARY CARD ==================== -->
             <div id="reportSummaryCardWrapper" style="display: none;">
               <div class="summary-card">
                 <div class="summary-card-header">
                   <div>
-                    <div class="summary-card-title">Report Summary</div>
+                    <div class="summary-card-title">📊 Report Summary</div>
                     <div id="summaryCoveragePeriod" class="summary-card-subtitle">Coverage: —</div>
                   </div>
                   <div id="reportSummaryToggle" style="
@@ -2006,7 +2555,7 @@ input[type="checkbox"]{ accent-color:var(--primary); }
               </div>
             </div>
 
-            <!-- VALIDATION TIMELINE -->
+            <!-- ==================== VALIDATION TIMELINE ==================== -->
             <div id="validationHistoryWrapper" style="margin-top: 28px; margin-bottom: 24px;">
               <div style="
                 font-size: 11px;
@@ -2027,9 +2576,12 @@ input[type="checkbox"]{ accent-color:var(--primary); }
               </div>
             </div>
 
-            <!-- INCLUDED PLANTING INTENTS -->
+            <!-- ==================== INCLUDED PLANTING INTENTS ==================== -->
             <div style="margin-top: 8px;">
-              <div class="detail-info-label" style="margin-bottom:10px;">Included Planting Intents</div>
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+                <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;">Included Planting Intents</div>
+                <div id="detailVarianceBadge" style="display:none; font-size: 11px; font-weight: 700; color: #92400E; background: #FEF3C7; padding: 4px 12px; border-radius: 999px; border: 1px solid #FCD34D;">Date variance remarks</div>
+              </div>
               <div style="overflow-x: auto;">
                 <table>
                   <thead>
@@ -2042,6 +2594,7 @@ input[type="checkbox"]{ accent-color:var(--primary); }
                       <th class="center-col" style="background: #FFF4E5;">📍 Actual Planting</th>
                       <th class="center-col" style="background: #F6F3EB;">📅 Planned Harvest</th>
                       <th class="center-col" style="background: #FFF4E5;">📍 Actual Harvest</th>
+                      <th class="center-col">Variance</th>
                       <th class="center-col">Harvest Status</th>
                     </tr>
                   </thead>
@@ -2051,8 +2604,15 @@ input[type="checkbox"]{ accent-color:var(--primary); }
                 </table>
               </div>
             </div>
+            <!-- ==================== ADD NEW REMARK ==================== -->
+            <div id="varianceRemarksPanel" class="detail-section" style="display:none; margin-bottom: 24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <div style="font-size:11px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:.06em;">⚠️ DATE VARIANCE REMARKS</div>
+              <span id="varianceRemarksCount" class="variance-count-badge">0</span>
+            </div>
+            <div id="varianceRemarksBody" style="display:grid;gap:12px;"></div>
+          </div>
 
-            <!-- ADD NEW REMARK -->
             <div class="notes-row notes-row-clean" style="margin-top: 16px;">
               <div class="notes-field">
                 <label>Add New Remark</label>
@@ -2063,15 +2623,18 @@ input[type="checkbox"]{ accent-color:var(--primary); }
                 ></textarea>
               </div>
             </div>
-          </div>
 
-          <!-- ACTION BUTTONS -->
-          <div class="detail-actions-row">
-            <button class="btn-outline-report" id="backToPendingBtn" type="button">Return</button>
-            <button class="btn-outline-report flag-btn" id="flagBtn" type="button">Flag for Revision</button>
-            <button class="btn-primary approve-btn" id="approveBtn" type="button" style="background:#2E7D32;">
-              Approve Report
-            </button>
+            <!-- ==================== ACTION BUTTONS ==================== -->
+            <div class="detail-actions-row">
+              <button class="btn-outline-report" id="backToPendingBtn" type="button">Return</button>
+
+              <button class="btn-outline-report flag-btn" id="flagBtn" type="button">Flag for Revision</button>
+
+              <button class="btn-primary approve-btn" id="approveBtn" type="button" style="background:#2E7D32;">
+                Approve Report
+              </button>
+
+            </div>
           </div>
         </div>
       </section>
@@ -2415,45 +2978,10 @@ input[type="checkbox"]{ accent-color:var(--primary); }
   <script src="../assets/js/logout.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
   <script src="../assets/js/map-panel.js"></script>
+  <script src="../assets/js/report-summary-card.js"></script>
   <script src="../assets/js/da.js"></script>
 
-  <script>
-(function () {
-  // ============================================================
-  // REPORTS SEARCH — filter all visible rows in #view-reports
-  // (Alert + ETL searches are handled inside da.js so they work
-  //  together with pagination.)
-  // ============================================================
-  const reportSearch = document.getElementById('reportSearchInput');
-  if (reportSearch) {
-    const reportsView = document.getElementById('view-reports');
-
-    function filterReports() {
-      const q = reportSearch.value.trim().toLowerCase();
-      if (!reportsView) return;
-
-      reportsView.querySelectorAll('tbody').forEach(tbody => {
-        tbody.querySelectorAll('tr').forEach(row => {
-          if (row.querySelector('td[colspan]')) return;
-          const match = !q || row.innerText.toLowerCase().includes(q);
-          row.style.display = match ? '' : 'none';
-        });
-      });
-    }
-
-    reportSearch.addEventListener('input', filterReports);
-    reportSearch.addEventListener('keyup', filterReports);
-
-    // Clear when switching views
-    document.querySelectorAll('.nav-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        reportSearch.value = '';
-        filterReports();
-      });
-    });
-  }
-})();
-</script>
+  
 <!-- ============================================================
      PROFILE SETTINGS MODAL
 ============================================================ -->
