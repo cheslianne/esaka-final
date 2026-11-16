@@ -3622,6 +3622,511 @@ document.addEventListener("DOMContentLoaded", () => {
         return String(value ?? "").replace(/[\u{1F300}-\u{1F64F}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "").replace(/\uFE0F/g, "").trim();
     }
 
+    function createStructuredPdfBlob(root, title, signatureInfo = {}) {
+        const JsPDF = getJsPDFConstructor();
+        if (!JsPDF) throw new Error("jsPDF is unavailable. Please refresh and try again.");
+
+        const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+
+        const info = reportCycleInfo();
+        const municipality = cleanExportText(
+            signatureInfo.municipality || info.municipality || currentSummaryData?.municipality || "Guagua"
+        );
+        const reportTitle = cleanExportText(signatureInfo.title || title || "MUNICIPAL SUMMARY REPORT");
+        const preparedByName = cleanExportText(signatureInfo.preparedBy || info.name || "");
+        const positionText = cleanExportText(signatureInfo.position || info.role || "");
+        const officeText = `Municipal Agriculture Office${municipality ? ", " + municipality : ""}`;
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        const contentWidth = pageWidth - margin * 2;
+        const bottomLimit = pageHeight - 18;
+
+        // eSaka palette
+        const navy = [11, 56, 42];        // #0B382A  primary
+        const green = [20, 83, 45];       // #14532D  secondary
+        const gold = [234, 179, 8];       // #EAB308  tertiary
+        const tint = [227, 238, 231];     // #E3EEE7
+        const gray = [243, 247, 244];     // zebra rows
+        const rule = [207, 222, 213];     // hairlines
+        const textColor = [32, 40, 36];   // #202824
+        const muted = [95, 107, 100];     // #5F6B64
+
+        const reportingPeriod = cleanExportText(signatureInfo.reportingPeriod || "Selected reporting period");
+        const generatedAt = new Date().toLocaleString("en-PH", { dateStyle: "short", timeStyle: "short" });
+
+        const clean = root.cloneNode(true);
+
+        clean.querySelectorAll(
+            "button, textarea, input, select, .report-detail-export, #validationHistoryWrapper, .export-signatures, .no-print, .report-pagination"
+        ).forEach(el => el.remove());
+
+        // Remove Appendix/Data Consistency Notes from the DOM if they exist
+        clean.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li, div").forEach(el => {
+            if (/appendix|data consistency notes/i.test(el.textContent)) el.remove();
+        });
+
+        const textOf = el => el
+            ? cleanExportText((el.innerText || el.textContent || "").replace(/\s+/g, " "))
+            : "";
+
+        const fit = (text, width, size, style = "normal") => {
+            doc.setFont("helvetica", style);
+            doc.setFontSize(size);
+            return doc.splitTextToSize(cleanExportText(text), width)[0] || "";
+        };
+
+        let y = 0;
+        let headerCount = 0;
+        let certDrawn = false;
+
+        const drawInfoStrip = () => {
+            const top = y;
+            const height = 17;
+            doc.setFillColor(...gray);
+            doc.setDrawColor(...rule);
+            doc.setLineWidth(0.25);
+            doc.roundedRect(margin, top, contentWidth, height, 1.6, 1.6, "FD");
+
+            const cells = [
+                { w: 0.33, label: "MUNICIPALITY", value: municipality || "-", sub: "Municipal Agriculture Office" },
+                { w: 0.34, label: "REPORTING PERIOD", value: reportingPeriod, sub: "" },
+                { w: 0.33, label: "GENERATED", value: generatedAt, sub: "eSaka system" }
+            ];
+
+            let x = margin + 4;
+            cells.forEach((cell, index) => {
+                const cw = contentWidth * cell.w;
+                const inner = cw - 6;
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(5.8);
+                doc.setTextColor(...muted);
+                doc.text(cell.label, x, top + 5);
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(8.2);
+                doc.setTextColor(...navy);
+                doc.text(fit(cell.value, inner, 8.2, "bold"), x, top + 10);
+
+                if (cell.sub) {
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(6.4);
+                    doc.setTextColor(...muted);
+                    doc.text(fit(cell.sub, inner, 6.4), x, top + 14);
+                }
+
+                x += cw;
+                if (index < cells.length - 1) {
+                    doc.setDrawColor(...rule);
+                    doc.setLineWidth(0.2);
+                    doc.line(x - 3, top + 3, x - 3, top + height - 3);
+                }
+            });
+
+            y = top + height + 6;
+        };
+
+        const drawHeader = () => {
+            const first = headerCount === 0;
+            headerCount += 1;
+
+            if (first) {
+                doc.setFillColor(...navy);
+                doc.rect(0, 0, pageWidth, 31, "F");
+                doc.setFillColor(...gold);
+                doc.rect(0, 31, pageWidth, 1.6, "F");
+
+                // brand mark
+                doc.setFillColor(...gold);
+                doc.roundedRect(margin, 7.5, 14, 14, 2.4, 2.4, "F");
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(...navy);
+                doc.text("eS", margin + 7, 16.4, { align: "center" });
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(7.4);
+                doc.setTextColor(...gold);
+                doc.text("DEPARTMENT OF AGRICULTURE", margin + 19, 10.6);
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(7.6);
+                doc.setTextColor(214, 230, 220);
+                doc.text(`Office of the Municipal Agriculture - ${municipality}`, margin + 19, 14.8);
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(15);
+                doc.setTextColor(255, 255, 255);
+                doc.text(fit(reportTitle.toUpperCase(), contentWidth - 19, 15, "bold"), margin + 19, 24.2);
+
+                y = 39;
+                drawInfoStrip();
+            } else {
+                doc.setFillColor(...navy);
+                doc.rect(0, 0, pageWidth, 11, "F");
+                doc.setFillColor(...gold);
+                doc.rect(0, 11, pageWidth, 0.9, "F");
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(8);
+                doc.setTextColor(255, 255, 255);
+                doc.text(fit(`eSaka  |  ${reportTitle}`, contentWidth * 0.7, 8, "bold"), margin, 7.1);
+
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(214, 230, 220);
+                doc.text(municipality, pageWidth - margin, 7.1, { align: "right" });
+
+                y = 19;
+            }
+        };
+
+        const drawFooter = (page, total) => {
+            doc.setDrawColor(...gold);
+            doc.setLineWidth(0.6);
+            doc.line(margin, pageHeight - 13, pageWidth - margin, pageHeight - 13);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(7);
+            doc.setTextColor(...navy);
+            doc.text("eSaka", margin, pageHeight - 8.4);
+
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(...muted);
+            doc.text(
+                fit(`${municipality}  |  ${reportingPeriod}`, contentWidth - 40, 7),
+                margin + 10, pageHeight - 8.4
+            );
+            doc.setFontSize(6.4);
+            doc.text(`Generated ${generatedAt}`, margin, pageHeight - 4.6);
+
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...navy);
+            doc.text(`Page ${page} of ${total}`, pageWidth - margin, pageHeight - 8.4, { align: "right" });
+        };
+
+        const newPage = () => {
+            doc.addPage();
+            drawHeader();
+        };
+
+        const ensureSpace = height => {
+            if (y + height > bottomLimit) newPage();
+        };
+
+        const addText = (text, opts = {}) => {
+            text = cleanExportText(text);
+            if (!text) return;
+
+            const size = opts.size || 9;
+            doc.setFont("helvetica", opts.bold ? "bold" : "normal");
+            doc.setFontSize(size);
+            doc.setTextColor(...(opts.color || textColor));
+
+            const lines = doc.splitTextToSize(text, contentWidth - (opts.indent || 0));
+            const lineHeight = opts.lineHeight || size * 0.48;
+            const height = lines.length * lineHeight + (opts.after ?? 2);
+
+            ensureSpace(height);
+            doc.text(lines, margin + (opts.indent || 0), y);
+            y += height;
+        };
+
+        const isNumericCell = value => {
+            const s = String(value ?? "").trim();
+            return s !== "" && /^[-+]?[\d.,\s]+(%|kg|days?|intents?)?$/i.test(s);
+        };
+
+        const addTableRows = inputRows => {
+            const rows = (inputRows || []).filter(
+                row => Array.isArray(row) && row.some(value => String(value ?? "").trim() !== "")
+            );
+            if (!rows.length) return;
+
+            const colCount = Math.max(1, ...rows.map(row => row.length));
+            const sample = rows.slice(0, Math.min(rows.length, 20));
+
+            const weights = Array.from({ length: colCount }, (_, col) => {
+                const maxLen = Math.max(5, ...sample.map(row => String(row[col] ?? "").length));
+                return Math.max(0.55, Math.min(2.2, Math.sqrt(maxLen)));
+            });
+
+            const totalWeight = weights.reduce((a, b) => a + b, 0);
+            const widths = weights.map(weight => contentWidth * weight / totalWeight);
+
+            const numericCols = Array.from({ length: colCount }, (_, col) => {
+                const body = rows.slice(1).map(row => row[col]).filter(v => String(v ?? "").trim() !== "");
+                return body.length > 0 && body.every(isNumericCell);
+            });
+
+            const drawRow = (row, header, rowIndex) => {
+                doc.setFont("helvetica", header ? "bold" : "normal");
+                doc.setFontSize(header ? 7 : 6.9);
+
+                const wrapped = Array.from({ length: colCount }, (_, col) =>
+                    doc.splitTextToSize(cleanExportText(row[col] ?? ""), Math.max(7, widths[col] - 3.4))
+                );
+
+                const rowHeight = Math.max(header ? 7.6 : 6.8, ...wrapped.map(lines => lines.length * 3.1 + 3.2));
+
+                if (y + rowHeight > bottomLimit) {
+                    newPage();
+                    if (!header) drawRow(rows[0], true, 0);
+                }
+
+                let x = margin;
+                for (let col = 0; col < colCount; col++) {
+                    const width = widths[col];
+
+                    if (header) doc.setFillColor(...green);
+                    else if (rowIndex % 2 === 0) doc.setFillColor(...gray);
+                    else doc.setFillColor(255, 255, 255);
+                    doc.rect(x, y, width, rowHeight, "F");
+
+                    doc.setDrawColor(...(header ? gold : rule));
+                    doc.setLineWidth(header ? 0.5 : 0.15);
+                    doc.line(x, y + rowHeight, x + width, y + rowHeight);
+
+                    doc.setFont("helvetica", header ? "bold" : "normal");
+                    doc.setFontSize(header ? 7 : 6.9);
+                    doc.setTextColor(...(header ? [255, 255, 255] : textColor));
+
+                    if (numericCols[col]) {
+                        doc.text(wrapped[col] || [""], x + width - 1.8, y + 4.4, { align: "right" });
+                    } else {
+                        doc.text(wrapped[col] || [""], x + 1.8, y + 4.4);
+                    }
+                    x += width;
+                }
+                y += rowHeight;
+            };
+
+            rows.forEach((row, index) => drawRow(row, index === 0, index));
+            y += 5;
+        };
+
+        const addKpiCards = grid => {
+            const cards = Array.from(grid.children).filter(card => card.nodeType === 1);
+            if (!cards.length) return;
+
+            const cols = 3;
+            const gap = 3.5;
+            const cardWidth = (contentWidth - gap * (cols - 1)) / cols;
+            const cardHeight = 21;
+
+            cards.forEach((card, index) => {
+                const label = textOf(card.querySelector(".summary-kpi-label, .summary-seven-label, .kpi-label, h3, h4")) || "Key Metric";
+                const value = textOf(card.querySelector(".summary-kpi-value, .summary-seven-value, .kpi-value, strong, .value")) || "-";
+                const sub = textOf(card.querySelector(".summary-kpi-subtext, .summary-seven-subtext, .kpi-subtext, small, p"));
+
+                const col = index % cols;
+                if (col === 0) ensureSpace(cardHeight + 3.5);
+
+                const x = margin + col * (cardWidth + gap);
+                const top = y;
+
+                doc.setFillColor(255, 255, 255);
+                doc.setDrawColor(...rule);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(x, top, cardWidth, cardHeight, 1.8, 1.8, "FD");
+
+                doc.setFillColor(...green);
+                doc.roundedRect(x, top, 2.2, cardHeight, 1.1, 1.1, "F");
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(6.2);
+                doc.setTextColor(...muted);
+                doc.text(fit(label.toUpperCase(), cardWidth - 8, 6.2, "bold"), x + 5, top + 5.2);
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(13.5);
+                doc.setTextColor(...navy);
+                doc.text(fit(value, cardWidth - 8, 13.5, "bold"), x + 5, top + 12.4);
+
+                if (sub) {
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(6);
+                    doc.setTextColor(...muted);
+                    doc.text(fit(sub, cardWidth - 8, 6), x + 5, top + 17.6);
+                }
+
+                if (col === cols - 1 || index === cards.length - 1) y += cardHeight + 3.5;
+            });
+
+            y += 2;
+        };
+
+        // Two-column certification: Prepared by (left) | Received by (right), each with a signature line.
+        const drawCertificationBlock = () => {
+            const blockHeight = 52;
+            ensureSpace(blockHeight + 4);
+            y += 1;
+
+            const top = y;
+            const padding = 7;
+            const gap = 16;
+            const colWidth = (contentWidth - padding * 2 - gap) / 2;
+
+            doc.setFillColor(...gray);
+            doc.setDrawColor(...rule);
+            doc.setLineWidth(0.25);
+            doc.roundedRect(margin, top, contentWidth, blockHeight, 2, 2, "FD");
+            doc.setFillColor(...gold);
+            doc.rect(margin + 2, top, contentWidth - 4, 0.9, "F");
+
+            const columns = [
+                {
+                    x: margin + padding,
+                    label: "PREPARED BY",
+                    name: preparedByName,
+                    line1: positionText,
+                    line2: officeText
+                },
+                {
+                    x: margin + padding + colWidth + gap,
+                    label: "RECEIVED BY",
+                    name: "",
+                    line1: "Provincial Agriculture Office",
+                    line2: "Name, position and signature"
+                }
+            ];
+
+            columns.forEach(col => {
+                const center = col.x + colWidth / 2;
+                const lineY = top + 29;
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(7);
+                doc.setTextColor(...green);
+                doc.text(col.label, col.x, top + 8);
+
+                // signature line
+                doc.setDrawColor(...navy);
+                doc.setLineWidth(0.45);
+                doc.line(col.x, lineY, col.x + colWidth, lineY);
+
+                if (col.name) {
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(9.5);
+                    doc.setTextColor(...navy);
+                    doc.text(fit(col.name, colWidth, 9.5, "bold"), center, lineY + 5, { align: "center" });
+                } else {
+                    doc.setFont("helvetica", "italic");
+                    doc.setFontSize(7);
+                    doc.setTextColor(...muted);
+                    doc.text("Signature over printed name", center, lineY + 4.6, { align: "center" });
+                }
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(7.6);
+                doc.setTextColor(...textColor);
+                if (col.line1) doc.text(fit(col.line1, colWidth, 7.6), center, lineY + 9.4, { align: "center" });
+
+                doc.setFontSize(6.8);
+                doc.setTextColor(...muted);
+                if (col.line2) doc.text(fit(col.line2, colWidth, 6.8), center, lineY + 13.4, { align: "center" });
+
+                // date line
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(7);
+                doc.setTextColor(...muted);
+                doc.text("Date:", col.x, top + blockHeight - 4.2);
+                doc.setDrawColor(...muted);
+                doc.setLineWidth(0.2);
+                doc.line(col.x + 9, top + blockHeight - 4.6, col.x + colWidth * 0.62, top + blockHeight - 4.6);
+            });
+
+            y = top + blockHeight + 4;
+            certDrawn = true;
+        };
+
+        const walk = node => {
+            if (!node || node.nodeType !== 1) return;
+
+            if (node.dataset && node.dataset.certification) {
+                drawCertificationBlock();
+                return;
+            }
+
+            if (node.classList?.contains("summary-kpi-grid") || node.classList?.contains("summary-seven-grid")) {
+                addKpiCards(node);
+                return;
+            }
+
+            if (node.tagName === "TABLE") {
+                const rows = Array.from(node.querySelectorAll("tr")).map(tr =>
+                    Array.from(tr.querySelectorAll("th,td")).map(textOf)
+                );
+                addTableRows(rows);
+                return;
+            }
+
+            if (/^H[1-6]$/.test(node.tagName)) {
+                const heading = textOf(node).replace(/^\d{1,2}\s*\|\s*/, "");
+                if (!heading || /appendix|data consistency notes/i.test(heading)) return;
+
+                ensureSpace(17);
+                y += 2;
+
+                doc.setFillColor(...tint);
+                doc.roundedRect(margin, y - 4.5, contentWidth, 7.4, 1, 1, "F");
+                doc.setFillColor(...gold);
+                doc.rect(margin, y - 4.5, 1.9, 7.4, "F");
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(node.tagName === "H1" || node.tagName === "H2" ? 9.6 : 8.6);
+                doc.setTextColor(...navy);
+                doc.text(fit(heading, contentWidth - 9, node.tagName === "H1" || node.tagName === "H2" ? 9.6 : 8.6, "bold"), margin + 5, y + 0.4);
+
+                y += 7.4;
+                return;
+            }
+
+            if (node.tagName === "P" || node.tagName === "LI" || node.tagName === "BLOCKQUOTE") {
+                addText(textOf(node), { indent: node.tagName === "LI" ? 4 : 0, after: 2 });
+                return;
+            }
+
+            const directText = Array.from(node.childNodes).filter(child => child.nodeType === 3).map(child => child.textContent).join(" ").replace(/\s+/g, " ").trim();
+            if (directText && !node.querySelector("table") && !/appendix|data consistency notes/i.test(directText)) {
+                addText(directText, { after: 2 });
+            }
+
+            Array.from(node.children).forEach(walk);
+        };
+
+        drawHeader();
+        walk(clean);
+
+        // Reports that carry no certification section still get the signature block.
+        if (!certDrawn) {
+            ensureSpace(17);
+            y += 4;
+            doc.setFillColor(...tint);
+            doc.roundedRect(margin, y - 4.5, contentWidth, 7.4, 1, 1, "F");
+            doc.setFillColor(...gold);
+            doc.rect(margin, y - 4.5, 1.9, 7.4, "F");
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9.6);
+            doc.setTextColor(...navy);
+            doc.text("CERTIFICATION", margin + 5, y + 0.4);
+            y += 9;
+            drawCertificationBlock();
+        }
+
+        const pageCount = doc.getNumberOfPages();
+        for (let page = 1; page <= pageCount; page++) {
+            doc.setPage(page);
+            drawFooter(page, pageCount);
+        }
+
+        return doc.output("blob");
+    }
+
+
+
     // --- PDF Preview & Generation Logic (Exact Match) ---
     let pdfPreviewState = { root: null, filename: "provincial_report.pdf", title: "Provincial Report", signatureInfo: {}, blob: null, objectUrl: null };
 

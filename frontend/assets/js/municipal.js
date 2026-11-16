@@ -3586,10 +3586,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             doc.roundedRect(margin, top, contentWidth, height, 1.6, 1.6, "FD");
 
             const cells = [
-                { w: 0.22, label: "MUNICIPALITY", value: municipality || "-", sub: "Municipal Agriculture Office" },
-                { w: 0.27, label: "REPORTING PERIOD", value: reportingPeriod, sub: "" },
-                { w: 0.31, label: "PREPARED BY", value: preparedByName || "-", sub: positionText },
-                { w: 0.20, label: "GENERATED", value: generatedAt, sub: "eSaka system" }
+                { w: 0.33, label: "MUNICIPALITY", value: municipality || "-", sub: "Municipal Agriculture Office" },
+                { w: 0.34, label: "REPORTING PERIOD", value: reportingPeriod, sub: "" },
+                { w: 0.33, label: "GENERATED", value: generatedAt, sub: "eSaka system" }
             ];
 
             let x = margin + 4;
