@@ -1,6 +1,6 @@
 from datetime import datetime
-
-from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, DateTime
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy.sql import func
 
 from src.core.database import Base
 
@@ -35,11 +35,8 @@ class AlertThresholdConfigHistory(Base):
     # Stored as naive UTC, same convention as the other tables
     changed_at = Column(
         DateTime,
-        nullable=False,
         default=datetime.utcnow,
+        server_default=func.now(),
+        nullable=False,
         index=True,
-<<<<<<< HEAD
     )
-=======
-    )
->>>>>>> origin/new-merge-jhelo
