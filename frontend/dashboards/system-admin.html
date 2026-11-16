@@ -125,15 +125,17 @@
       gap: 18px;
     }
 
-   .user-info{
-  display:flex; align-items:center; gap:10px;
-  background: #b59898;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 6px 16px 6px 10px;
-  box-shadow: 0 1px 3px rgba(30, 29, 29, 0.03);
-  transition: all 0.2s ease;
-}
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.7);
+      padding: 6px 14px 6px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+
 
     .avatar {
       width: 32px;
@@ -248,34 +250,66 @@
     }
 
 
-    .signout {
+    /* --- PROFILE DROPDOWN (Edit Profile / Sign Out) --- */
+    .profile-menu {
+      position: relative;
+    }
+
+    .profile-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 200px;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+      padding: 6px;
+      z-index: 1000;
+    }
+
+    .profile-dropdown-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 18px;
-      color: #FFC0C0;
-      text-decoration: none;
+      width: 100%;
+      padding: 10px 12px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      font-family: inherit;
       font-size: 13.5px;
       font-weight: 600;
+      color: var(--ink);
+      text-align: left;
       cursor: pointer;
-      border: none;
-      background: rgba(0, 0, 0, 0.08);
-      border-radius: var(--radius-sm);
-      width: 100%;
-      transition: all 0.2s ease;
+      transition: background 0.15s ease;
     }
 
-
-    .signout svg {
+    .profile-dropdown-item svg {
       width: 18px;
       height: 18px;
       fill: currentColor;
+      flex-shrink: 0;
     }
 
+    .profile-dropdown-item:hover {
+      background: var(--green-light);
+    }
 
-    .signout:hover {
-      background: rgba(192, 57, 43, 0.25);
-      color: #FFF;
+    .profile-dropdown-item.danger {
+      color: #C0392B;
+    }
+
+    .profile-dropdown-item.danger:hover {
+      background: rgba(192, 57, 43, 0.1);
+    }
+
+    .profile-dropdown-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 6px;
     }
 
 
@@ -951,13 +985,26 @@
   </div>
 
 
-  <div class="user-info" id="openProfileBtn" title="Click to edit profile" style="cursor: pointer;">
-  <div class="avatar" id="userDisplayInitials">SA</div>
-  <div class="user-text">
-    <div class="user-name" id="loggedInUserName">System Admin</div>
-    <div class="user-role" id="loggedInUserRole">System Administrator</div>
-  </div>
-</div>
+  <div class="profile-menu">
+    <div class="user-info" id="openProfileBtn" title="Account menu" role="button" tabindex="0" aria-haspopup="true" style="cursor: pointer;">
+      <div class="avatar" id="userDisplayInitials">SA</div>
+      <div class="user-text">
+        <div class="user-name" id="loggedInUserName">System Admin</div>
+        <div class="user-role" id="loggedInUserRole">System Administrator</div>
+      </div>
+    </div>
+
+    <div class="profile-dropdown" id="profileDropdown" role="menu">
+      <button type="button" class="profile-dropdown-item" id="menuEditProfile" role="menuitem">
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        Edit Profile
+      </button>
+      <div class="profile-dropdown-divider"></div>
+      <button type="button" class="profile-dropdown-item danger" id="menuSignOut" role="menuitem">
+        <svg viewBox="0 0 24 24"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
+        Sign Out
+      </button>
+    </div>
   </div>
 </div>
 
@@ -984,12 +1031,6 @@
         Archived Users
       </button>
     </div>
-
-
-    <a class="signout" href="../index.html" id="signOutButton">
-      <svg viewBox="0 0 24 24"><path d="M10 17l1.41-1.41L8.83 13H20v-2H8.83l2.58-2.59L10 7l-5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z"/></svg>
-      Sign Out
-    </a>
   </nav>
 
 

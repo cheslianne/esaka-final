@@ -180,15 +180,24 @@ def transform_market_prices(records):
 
     for record in records:
 
-        wholesale = Decimal(str(record["wholesale_price_per_kg"]))
-        retail = Decimal(str(record["retail_price_per_kg"]))
+        raw_wholesale = record.get("wholesale_price_per_kg")
+        raw_retail = record.get("retail_price_per_kg")
 
-        if wholesale <= 0:
+        # Skip empty cells (NaN)
+        if pd.isna(raw_wholesale) or pd.isna(raw_retail):
             continue
 
-        if retail <= 0:
+        try:
+            wholesale = Decimal(str(raw_wholesale))
+            retail = Decimal(str(raw_retail))
+        except Exception:
             continue
 
+        # Skip zeros and negatives (treated as "missing data")
+        if wholesale <= 0 or retail <= 0:
+            continue
+
+        # Sanity check: retail must be >= wholesale
         if retail < wholesale:
             continue
 
