@@ -462,18 +462,16 @@ function renderFilteredMapMarkers() {
             const offsetLng = baseCoordinates[1] + (index - (totalFiltered / 2)) * 0.0025;
             const markerCoordinates = [offsetLat, offsetLng];
 
-             let markerColor = "#6c757d"; // Gray = No Data
-           
-           if (status.includes("OVERSUPPLY")) {
-              markerColor = "#C0392B"; // Red - Oversupply
-           } else if (status.includes("SURPLUS")) {
-              markerColor = "#1B4F72"; // Blue - Surplus
-           } else if (status.includes("BALANCE")) {
-              markerColor = "#2E7D32"; // Green - Balance
-           } else if (status.includes("DEFICIT")) {
-              markerColor = "#c49102"; // Dark yellow - Deficit
-           }
-           
+            let markerColor = "#6c757d"; // Gray = No Data
+
+            if (status.includes("SURPLUS") || status.includes("OVERSUPPLY")) {
+                markerColor = "#C0392B"; // Red
+            } else if (status.includes("BALANCE")) {
+                markerColor = "#2E7D32"; // Green
+            } else if (status.includes("DEFICIT")) {
+                markerColor = "#D97706"; // Amber
+            }
+
             const customIcon = L.divIcon({
                 className: 'custom-map-marker',
                 html: `<div style="
@@ -3294,8 +3292,6 @@ function initProfileModal() {
 
 document.addEventListener("DOMContentLoaded", async () => {
     console.log("Municipal dashboard loaded.");
-
-     await syncSessionToLocalStorage();
 
     const role = localStorage.getItem("role");
     if (role !== "Municipal Coordinator" && role !== "Municipal") {

@@ -38,4 +38,8 @@ class AlertThresholdConfigHistory(Base):
         nullable=False,
         default=datetime.utcnow,
         index=True,
+<<<<<<< HEAD
     )
+=======
+    )
+>>>>>>> origin/new-merge-jhelo

@@ -246,4 +246,3 @@
   window.ESaka = Object.assign(window.ESaka || {}, { toast, dialog, confirm: confirmDialog });
   window.alert = nativeAlertReplacement;
 })();
-

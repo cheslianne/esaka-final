@@ -22,14 +22,6 @@ let returnedToMunicipalReports = [];
 let selectedReportIds = new Set();
 let selectedReport = null;
 let currentSentToRegionalFilter = "all";
-
-// Pagination: show only 3 reports per page
-const REPORTS_PAGE_SIZE = 3;
-const REPORTS_CURRENT_PAGE = {
-    pending: 1,
-    returned: 1,
-    sent: 1
-};
 let currentSummaryPeriod = {
     start: null,
     end: null,
@@ -320,6 +312,7 @@ function initViewNavigation() {
                 setTimeout(() => window.leafletMap.invalidateSize(), 50);
             }
 
+            // Lazy-load summary when tab opened
             if (key === "summary" && !currentSummaryData) {
                 loadProvincialSummary();
             }
@@ -401,6 +394,7 @@ async function loadMunicipalityMapData() {
     }
 }
 
+// ✅ NEW: Color-coded marker rendering
 function renderFilteredMapMarkers() {
     if (!window.leafletMap) return;
 
@@ -445,15 +439,13 @@ function renderFilteredMapMarkers() {
             const markerCoordinates = [offsetLat, offsetLng];
 
             let markerColor = "#6c757d"; // Gray = No Data
-           
-           if (status.includes("OVERSUPPLY")) {
-              markerColor = "#C0392B"; // Red - Oversupply
-           } else if (status.includes("SURPLUS")) {
-              markerColor = "#1B4F72"; // Blue - Surplus
-           } else if (status.includes("BALANCE")) {
-              markerColor = "#2E7D32"; // Green - Balance
-           } else if (status.includes("DEFICIT")) {
-              markerColor = "#c49102"; // Dark yellow - Deficit
+
+            if (status.includes("SURPLUS") || status.includes("OVERSUPPLY")) {
+                markerColor = "#C0392B"; // Red
+            } else if (status.includes("BALANCE")) {
+                markerColor = "#2E7D32"; // Green
+            } else if (status.includes("DEFICIT")) {
+                markerColor = "#D97706"; // Amber
             }
 
             const customIcon = L.divIcon({
@@ -592,162 +584,6 @@ function statusLabelAndClass(status) {
 
 
 /* ============================================================
-   DATE VARIANCE HELPERS (needed by exports)
-============================================================ */
-
-function isIntentDateVariance(plan, actual) {
-    if (!plan || !actual) return false;
-    return String(plan).slice(0, 10) !== String(actual).slice(0, 10);
-}
-
-function getDayDiff(plannedDate, actualDate) {
-    if (!plannedDate || !actualDate) return null;
-    const p = new Date(`${String(plannedDate).slice(0, 10)}T00:00:00`);
-    const a = new Date(`${String(actualDate).slice(0, 10)}T00:00:00`);
-    if (isNaN(p.getTime()) || isNaN(a.getTime())) return null;
-    return Math.round((a - p) / 86400000);
-}
-
-function getVarianceRemark(intent) {
-    return String((intent && (intent.comment_snapshot || intent.comment)) || "").trim();
-}
-
-function getIntentVariances(intent) {
-    const out = [];
-    if (isIntentDateVariance(intent.planting_date, intent.actual_planting_date)) {
-        out.push({ label: "Planting", planned: intent.planting_date, actual: intent.actual_planting_date,
-                   diff: getDayDiff(intent.planting_date, intent.actual_planting_date) });
-    }
-    if (isIntentDateVariance(intent.harvest_date, intent.actual_harvest_date)) {
-        out.push({ label: "Harvest", planned: intent.harvest_date, actual: intent.actual_harvest_date,
-                   diff: getDayDiff(intent.harvest_date, intent.actual_harvest_date) });
-    }
-    return out;
-}
-
-
-/* ============================================================
-   REPORTS PAGINATION
-============================================================ */
-
-function ensureReportsPaginationStyles() {
-    if (document.getElementById("reportsPaginationStyles")) return;
-
-    const style = document.createElement("style");
-    style.id = "reportsPaginationStyles";
-    style.textContent = `
-        .reports-pagination {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            padding: 14px 18px;
-            border-top: 1px solid var(--border-light, #e5e7eb);
-            color: var(--muted, #6b7280);
-            font-size: 12px;
-        }
-        .reports-pagination-controls,
-        .reports-pagination-pages {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .reports-page-btn {
-            min-width: 34px;
-            height: 34px;
-            padding: 0 10px;
-            border: 1px solid var(--border, #d1d5db);
-            border-radius: 6px;
-            background: #fff;
-            color: var(--ink, #374151);
-            cursor: pointer;
-            font: inherit;
-        }
-        .reports-page-btn.active {
-            background: var(--green-dark, #445439);
-            border-color: var(--green-dark, #445439);
-            color: #fff;
-        }
-        .reports-page-btn:disabled {
-            opacity: .45;
-            cursor: not-allowed;
-        }
-        @media (max-width: 600px) {
-            .reports-pagination { justify-content: center; }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-function removeReportsPagination(key) {
-    document.getElementById(`reportsPagination-${key}`)?.remove();
-}
-
-function renderReportsPagination(key, tbody, totalItems, renderFunction) {
-    removeReportsPagination(key);
-    if (!tbody || totalItems <= REPORTS_PAGE_SIZE) return;
-
-    ensureReportsPaginationStyles();
-
-    const totalPages = Math.ceil(totalItems / REPORTS_PAGE_SIZE);
-    REPORTS_CURRENT_PAGE[key] = Math.max(1, Math.min(REPORTS_CURRENT_PAGE[key], totalPages));
-    const currentPage = REPORTS_CURRENT_PAGE[key];
-    const firstItem = (currentPage - 1) * REPORTS_PAGE_SIZE + 1;
-    const lastItem = Math.min(currentPage * REPORTS_PAGE_SIZE, totalItems);
-
-    const pagination = document.createElement("div");
-    pagination.id = `reportsPagination-${key}`;
-    pagination.className = "reports-pagination";
-    pagination.innerHTML = `
-        <span>Showing ${firstItem}–${lastItem} of ${totalItems} reports</span>
-        <div class="reports-pagination-controls">
-            <button type="button" class="reports-page-btn" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>‹ Prev</button>
-            <div class="reports-pagination-pages"></div>
-            <button type="button" class="reports-page-btn" data-page-action="next" ${currentPage === totalPages ? "disabled" : ""}>Next ›</button>
-        </div>
-    `;
-
-    const pages = pagination.querySelector(".reports-pagination-pages");
-    for (let page = 1; page <= totalPages; page++) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `reports-page-btn${page === currentPage ? " active" : ""}`;
-        button.textContent = page;
-        button.setAttribute("aria-label", `Go to page ${page}`);
-        button.setAttribute("aria-current", page === currentPage ? "page" : "false");
-        button.addEventListener("click", () => {
-            REPORTS_CURRENT_PAGE[key] = page;
-            renderFunction();
-        });
-        pages.appendChild(button);
-    }
-
-    pagination.querySelector('[data-page-action="prev"]').addEventListener("click", () => {
-        if (REPORTS_CURRENT_PAGE[key] > 1) {
-            REPORTS_CURRENT_PAGE[key]--;
-            renderFunction();
-        }
-    });
-    pagination.querySelector('[data-page-action="next"]').addEventListener("click", () => {
-        if (REPORTS_CURRENT_PAGE[key] < totalPages) {
-            REPORTS_CURRENT_PAGE[key]++;
-            renderFunction();
-        }
-    });
-
-    const table = tbody.closest("table");
-    const tableContainer = table?.parentElement;
-    if (tableContainer?.parentElement) {
-        tableContainer.insertAdjacentElement("afterend", pagination);
-    } else if (table) {
-        table.insertAdjacentElement("afterend", pagination);
-    } else {
-        tbody.insertAdjacentElement("afterend", pagination);
-    }
-}
-
-/* ============================================================
    LOAD PENDING REPORTS
 ============================================================ */
 
@@ -765,7 +601,6 @@ async function loadPendingReports() {
         );
 
         pendingReports = Array.isArray(data) ? data : [];
-        REPORTS_CURRENT_PAGE.pending = 1;
         selectedReportIds = new Set();
 
         renderPendingReports();
@@ -806,18 +641,11 @@ function renderPendingReports() {
     tbody.innerHTML = "";
 
     if (reports.length === 0) {
-        removeReportsPagination("pending");
-        REPORTS_CURRENT_PAGE.pending = 1;
         tbody.innerHTML = `<tr><td colspan="8" style="padding:30px; text-align:center; color:#999;">No pending reports.</td></tr>`;
         return;
     }
 
-    const pendingTotalPages = Math.max(1, Math.ceil(reports.length / REPORTS_PAGE_SIZE));
-    REPORTS_CURRENT_PAGE.pending = Math.min(REPORTS_CURRENT_PAGE.pending, pendingTotalPages);
-    const pendingStart = (REPORTS_CURRENT_PAGE.pending - 1) * REPORTS_PAGE_SIZE;
-    const pageReports = reports.slice(pendingStart, pendingStart + REPORTS_PAGE_SIZE);
-
-    pageReports.forEach(report => {
+    reports.forEach(report => {
         const tr = document.createElement("tr");
         tr.className = "clickable-row";
         tr.dataset.reportId = report.report_id;
@@ -869,7 +697,6 @@ function renderPendingReports() {
     });
 
     updateSelectAllCheckbox();
-    renderReportsPagination("pending", tbody, reports.length, renderPendingReports);
 }
 
 
@@ -891,7 +718,6 @@ async function loadReturnedToMunicipal() {
         );
 
         returnedToMunicipalReports = Array.isArray(data) ? data : [];
-        REPORTS_CURRENT_PAGE.returned = 1;
         renderReturnedToMunicipal();
         updateReportSummaryCards();
         renderOverview();
@@ -915,18 +741,11 @@ function renderReturnedToMunicipal() {
     tbody.innerHTML = "";
 
     if (returnedToMunicipalReports.length === 0) {
-        removeReportsPagination("returned");
-        REPORTS_CURRENT_PAGE.returned = 1;
         tbody.innerHTML = `<tr><td colspan="6" style="padding:30px; text-align:center; color:#999;">No reports returned to municipal.</td></tr>`;
         return;
     }
 
-    const returnedTotalPages = Math.max(1, Math.ceil(returnedToMunicipalReports.length / REPORTS_PAGE_SIZE));
-    REPORTS_CURRENT_PAGE.returned = Math.min(REPORTS_CURRENT_PAGE.returned, returnedTotalPages);
-    const returnedStart = (REPORTS_CURRENT_PAGE.returned - 1) * REPORTS_PAGE_SIZE;
-    const pageReports = returnedToMunicipalReports.slice(returnedStart, returnedStart + REPORTS_PAGE_SIZE);
-
-    pageReports.forEach(report => {
+    returnedToMunicipalReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
         const tr = document.createElement("tr");
         tr.className = "clickable-row";
@@ -946,9 +765,9 @@ function renderReturnedToMunicipal() {
         tr.addEventListener("click", () => openReportDetail(report));
         tbody.appendChild(tr);
     });
-
-    renderReportsPagination("returned", tbody, returnedToMunicipalReports.length, renderReturnedToMunicipal);
+    
 }
+
 
 
 /* ============================================================
@@ -969,7 +788,6 @@ async function loadSentToRegional() {
         );
 
         sentReports = Array.isArray(data) ? data : [];
-        REPORTS_CURRENT_PAGE.sent = 1;
         renderSentReports();
         updateReportSummaryCards();
         renderOverview();
@@ -1018,8 +836,6 @@ function renderSentReports() {
     tbody.innerHTML = "";
 
     if (filteredReports.length === 0) {
-        removeReportsPagination("sent");
-        REPORTS_CURRENT_PAGE.sent = 1;
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" style="padding:30px; text-align:center; color:#999;">
@@ -1034,12 +850,7 @@ function renderSentReports() {
         return;
     }
 
-    const sentTotalPages = Math.max(1, Math.ceil(filteredReports.length / REPORTS_PAGE_SIZE));
-    REPORTS_CURRENT_PAGE.sent = Math.min(REPORTS_CURRENT_PAGE.sent, sentTotalPages);
-    const sentStart = (REPORTS_CURRENT_PAGE.sent - 1) * REPORTS_PAGE_SIZE;
-    const pageReports = filteredReports.slice(sentStart, sentStart + REPORTS_PAGE_SIZE);
-
-    pageReports.forEach(report => {
+    filteredReports.forEach(report => {
         const sl = statusLabelAndClass(report.status);
         const isFlagged = sl.cls === "flagged";
 
@@ -1070,19 +881,21 @@ function renderSentReports() {
         tr.addEventListener("click", () => openReportDetail(report));
         tbody.appendChild(tr);
     });
-
-    renderReportsPagination("sent", tbody, filteredReports.length, renderSentReports);
 }
 /* ============================================================
    REPORT SUMMARY CARDS
 ============================================================ */
 function updateReportSummaryCards() {
+    // Pending = reports na may status na provincial pending
     const pendingCount = pendingReports.filter(report => {
         const s = String(report.status || "").toUpperCase();
         return s === "SUBMITTED_PROVINCIAL_PENDING" || s === "FOR_PROVINCIAL_VALIDATION";
     }).length;
 
+    // Returned to Municipal
     const returnedCount = returnedToMunicipalReports.length;
+
+    // Sent to Regional
     const regionalCount = sentReports.length;
 
     const setCount = (id, val) => {
@@ -1117,7 +930,6 @@ function initSentToRegionalFilter() {
             pill.classList.add("active");
 
             currentSentToRegionalFilter = pill.dataset.filter || "all";
-            REPORTS_CURRENT_PAGE.sent = 1;
             renderSentReports();
         });
     });
@@ -1288,6 +1100,7 @@ async function bulkApproveSelected() {
 
         const approvedCount = result.approved_count || 0;
 
+        // ✅ Styled success modal
         openModal(
             `${approvedCount} report${approvedCount !== 1 ? "s" : ""} approved and forwarded to the DA-RFO / Regional Coordinator.`,
             {
@@ -1331,6 +1144,7 @@ async function openReportDetail(report) {
     if (!report) return;
     selectedReport = report;
 
+    // Hide list views
     const mainHeader = document.getElementById("reportsMainHeader");
     if (mainHeader) mainHeader.style.display = "none";
 
@@ -1338,15 +1152,18 @@ async function openReportDetail(report) {
     document.getElementById("returnedToMunicipalView")?.style.setProperty("display", "none");
     document.getElementById("sentToRegionalView")?.style.setProperty("display", "none");
 
-    const summaryCards = document.getElementById("reportSummaryCards");
+     const summaryCards = document.getElementById("reportSummaryCards");
     if (summaryCards) summaryCards.style.display = "none";
     const detailView = document.getElementById("individualDetailView");
-
+    
+     
+    
     if (detailView) {
         detailView.classList.remove("hidden-element");
         detailView.style.display = "block";
     }
 
+    // Reset sub-sections
     const summaryWrapper = document.getElementById("reportSummaryCardWrapper");
     const summaryBody = document.getElementById("reportSummaryBody");
     const historyContainer = document.getElementById("validationTimelineContainer");
@@ -1363,6 +1180,7 @@ async function openReportDetail(report) {
         `;
     }
 
+    // References
     const titleEl           = document.getElementById("detailReportTitle");
     const subtitleEl        = document.getElementById("detailReportSubtitle");
     const idEl              = document.getElementById("detailReportId");
@@ -1380,6 +1198,7 @@ async function openReportDetail(report) {
     const resubmitBtn       = document.getElementById("resubmitReportBtn");
     const backBtn           = document.getElementById("backToPendingBtn");
 
+    // Basic info
     if (titleEl)        titleEl.textContent = report.title || `Report #${report.report_id}`;
     if (subtitleEl)     subtitleEl.textContent = `Report #${report.report_id} • ${report.municipality || ""}`;
     if (idEl)           idEl.textContent = report.report_id ?? "—";
@@ -1394,6 +1213,9 @@ async function openReportDetail(report) {
         statusEl.innerHTML = `<span class="status-pill ${sl.cls}">${escapeHtml(sl.text)}</span>`;
     }
 
+    // ============================================================
+    // NEW REMARK — always empty
+    // ============================================================
     if (remarksEl) {
         remarksEl.value = "";
         remarksEl.readOnly = false;
@@ -1406,6 +1228,7 @@ async function openReportDetail(report) {
         remarksEl.placeholder = "Type your comment here...";
     }
 
+    // Status flags
     const statusUpper = String(report.status || "").toUpperCase();
 
     const isProvincialPending =
@@ -1420,17 +1243,21 @@ async function openReportDetail(report) {
         statusUpper === "SUBMITTED_REGIONAL_APPROVED" ||
         statusUpper === "FINAL_APPROVED";
 
+    // Back button
     if (backBtn) {
         backBtn.style.display = "inline-flex";
         backBtn.textContent = "Return";
     }
 
+    // ========================================================
+    // BUTTON STATES
+    // ========================================================
     if (isProvincialPending) {
         if (resubmitBtn) resubmitBtn.style.display = "none";
 
         if (flagBtn) {
             flagBtn.style.display = "inline-flex";
-            flagBtn.textContent = "Return to Municipal for Revision";
+            flagBtn.textContent = "Flag for Revision";
             flagBtn.disabled = false;
             flagBtn.classList.remove("active");
         }
@@ -1445,7 +1272,7 @@ async function openReportDetail(report) {
     } else if (isRegionalFlagged) {
         if (flagBtn) {
             flagBtn.style.display = "inline-flex";
-            flagBtn.textContent = "Return to Municipal for Revision";
+            flagBtn.textContent = "Flag for Revision";
             flagBtn.disabled = false;
             flagBtn.classList.remove("active");
         }
@@ -1485,6 +1312,9 @@ async function openReportDetail(report) {
         }
     }
 
+    // ========================================================
+    // FETCH FULL REPORT
+    // ========================================================
     try {
         const full = await fetchJsonWithTimeout(
             `${API_BASE_URL}/api/raw-plant-reports/${report.report_id}`,
@@ -1969,6 +1799,7 @@ function closeReportDetail() {
     if (mainHeader) mainHeader.style.display = "flex";
     const summaryCards = document.getElementById("reportSummaryCards");
     if (summaryCards) summaryCards.style.display = "grid";
+
 }
 
 
@@ -1993,6 +1824,7 @@ function showActionConfirm({
     const okBtn = document.getElementById("actionConfirmOkBtn");
     const cancelBtn = document.getElementById("actionConfirmCancelBtn");
 
+    // Fallback sa native confirm
     if (!modal || !titleEl || !messageEl || !okBtn || !cancelBtn) {
         ESaka.confirm(message, { title, confirmText }).then(ok => { if (ok && onConfirm) onConfirm(); });
         return;
@@ -2013,6 +1845,7 @@ function showActionConfirm({
     okBtn.style.background = confirmColor;
     cancelBtn.textContent = cancelText;
 
+    // Clean clone to prevent listener stacking
     const newOkBtn = okBtn.cloneNode(true);
     okBtn.parentNode.replaceChild(newOkBtn, okBtn);
 
@@ -2029,6 +1862,7 @@ function showActionConfirm({
         onCancel && onCancel();
     });
 
+    // Click outside to close (treated as cancel)
     modal.onclick = (e) => {
         if (e.target === modal) {
             modal.classList.remove("show");
@@ -2122,6 +1956,7 @@ function initSummaryPeriodPicker() {
     const applyBtn = document.getElementById("applySummaryPeriodBtn");
     const printBtn = document.getElementById("printSummaryBtn");
 
+    // Set default: this week
     const initial = getPeriodPreset("this-week");
     currentSummaryPeriod.start = initial.start;
     currentSummaryPeriod.end = initial.end;
@@ -2244,6 +2079,7 @@ async function loadProvincialSummary() {
 
 /* ============================================================
    📊 RENDER PROVINCIAL SUMMARY
+   Same as municipal, but By Barangay becomes By Municipality
 ============================================================ */
 
 function renderProvincialSummary(data) {
@@ -2257,6 +2093,9 @@ function renderProvincialSummary(data) {
     const periodStart = data.period_start ? new Date(data.period_start) : null;
     const periodEnd = data.period_end ? new Date(data.period_end) : null;
 
+    // ============================================================
+    // EMPTY STATE
+    // ============================================================
     if (intents.length === 0) {
         container.innerHTML = `
             <div style="
@@ -2282,6 +2121,9 @@ function renderProvincialSummary(data) {
         return;
     }
 
+    // ============================================================
+    // AGGREGATE METRICS
+    // ============================================================
     const selectedCount = intents.length;
 
     const totalVolume = intents.reduce((sum, i) => sum + (Number(i.volume) || 0), 0);
@@ -2312,6 +2154,7 @@ function renderProvincialSummary(data) {
         return sum + (v > 0 ? v : 0);
     }, 0);
 
+    // BY COMMODITY
     const byCommodity = {};
     intents.forEach(intent => {
         const c = intent.commodity || "Unknown";
@@ -2320,6 +2163,7 @@ function renderProvincialSummary(data) {
         byCommodity[c].volume += Number(intent.volume) || 0;
     });
 
+    // BY MUNICIPALITY (instead of By Barangay)
     const byMunicipality = {};
     intents.forEach(intent => {
         const m = intent.municipality || "Unknown";
@@ -2328,6 +2172,7 @@ function renderProvincialSummary(data) {
         byMunicipality[m].volume += Number(intent.volume) || 0;
     });
 
+    // BY STATUS
     const byStatus = {
         "NOT PLANTED": { count: 0, volume: 0, label: "Not Planted", color: "#6c757d" },
         "PLANTED":     { count: 0, volume: 0, label: "Planted",     color: "#D97706" },
@@ -2343,6 +2188,7 @@ function renderProvincialSummary(data) {
         }
     });
 
+    // YIELD
     const yieldPlanned = totalVolume;
     const yieldActual = totalActualHarvest;
     const hasActualData = yieldActual > 0;
@@ -2350,6 +2196,7 @@ function renderProvincialSummary(data) {
         ? Math.round(((yieldActual - yieldPlanned) / yieldPlanned) * 100)
         : 0;
 
+    // PLANTING WINDOW
     const plantingDates = intents
         .map(i => i.planting_date)
         .filter(Boolean)
@@ -2362,6 +2209,9 @@ function renderProvincialSummary(data) {
         .map(d => new Date(d))
         .filter(d => !isNaN(d.getTime()));
 
+    // ============================================================
+    // BUILD HTML
+    // ============================================================
     const periodLabel = periodStart && periodEnd
         ? `${formatDateLong(periodStart)} – ${formatDateLong(periodEnd)}`
         : "All time";
@@ -2378,6 +2228,7 @@ function renderProvincialSummary(data) {
 
     let html = "";
 
+    // HEADER
     html += `
         <div style="
             display: flex;
@@ -2414,6 +2265,7 @@ function renderProvincialSummary(data) {
         </div>
     `;
 
+    // KPI ROW 1
     html += `
         <div class="summary-kpi-grid">
             <div class="summary-kpi-card">
@@ -2434,6 +2286,7 @@ function renderProvincialSummary(data) {
         </div>
     `;
 
+    // KPI ROW 2
     html += `
         <div class="summary-kpi-grid">
             <div class="summary-kpi-card">
@@ -2462,8 +2315,10 @@ function renderProvincialSummary(data) {
         </div>
     `;
 
+    // BREAKDOWNS
     html += `<div class="summary-breakdown-grid">`;
 
+    // By Commodity
     html += `
         <div>
             <div class="summary-breakdown-title">🌾 By Commodity</div>
@@ -2486,6 +2341,7 @@ function renderProvincialSummary(data) {
     }
     html += `</div></div>`;
 
+    // By Municipality
     html += `
         <div>
             <div class="summary-breakdown-title">🏛️ By Municipality</div>
@@ -2514,6 +2370,7 @@ function renderProvincialSummary(data) {
     }
     html += `</div></div>`;
 
+    // By Status
     html += `
         <div>
             <div class="summary-breakdown-title">📋 By Finalized Status</div>
@@ -2541,10 +2398,12 @@ function renderProvincialSummary(data) {
     });
     html += `</div></div>`;
 
-    html += `</div>`;
+    html += `</div>`; // end breakdown grid
 
+    // INSIGHTS
     html += `<div class="summary-insight-grid">`;
 
+    // Yield Performance
     html += `<div class="summary-insight-card green">`;
     html += `
         <div style="
@@ -2601,6 +2460,7 @@ function renderProvincialSummary(data) {
     }
     html += `</div>`;
 
+    // Planting Window
     html += `<div class="summary-insight-card orange">`;
     html += `
         <div style="
@@ -2666,8 +2526,9 @@ function renderProvincialSummary(data) {
     }
     html += `</div>`;
 
-    html += `</div>`;
+    html += `</div>`; // end insights
 
+    // FOOTER
     html += `
         <div class="summary-footer">
             <div>
@@ -2701,6 +2562,7 @@ function openModal(message, options = {}) {
     const iconEl = document.getElementById("reportModalIcon");
     const closeBtn = document.getElementById("reportModalConfirmBtn");
 
+    // Fallback kung wala ang modal markup
     if (!modal || !text) {
         showToast(message);
         return;
@@ -2726,12 +2588,14 @@ function openModal(message, options = {}) {
         });
     }
 
+    // Click outside to close
     modal.onclick = (e) => {
         if (e.target === modal) modal.classList.remove("show");
     };
 
     modal.classList.add("show");
 }
+
 
 
 /* ============================================================
@@ -2770,6 +2634,9 @@ function initFlagButton() {
         const remarksEl = document.getElementById("remarksTextarea");
         const remarksInput = remarksEl?.value?.trim() || "";
 
+        // ============================================================
+        // ✅ Validation — remarks required
+        // ============================================================
         if (!remarksInput) {
             showActionConfirm({
                 title: "Remarks Required",
@@ -2802,10 +2669,10 @@ function initFlagButton() {
         `;
 
         showActionConfirm({
-            title: "Return to Municipal for Revision?",
+            title: "Flag for Revision?",
             message: "This report will be returned to the Municipal Coordinator for revision. <br><strong>They will need to forward it again after making changes.</strong>",
             details: detailsHtml,
-            confirmText: "Return to Municipal for Revision",
+            confirmText: "Flag for Revision",
             confirmColor: "#C0392B",
             cancelText: "Cancel",
             onConfirm: async () => {
@@ -2835,6 +2702,7 @@ function initFlagButton() {
                     flagBtn.classList.add("active");
                     flagBtn.textContent = "Flagged ✓";
 
+                    // ✅ Styled success modal
                     openModal(
                         "The report has been returned to the Municipal Coordinator for revision.",
                         {
@@ -2863,7 +2731,7 @@ function initFlagButton() {
                     });
 
                     flagBtn.classList.remove("active");
-                    flagBtn.textContent = "Return to Municipal for Revision";
+                    flagBtn.textContent = "Flag for Revision";
                 } finally {
                     flagBtn.disabled = false;
                 }
@@ -2962,6 +2830,7 @@ function initApproveButton() {
                     approveBtn.classList.add("active");
                     approveBtn.textContent = "Approved ✓";
 
+                    // ✅ Styled success modal
                     openModal(
                         "The report has been successfully forwarded to the DA-RFO / Regional Coordinator for validation.",
                         {
@@ -3066,6 +2935,7 @@ function initResubmitButton() {
                         throw new Error(errData.detail || `HTTP ${res.status}`);
                     }
 
+                    // ✅ Styled success modal
                     openModal(
                         "The report has been successfully resubmitted to the DA-RFO / Regional Coordinator.",
                         {
@@ -3252,15 +3122,12 @@ function initProfileModal() {
 document.addEventListener("DOMContentLoaded", async () => {
     console.log("Provincial dashboard loaded.");
 
-    await syncSessionToLocalStorage();
-
     initSidebar();
     initViewNavigation();
     initMap();
     loadMunicipalityMapData();
     setupUserProfile();
-    initProfileModal();
-    initProfileDropdown();  
+    initProfileModal();  
     initSearch();
     initBulkActions();
     initSentToRegionalFilter();
@@ -3282,6 +3149,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    // Summary toggle (collapse/expand)
     document.addEventListener("click", (e) => {
         if (e.target && e.target.id === "reportSummaryToggle") {
             const body = document.getElementById("reportSummaryBody");
@@ -3362,6 +3230,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         loadProvincialSummary();
     }
 
+    document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".modal-overlay").forEach(modal => {
         modal.addEventListener("click", (event) => {
             if (event.target === modal) {
@@ -3371,9 +3240,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 });
 
+});
+
 
 /* ============================================================
    OVERVIEW TAB
+   Reuses the arrays already loaded for the Reports tab
+   (pendingReports, returnedToMunicipalReports, sentReports) —
+   no new backend endpoint is called, so the Overview numbers
+   can never drift from the Reports tab.
 ============================================================ */
 
 function initOverviewLinks() {
@@ -3387,6 +3262,12 @@ function initOverviewLinks() {
     });
 }
 
+/**
+ * Average number of days between a report's submitted_at and approved_at,
+ * computed only over reports that actually have both timestamps
+ * (i.e. reports already forwarded to Regional). Returns null if there is
+ * not enough data yet — the UI shows "—" rather than a fabricated number.
+ */
 function computeAvgReviewDays(reports) {
     const durations = (reports || [])
         .filter(r => r.submitted_at && r.approved_at)
@@ -3404,7 +3285,7 @@ function renderOverviewKpis() {
     const forwardedEl = document.getElementById("ovKpiForwarded");
     const reviewEl    = document.getElementById("ovKpiReviewTime");
     const reviewSubEl = document.getElementById("ovKpiReviewTimeSub");
-    if (!pendingEl) return;
+    if (!pendingEl) return; // Overview markup not present on this page yet
 
     const pendingCount   = (pendingReports || []).length;
     const returnedCount  = (returnedToMunicipalReports || []).length;
@@ -3424,6 +3305,7 @@ function renderOverviewKpis() {
             (sentReports || []).filter(r => r.submitted_at && r.approved_at).length + " report(s)";
     }
 
+    // Sidebar badge on the "View Reports" nav item
     const badge = document.getElementById("sidebarPendingBadge");
     if (badge) {
         if (pendingCount > 0) {
@@ -3496,6 +3378,7 @@ function renderOverviewRecentFeed() {
     }).join("");
 }
 
+/** Small date helper for the Overview tab feeds. */
 function formatRelativeOrDate(isoString) {
     try {
         const d = new Date(isoString);
@@ -3518,12 +3401,15 @@ function renderOverview() {
     renderOverviewRecentFeed();
 }
 
+// Wire the "Open Reports →" / "View All →" links once the DOM is ready.
 document.addEventListener("DOMContentLoaded", initOverviewLinks);
 
 
 /* ============================================================
    REPORTS FILTER PILLS + MAP SIDE PANEL
 ============================================================ */
+
+/* ---------- Reports Workflow: quick-filter pills ---------- */
 
 function initReportsQuickFilters() {
     const bar = document.getElementById("reportsQuickFilters");
@@ -3559,6 +3445,8 @@ function initReportsQuickFilters() {
     });
 }
 
+/* ---------- Regional Field Map: side panel ---------- */
+
 const PC_STATUS_META = {
     OVERSUPPLY: { label: "Oversupply", cls: "surplus" },
     SURPLUS:    { label: "Surplus",    cls: "surplus" },
@@ -3571,11 +3459,14 @@ function pcStatusMeta(rawStatus) {
     return PC_STATUS_META[s] || { label: "No Data", cls: "nodata" };
 }
 
+/** Re-draws the Leaflet markers and the shared marker-aware side panel. */
 function pcMapRefresh() {
     if (typeof renderFilteredMapMarkers === "function") {
         renderFilteredMapMarkers();
     }
 }
+
+/* ---------- init ---------- */
 
 document.addEventListener("DOMContentLoaded", () => {
     initReportsQuickFilters();
