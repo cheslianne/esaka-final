@@ -2370,6 +2370,32 @@ body .report-summary .summary-card:not([aria-pressed="true"]) {
   border-left-color: rgba(0,0,0,0.06) !important;
 }
 
+.map-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.map-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
 
 
 /* ============================================================
@@ -3645,13 +3671,20 @@ details.esaka-failure-details .esaka-failure-body{padding:10px 12px;margin-top:8
                               <input type="number" id="offtakeQty" required>
                           </div>
                           <div class="form-field-item">
-                              <label>Selling Price (₱ / kg) <span class="req">*</span></label>
-                              <input type="number" id="offtakePrice" required>
-                          </div>
-                          <div class="form-field-item">
-                              <label>Harvest Date <span class="req">*</span></label>
-                              <input type="date" id="offtakeHarvestDate" required>
-                          </div>
+    <label>Selling Price (₱ / kg) <span class="req">*</span></label>
+    <input type="number" id="offtakePrice" required>
+    <div id="offtakePriceHint" style="display:none; align-items:flex-start; gap:8px; margin-top:8px; padding:10px 14px; background:#FFF9E9; border-left:3px solid #F4A340; border-radius:0 8px 8px 0; font-size:12px; color:#805B1C; line-height:1.45;">
+        <span style="font-size:14px; flex-shrink:0; margin-top:1px;">💡</span>
+        <span>Piliin muna ang <b>Harvest Date</b> para makita ang <b>suggested price base</b>.</span>
+    </div>
+</div>
+<div class="form-field-item">
+    <label>Harvest Date <span class="req">*</span></label>
+    <input type="date" id="offtakeHarvestDate" required>
+</div>
+<div class="form-field-item form-field-full" id="offtakeSuggestionWrapper" style="display:none;">
+    <div id="offtakePriceSuggestion"></div>
+</div>
                           <div class="form-field-item form-field-full">
                               <label>Delivery Location <span class="req">*</span></label>
                               <div class="form-grid-two">
@@ -3868,25 +3901,15 @@ details.esaka-failure-details .esaka-failure-body{padding:10px 12px;margin-top:8
         <span>Field Monitoring &amp; Geographic Clusters</span>
 
         <!-- LEGEND -->
-        <div style="display: flex; gap: 12px; font-size: 11.5px; font-weight: 600; align-items: center;">
-            <span style="display: flex; align-items: center; gap: 4px;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #C0392B; display: inline-block;"></span>
-                Surplus
-            </span>
-            <span style="display: flex; align-items: center; gap: 4px;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #2E7D32; display: inline-block;"></span>
-                Balanced
-            </span>
-            <span style="display: flex; align-items: center; gap: 4px;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #D97706; display: inline-block;"></span>
-                Deficit
-            </span>
-            <span style="display: flex; align-items: center; gap: 4px;">
-                <span style="width: 10px; height: 10px; border-radius: 50%; background: #6c757d; display: inline-block;"></span>
-                No Data
-            </span>
-        </div>
+        <!-- LEGEND -->
+    <div class="map-legend">
+        <span><i style="background:#C0392B;"></i> Oversupply</span>
+        <span><i style="background:#1B4F72;"></i> Surplus</span>
+        <span><i style="background:#2E7D32;"></i> Balanced</span>
+        <span><i style="background:#c49102;"></i> Deficit</span>
+        <span><i style="background:#6c757d;"></i> No Data</span>
     </div>
+</div>
 
     <!-- FILTER DROPDOWN -->
     <div class="map-filters-container" style="display: flex; gap: 12px; margin-bottom: 14px;">

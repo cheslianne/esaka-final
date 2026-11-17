@@ -440,12 +440,14 @@ function renderFilteredMapMarkers() {
 
             let markerColor = "#6c757d"; // Gray = No Data
 
-            if (status.includes("SURPLUS") || status.includes("OVERSUPPLY")) {
-                markerColor = "#C0392B"; // Red
+            if (status.includes("OVERSUPPLY")) {
+                markerColor = "#C0392B";   // Red - Oversupply
+            } else if (status.includes("SURPLUS")) {
+                markerColor = "#1B4F72";   // Blue - Surplus
             } else if (status.includes("BALANCE")) {
-                markerColor = "#2E7D32"; // Green
+                markerColor = "#2E7D32";   // Green - Balanced
             } else if (status.includes("DEFICIT")) {
-                markerColor = "#D97706"; // Amber
+                markerColor = "#c49102";   // Dark yellow - Deficit
             }
 
             const customIcon = L.divIcon({
